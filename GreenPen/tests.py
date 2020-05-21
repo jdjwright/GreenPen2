@@ -1,5 +1,5 @@
 from django.test import TestCase
-from GreenPen.models import Student, Teacher, Subject, TeachingGroup, Syllabus, Exam, Question, Mark, Sitting
+from GreenPen.models import Student, Teacher, Subject, TeachingGroup, Syllabus, Exam, Question, Mark, Sitting, StudentSyllabusRecord
 from django.contrib.auth.models import User
 
 
@@ -191,63 +191,6 @@ class SyllabusTestCase(TestCase):
         root_1_2 = Syllabus.objects.get(text='second grandchild')
         self.assertEqual(str(root_1_2), '1.1.2: second grandchild')
 
-    def test_syllabus_percent_correct(self):
-        bloggs_teacher, tubbs_teacher, skinner_student, chalke_student, potions, herbology, hb1 = set_up_class()
-        q1, q2 = setUpQuestion()
-        sitting, created = Sitting.objects.get_or_create(exam=q1.exam)
-
-        # Start simple, with a test of whether it works with top-level marks
-        m1_skinner, created = Mark.objects.get_or_create(student=skinner_student,
-                                                         question=q1,
-                                                         sitting=sitting,
-                                                         score=3)  # 100 %
-        m2_skinner, creatred = Mark.objects.get_or_create(student=skinner_student,
-                                                          question=q2,
-                                                          sitting=sitting,
-                                                          score=1)  # 50%
-
-        self.assertEqual(Syllabus.objects.
-                         get(text='first child').
-                         percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
-                         100)
-
-        self.assertEqual(Syllabus.objects.
-                         get(text='second child').
-                         percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
-                         50)
-        m1_chalke, created = Mark.objects.get_or_create(student=chalke_student,
-                                                        question=q1,
-                                                        sitting=sitting,
-                                                        score=1)  # 33 %
-        m2_chalke, creatred = Mark.objects.get_or_create(student=chalke_student,
-                                                         question=q2,
-                                                         sitting=sitting,
-                                                         score=1)  # 50%
-
-        self.assertEqual(Syllabus.objects.
-                         get(text='first child').
-                         percent_correct(students=Student.objects.filter(user__email__contains='school.com')),
-                         67) # student 1 = 3/3, student 2 = 1/3, avg = 2/3 = 67%
-
-        self.assertEqual(Syllabus.objects.
-                         get(text='second child').
-                         percent_correct(students=Student.objects.filter(user__email__contains='school.com')),
-                         50)  # student 1 = 1/2, student 2 = 1/1, avg = 1/2 = 50%.
-
-        q3 = Question.objects.create(exam=q1.exam,
-                                     max_score=4,
-                                     number='5',
-                                     order=5)
-        q3.syllabus_points.add(Syllabus.objects.get(text='first grandchild'))
-
-        m3_skinner, created = Mark.objects.get_or_create(student=skinner_student,
-                                                         question=q3,
-                                                         sitting=sitting,
-                                                         score=1) # 25%
-        self.assertEqual(Syllabus.objects.
-                         get(text='first child').
-                         percent_correct(students=Student.objects.filter(user__email__contains='school.com')),
-                         50) # student 1 Q1 = 3/3, student 2 Q1 = 1/3, student 1 q3 = 1/4 -> Total = 5/10
 
 
 def setUpSyllabus():
@@ -346,3 +289,80 @@ def setUpSitting():
     q1, q2 = setUpQuestion()
     sitting, created = Sitting.objects.get_or_create(exam=q1.exam)
     return sitting
+
+
+class StudentSyllabusPercentTestCase(TestCase):
+    def test_records_created(self):
+        """ Ensure that a StudentSyllabusRecord record is created on mark save."""
+        bloggs_teacher, tubbs_teacher, skinner_student, chalke_student, potions, herbology, hb1 = set_up_class()
+        q1, q2 = setUpQuestion()
+        sitting, created = Sitting.objects.get_or_create(exam=q1.exam)
+        self.assertEqual(StudentSyllabusRecord.objects.all().count(), 0)
+
+        # Start simple, with a test of whether it works with top-level marks
+        m1_skinner, created = Mark.objects.get_or_create(student=skinner_student,
+                                                         question=q1,
+                                                         sitting=sitting,
+                                                         score=3)  # 100 %
+
+        self.assertEqual(StudentSyllabusRecord.objects.all().count(), 1)
+
+    def test_percentages_correctly_calculated(self):
+        bloggs_teacher, tubbs_teacher, skinner_student, chalke_student, potions, herbology, hb1 = set_up_class()
+        q1, q2 = setUpQuestion()
+        sitting, created = Sitting.objects.get_or_create(exam=q1.exam)
+        m1_skinner, created = Mark.objects.get_or_create(student=skinner_student,
+                                                         question=q1,
+                                                         sitting=sitting,
+                                                         score=3)  # 100 %
+
+        self.assertEqual(StudentSyllabusRecord.objects.get(student=skinner_student,
+                                                           syllabus_point=Syllabus.objects.get(text='first child')).percentage_correct,
+                         100)
+        m2_skinner, creatred = Mark.objects.get_or_create(student=skinner_student,
+                                                          question=q2,
+                                                          sitting=sitting,
+                                                          score=1)  # 50%
+
+        self.assertEqual(Syllabus.objects.
+                         get(text='first child').
+                         percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
+                         100)
+
+        self.assertEqual(Syllabus.objects.
+                         get(text='second child').
+                         percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
+                         50)
+        m1_chalke, created = Mark.objects.get_or_create(student=chalke_student,
+                                                        question=q1,
+                                                        sitting=sitting,
+                                                        score=1)  # 33 %
+        m2_chalke, creatred = Mark.objects.get_or_create(student=chalke_student,
+                                                         question=q2,
+                                                         sitting=sitting,
+                                                         score=1)  # 50%
+
+        self.assertEqual(Syllabus.objects.
+                         get(text='first child').
+                         percent_correct(students=Student.objects.filter(user__email__contains='school.com')),
+                         67)  # student 1 = 3/3, student 2 = 1/3, avg = 2/3 = 67%
+
+        self.assertEqual(Syllabus.objects.
+                         get(text='second child').
+                         percent_correct(students=Student.objects.filter(user__email__contains='school.com')),
+                         50)  # student 1 = 1/2, student 2 = 1/1, avg = 1/2 = 50%.
+
+        q3 = Question.objects.create(exam=q1.exam,
+                                     max_score=4,
+                                     number='5',
+                                     order=5)
+        q3.syllabus_points.add(Syllabus.objects.get(text='first grandchild'))
+
+        m3_skinner, created = Mark.objects.get_or_create(student=skinner_student,
+                                                         question=q3,
+                                                         sitting=sitting,
+                                                         score=3)  # 50%
+        self.assertEqual(Syllabus.objects.
+                         get(text='first child').
+                         percent_correct(students=Student.objects.filter(user__email__contains='school.com')),
+                         70)  # student 1 Q1 = 3/3, student 2 Q1 = 1/3, student 1 q3 = 3/4 -> Total = 7/10

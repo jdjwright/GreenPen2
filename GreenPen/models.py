@@ -7,7 +7,6 @@ import datetime
 
 
 class Person(models.Model):
-
     user = models.ForeignKey(User, blank=True, null=True, on_delete=models.CASCADE)
 
     def first_name(self):
@@ -39,7 +38,7 @@ class Teacher(Person):
     staff_code = models.CharField(max_length=5, blank=True, null=True)
 
     def taught_students(self):
-        return Student.objects.filter(Q(teachinggroup__teachers=self)|Q(teachinggroup__subject__HoDs=self))
+        return Student.objects.filter(Q(teachinggroup__teachers=self) | Q(teachinggroup__subject__HoDs=self))
 
     def __str__(self):
         return self.title + " " + self.full_name() + " (" + self.staff_code + ")"
@@ -75,17 +74,15 @@ class Syllabus(MPTTModel):
         return string
 
     def percent_correct(self, students=Student.objects.all()):
-
-        all_points = self.get_descendants(include_self=True)
-        qs = Mark.objects.filter(question__syllabus_points__in=all_points,
-                                  student__in=students,
-                                  score__isnull=False).aggregate(Sum('question__max_score'), Sum('score'))
-        maximum_score = qs['question__max_score__sum']
-        marks = qs['score__sum']
-        if marks:
-            return round(marks/maximum_score * 100, 0)
-        else:
-            return False
+        total_attempted = StudentSyllabusRecord.objects. \
+            filter(student__in=students,
+                   syllabus_point__in=self.get_descendants(include_self=True)). \
+            aggregate(Sum('total_marks_attempted'))['total_marks_attempted__sum']
+        total_correct = StudentSyllabusRecord.objects. \
+            filter(student__in=students,
+                   syllabus_point__in=self.get_descendants(include_self=True)). \
+            aggregate(Sum('total_marks_correct'))['total_marks_correct__sum']
+        return round(total_correct / total_attempted * 100, 0)
 
 
 class Exam(models.Model):
@@ -137,8 +134,8 @@ def sync_marks_with_sittings(sitting):
     for student in sitting.students.all():
         for question in sitting.exam.question_set.all():
             Mark.objects.get_or_create(student=student,
-                                question=question,
-                                sitting=sitting)
+                                       question=question,
+                                       sitting=sitting)
 
 
 m2m_changed.connect(student_added_to_sitting, sender=Sitting.students.through)
@@ -152,3 +149,36 @@ class Mark(models.Model):
 
     class Meta:
         unique_together = ['student', 'question', 'sitting']
+
+
+class StudentSyllabusRecord(models.Model):
+    syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
+    total_marks_attempted = models.FloatField(blank=True, null=True)
+    total_marks_correct = models.FloatField(blank=True, null=True)
+
+    class Meta:
+        unique_together = ['student', 'syllabus_point']
+
+    @property
+    def percentage_correct(self):
+        return round(self.total_marks_correct / self.total_marks_attempted * 100, 0)
+
+    def __str__(self):
+        return str(self.student) + " " + str(self.syllabus_point) + " <" + str(self.percentage_correct) + ">"
+
+
+def student_mark_changed(sender, instance=Mark.objects.all(), **kwargs):
+    for point in instance.question.syllabus_points.all():
+        record, created = StudentSyllabusRecord.objects.get_or_create(student=instance.student,
+                                                                      syllabus_point=point)
+        record.total_marks_correct = Mark.objects.filter(student=instance.student,
+                                                         question__syllabus_points=point).aggregate(Sum('score'))[
+            'score__sum']
+        record.total_marks_attempted = Mark.objects.filter(student=instance.student,
+                                                           question__syllabus_points=point).aggregate(
+            Sum('question__max_score'))['question__max_score__sum']
+        record.save()
+
+
+post_save.connect(student_mark_changed, sender=Mark)
