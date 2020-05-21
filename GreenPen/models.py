@@ -28,6 +28,7 @@ class Person(models.Model):
 class Student(Person):
     tutor_group = models.CharField(max_length=5, blank=True, null=True)
     year_group = models.IntegerField(blank=True, null=True)
+    student_id = models.IntegerField(blank=True, null=True, unique=True)
 
     def __str__(self):
         return self.full_name() + " " + self.tutor_group
@@ -59,6 +60,8 @@ class TeachingGroup(models.Model):
     students = models.ManyToManyField(Student)
     syllabus = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.SET_NULL)
 
+    def __str__(self):
+        return self.name
 
 class Syllabus(MPTTModel):
     text = models.TextField(blank=False, null=False)
@@ -74,11 +77,11 @@ class Syllabus(MPTTModel):
         return string
 
     def percent_correct(self, students=Student.objects.all()):
-        total_attempted = StudentSyllabusRecord.objects. \
+        total_attempted = StudentSyllabusAssessmentRecord.objects. \
             filter(student__in=students,
                    syllabus_point__in=self.get_descendants(include_self=True)). \
             aggregate(Sum('total_marks_attempted'))['total_marks_attempted__sum']
-        total_correct = StudentSyllabusRecord.objects. \
+        total_correct = StudentSyllabusAssessmentRecord.objects. \
             filter(student__in=students,
                    syllabus_point__in=self.get_descendants(include_self=True)). \
             aggregate(Sum('total_marks_correct'))['total_marks_correct__sum']
@@ -146,12 +149,13 @@ class Mark(models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE, blank=False, null=False)
     sitting = models.ForeignKey(Sitting, on_delete=models.CASCADE, blank=False, null=False)
     score = models.FloatField(blank=True, null=True)
+    sitting = models.ForeignKey(Sitting, blank=False, null=True, on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ['student', 'question', 'sitting']
 
 
-class StudentSyllabusRecord(models.Model):
+class StudentSyllabusAssessmentRecord(models.Model):
     syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
     total_marks_attempted = models.FloatField(blank=True, null=True)
@@ -168,17 +172,41 @@ class StudentSyllabusRecord(models.Model):
         return str(self.student) + " " + str(self.syllabus_point) + " <" + str(self.percentage_correct) + ">"
 
 
+class StudentSyllabusManualStudentRecord(models.Model):
+    syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
+    created = models.DateTimeField(blank=False, null=False, default=datetime.datetime.now)
+    rating = models.FloatField(blank=True, null=True)
+    comment = models.TextField(blank=True, null=True)
+
+
+class StudentSyllabusManualTeacherRecord(models.Model):
+    syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
+    created = models.DateTimeField(blank=False, null=False, default=datetime.datetime.now)
+    rating = models.FloatField(blank=True, null=True)
+    comment = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(User, blank=False, null=True, on_delete=models.SET_NULL)
+
+
 def student_mark_changed(sender, instance=Mark.objects.all(), **kwargs):
-    for point in instance.question.syllabus_points.all():
-        record, created = StudentSyllabusRecord.objects.get_or_create(student=instance.student,
-                                                                      syllabus_point=point)
-        record.total_marks_correct = Mark.objects.filter(student=instance.student,
-                                                         question__syllabus_points=point).aggregate(Sum('score'))[
-            'score__sum']
-        record.total_marks_attempted = Mark.objects.filter(student=instance.student,
-                                                           question__syllabus_points=point).aggregate(
-            Sum('question__max_score'))['question__max_score__sum']
-        record.save()
+    if instance.score:
+        for point in instance.question.syllabus_points.all():
+            record, created = StudentSyllabusAssessmentRecord.objects.get_or_create(student=instance.student,
+                                                                                    syllabus_point=point)
+            record.total_marks_correct = Mark.objects.filter(student=instance.student,
+                                                             question__syllabus_points=point).aggregate(Sum('score'))[
+                'score__sum']
+            record.total_marks_attempted = Mark.objects.filter(student=instance.student,
+                                                               question__syllabus_points=point).aggregate(
+                Sum('question__max_score'))['question__max_score__sum']
+            record.save()
 
 
 post_save.connect(student_mark_changed, sender=Mark)
+
+
+class CSVDoc(models.Model):
+    description = models.CharField(max_length=255, blank=True)
+    document = models.FileField(upload_to='documents/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)

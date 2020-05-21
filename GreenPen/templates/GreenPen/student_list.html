@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Studnet List</title>
+</head>
+<body>
+<table>
+    <thead>
+    <tr>
+        <td>First Name</td>
+        <td>Last Name</td>
+        <td>Tutor Group</td>
+        <td>Classes</td>
+    </tr>
+    </thead>
+
+    <tbody>
+    {% for student in object_list %}
+        <tr>
+        <td>{{ student.first_name }}</td>
+        <td>{{ student.last_name }}</td>
+        <td>{{ student.tutor_group }}</td>
+        <td><ul class="teachinggroup-list">{% for teachinggroup in student.teachinggroup_set.all %}
+            <li>{{ teachinggroup}}</li>
+        {% endfor %} </ul>
+        </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</body>
+</html>

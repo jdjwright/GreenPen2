@@ -16,8 +16,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from GreenPen.autocomplete import StudentComplete
+from GreenPen.views import *
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('students/', StudentList.as_view(), name='student_list'),
+    path('uploadstudents', import_students, name='import_students'),
+    path('uploadclasses', import_classes, name='import_classes'),
     path('student-autocomplete/', StudentComplete.as_view(), name='student-autocomplete')
 ]

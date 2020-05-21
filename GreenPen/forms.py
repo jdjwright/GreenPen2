@@ -1,5 +1,5 @@
 from dal import autocomplete
-from GreenPen.models import Mark, Student
+from GreenPen.models import Mark, Student, CSVDoc
 from django import forms
 
 
@@ -12,3 +12,10 @@ class MarkRecordForm(forms.ModelForm):
     class Meta:
         model = Mark
         fields = ('__all__')
+
+
+class CSVDocForm(forms.ModelForm):
+    class Meta:
+        model = CSVDoc
+        fields = ('description', 'document', )
+

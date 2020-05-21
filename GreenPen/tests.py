@@ -1,5 +1,5 @@
 from django.test import TestCase
-from GreenPen.models import Student, Teacher, Subject, TeachingGroup, Syllabus, Exam, Question, Mark, Sitting, StudentSyllabusRecord
+from GreenPen.models import Student, Teacher, Subject, TeachingGroup, Syllabus, Exam, Question, Mark, Sitting, StudentSyllabusAssessmentRecord
 from django.contrib.auth.models import User
 
 
@@ -293,11 +293,11 @@ def setUpSitting():
 
 class StudentSyllabusPercentTestCase(TestCase):
     def test_records_created(self):
-        """ Ensure that a StudentSyllabusRecord record is created on mark save."""
+        """ Ensure that a StudentSyllabusAssessmentRecord record is created on mark save."""
         bloggs_teacher, tubbs_teacher, skinner_student, chalke_student, potions, herbology, hb1 = set_up_class()
         q1, q2 = setUpQuestion()
         sitting, created = Sitting.objects.get_or_create(exam=q1.exam)
-        self.assertEqual(StudentSyllabusRecord.objects.all().count(), 0)
+        self.assertEqual(StudentSyllabusAssessmentRecord.objects.all().count(), 0)
 
         # Start simple, with a test of whether it works with top-level marks
         m1_skinner, created = Mark.objects.get_or_create(student=skinner_student,
@@ -305,7 +305,7 @@ class StudentSyllabusPercentTestCase(TestCase):
                                                          sitting=sitting,
                                                          score=3)  # 100 %
 
-        self.assertEqual(StudentSyllabusRecord.objects.all().count(), 1)
+        self.assertEqual(StudentSyllabusAssessmentRecord.objects.all().count(), 1)
 
     def test_percentages_correctly_calculated(self):
         bloggs_teacher, tubbs_teacher, skinner_student, chalke_student, potions, herbology, hb1 = set_up_class()
@@ -316,8 +316,8 @@ class StudentSyllabusPercentTestCase(TestCase):
                                                          sitting=sitting,
                                                          score=3)  # 100 %
 
-        self.assertEqual(StudentSyllabusRecord.objects.get(student=skinner_student,
-                                                           syllabus_point=Syllabus.objects.get(text='first child')).percentage_correct,
+        self.assertEqual(StudentSyllabusAssessmentRecord.objects.get(student=skinner_student,
+                                                                     syllabus_point=Syllabus.objects.get(text='first child')).percentage_correct,
                          100)
         m2_skinner, creatred = Mark.objects.get_or_create(student=skinner_student,
                                                           question=q2,
