@@ -3,10 +3,12 @@ version: '3'
 services:
   db:
     image: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
     environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
   web:
     build: .
     command: python manage.py runserver 0.0.0.0:8000
@@ -16,3 +18,17 @@ services:
       - "8000:8000"
     depends_on:
       - db
+
+    environment:
+      - DJANGO_DEBUG
+      - DJANGO_ALLOWED_HOSTS
+      - DJANGO_SECRET_KEY
+      - SQL_ENGINE
+      - SQL_DATABASE
+      - SQL_USER=${POSTGRES_USER}
+      - SQL_PASSWORD=${POSTGRES_PASSWORD}
+      - SQL_PORT=${SQL_PORT}
+      - SQL_HOST
+
+volumes:
+  postgres_data:
