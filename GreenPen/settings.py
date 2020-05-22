@@ -25,7 +25,7 @@ SECRET_KEY = '1jel7$05ty^6xhb9^8_(j6)pk71kebw-4#&8p4a#x$@@ufj%t0'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["0.0.0.0"]
+ALLOWED_HOSTS = ["0.0.0.0", "new.greenpen.net"]
 
 
 # Application definition
