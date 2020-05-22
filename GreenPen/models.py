@@ -31,7 +31,10 @@ class Student(Person):
     student_id = models.IntegerField(blank=True, null=True, unique=True)
 
     def __str__(self):
-        return self.full_name() + " " + self.tutor_group
+        if self.tutor_group:
+            return self.full_name() + " " + self.tutor_group
+        else:
+            return self.full_name()
 
 
 class Teacher(Person):
@@ -66,14 +69,19 @@ class TeachingGroup(models.Model):
 class Syllabus(MPTTModel):
     text = models.TextField(blank=False, null=False)
     parent = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.CASCADE)
-    identifier = models.CharField(max_length=20, blank=False, null=True,
+    identifier = models.CharField(max_length=20, blank=True, null=True,
                                   help_text='This would be a sub point number, e.g. if this is 1.1.1 Blah blah, enter 1')
 
     def __str__(self):
         string = ''
         for ancestor in self.get_ancestors():
-            string = string + ancestor.identifier + "."
-        string = string + self.identifier + ": " + self.text
+            if ancestor.identifier:
+                string = string + ancestor.identifier + "."
+        if self.identifier:
+            string = string + self.identifier
+        if string != '':
+            string = string + ": "
+        string = string + self.text
         return string
 
     def percent_correct(self, students=Student.objects.all()):
@@ -103,7 +111,7 @@ class Exam(models.Model):
 class Question(models.Model):
     exam = models.ForeignKey(Exam, blank=False, null=False, on_delete=models.CASCADE)
     order = models.FloatField(blank=False, null=False)
-    number = models.CharField(max_length=10, blank=False, null=False, unique=True)
+    number = models.CharField(max_length=10, blank=False, null=False)
     max_score = models.FloatField(blank=True, null=True)
     syllabus_points = TreeManyToManyField(Syllabus)
 
@@ -147,9 +155,9 @@ m2m_changed.connect(student_added_to_sitting, sender=Sitting.students.through)
 class Mark(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
     question = models.ForeignKey(Question, on_delete=models.CASCADE, blank=False, null=False)
-    sitting = models.ForeignKey(Sitting, on_delete=models.CASCADE, blank=False, null=False)
     score = models.FloatField(blank=True, null=True)
     sitting = models.ForeignKey(Sitting, blank=False, null=True, on_delete=models.CASCADE)
+    student_notes = models.TextField(blank=True, null=True)
 
     class Meta:
         unique_together = ['student', 'question', 'sitting']
@@ -160,9 +168,10 @@ class StudentSyllabusAssessmentRecord(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
     total_marks_attempted = models.FloatField(blank=True, null=True)
     total_marks_correct = models.FloatField(blank=True, null=True)
+    sitting = models.ForeignKey(Sitting, blank=True, null=True, on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ['student', 'syllabus_point']
+        unique_together = ['student', 'syllabus_point', 'sitting']
 
     @property
     def percentage_correct(self):
@@ -193,7 +202,8 @@ def student_mark_changed(sender, instance=Mark.objects.all(), **kwargs):
     if instance.score:
         for point in instance.question.syllabus_points.all():
             record, created = StudentSyllabusAssessmentRecord.objects.get_or_create(student=instance.student,
-                                                                                    syllabus_point=point)
+                                                                                    syllabus_point=point,
+                                                                                    sitting=instance.sitting)
             record.total_marks_correct = Mark.objects.filter(student=instance.student,
                                                              question__syllabus_points=point).aggregate(Sum('score'))[
                 'score__sum']

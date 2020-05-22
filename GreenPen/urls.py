@@ -23,5 +23,9 @@ urlpatterns = [
     path('students/', StudentList.as_view(), name='student_list'),
     path('uploadstudents', import_students, name='import_students'),
     path('uploadclasses', import_classes, name='import_classes'),
+    path('uploadsyllabus', import_syllabus),
+    path('uploadquestions', import_questions),
+    path('uploadsittings', import_sittings),
+    path('uploadmarks', import_marks),
     path('student-autocomplete/', StudentComplete.as_view(), name='student-autocomplete')
 ]
