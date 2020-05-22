@@ -49,7 +49,7 @@ class Teacher(Person):
 
 
 class Subject(models.Model):
-    name = models.CharField(max_length=50, blank=False, null=False, unique=True)
+    name = models.CharField(max_length=200, blank=False, null=False, unique=True)
     HoDs = models.ManyToManyField(Teacher)
 
     def __str__(self):
@@ -57,7 +57,7 @@ class Subject(models.Model):
 
 
 class TeachingGroup(models.Model):
-    name = models.CharField(max_length=20, blank=True, null=True)
+    name = models.CharField(max_length=256, blank=True, null=True)
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, blank=False, null=True)
     teachers = models.ManyToManyField(Teacher)
     students = models.ManyToManyField(Student)
