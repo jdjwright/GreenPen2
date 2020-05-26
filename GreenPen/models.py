@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.db.models import Q, Sum, Avg
 from django.db.models.signals import m2m_changed, post_save
 from django.contrib.auth.models import User
@@ -62,6 +63,7 @@ class TeachingGroup(models.Model):
     teachers = models.ManyToManyField(Teacher)
     students = models.ManyToManyField(Student)
     syllabus = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.SET_NULL)
+    archived = models.BooleanField(blank=True, null=True, default=False)
 
     def __str__(self):
         return self.name
@@ -184,7 +186,7 @@ class StudentSyllabusAssessmentRecord(models.Model):
 class StudentSyllabusManualStudentRecord(models.Model):
     syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
-    created = models.DateTimeField(blank=False, null=False, default=datetime.datetime.now)
+    created = models.DateTimeField(blank=False, null=False, default=timezone.now)
     rating = models.FloatField(blank=True, null=True)
     comment = models.TextField(blank=True, null=True)
 
@@ -192,7 +194,7 @@ class StudentSyllabusManualStudentRecord(models.Model):
 class StudentSyllabusManualTeacherRecord(models.Model):
     syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
-    created = models.DateTimeField(blank=False, null=False, default=datetime.datetime.now)
+    created = models.DateTimeField(blank=False, null=False, default=timezone.now)
     rating = models.FloatField(blank=True, null=True)
     comment = models.TextField(blank=True, null=True)
     created_by = models.ForeignKey(User, blank=False, null=True, on_delete=models.SET_NULL)

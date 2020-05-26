@@ -1,11 +1,12 @@
 from GreenPen.models import *
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 import csv
 
 
 def import_students_from_csv(path):
     with open(path, newline='') as csvfile:
         students = csv.reader(csvfile, delimiter=',', quotechar='"')
+        student_auth_group, created = Group.objects.get_or_create(name='Students')
         # Skip headers
         next(students, None)
         for row in students:
@@ -15,6 +16,7 @@ def import_students_from_csv(path):
             user.first_name = row[0]
             user.last_name = row[1]
             user.save()
+            user.groups.add(student_auth_group)
             student, created = Student.objects.get_or_create(user=user)
             student.year = row[5]
             student.student_id = row[4]
@@ -26,14 +28,17 @@ def import_classgroups_from_csv(path):
         classes = csv.reader(csvfile, delimiter=',', quotechar='"')
         # Skip headers
         next(classes, None)
+        teacher_auth_group, created = Group.objects.get_or_create(name='Teachers')
         for row in classes:
-            print('Adding ' + row[2])
-            current_name = row[0]
+            print('Adding ' + row[0])
             teachinggroup, created = TeachingGroup.objects.get_or_create(name=row[0])
-            teacher_user, created = User.objects.get_or_create(email=row[1], defaults={'username': row[1]})
+            teacher_user, created = User.objects.get_or_create(email=row[2], defaults={'username': row[2],
+                                                                                       'first_name': 'Unknown',
+                                                                                       'last_name': 'Teacher'})
+            teacher_user.groups.add(teacher_auth_group)
             teacher, created = Teacher.objects.get_or_create(user=teacher_user)
             teachinggroup.teachers.add(teacher)
-            student = Student.objects.get(student_id=row[2])
+            student = Student.objects.get(student_id=row[3])
             teachinggroup.students.add(student)
 
 
@@ -102,8 +107,9 @@ def import_marks_from_csv(path):
                 float(row[2])
             except ValueError:
                 continue
-            Mark.objects.get_or_create(question_id=row[0],
-                                       student=Student.objects.get(student_id=row[1]),
-                                       score=row[2],
-                                       student_notes=row[4],
-                                       sitting_id=row[3])
+            mark, created = Mark.objects.get_or_create(question_id=row[0],
+                                                       student=Student.objects.get(student_id=row[1]),
+                                                       sitting_id=row[3])
+            mark.score = row[2]
+            mark.student_notes = row[4]
+            mark.save()
