@@ -35,12 +35,16 @@ services:
       - ./data/certbot/www:/var/www/certbot
     depends_on:
       - web
+    env_file:
+      - ./.env.prod
 
   certbot:
     image: certbot/certbot
     volumes:
       - ./data/certbot/conf:/etc/letsencrypt
       - ./data/certbot/www:/var/www/certbot
+    env_file:
+      - ./.env.prod
 
 volumes:
   postgres_data:
