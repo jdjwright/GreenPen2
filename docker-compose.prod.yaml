@@ -28,6 +28,7 @@ services:
     build: ./nginx
     ports:
       - 80:80
+      - 443:443
     volumes:
       - static_volume:/home/app/web/staticfiles
       - media_volume:/home/app/web/mediafiles
@@ -37,6 +38,7 @@ services:
       - web
     env_file:
       - ./.env.prod
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
 
   certbot:
     image: certbot/certbot
@@ -45,6 +47,7 @@ services:
       - ./data/certbot/www:/var/www/certbot
     env_file:
       - ./.env.prod
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
 volumes:
   postgres_data:
