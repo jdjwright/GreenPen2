@@ -20,5 +20,14 @@ services:
     depends_on:
       - db
 
+  pgadmin4:
+    image: dpage/pgadmin4
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    env_file:
+      - ./.env.dev
+
 volumes:
   postgres_data:

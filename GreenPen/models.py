@@ -68,6 +68,7 @@ class TeachingGroup(models.Model):
     def __str__(self):
         return self.name
 
+
 class Syllabus(MPTTModel):
     text = models.TextField(blank=False, null=False)
     parent = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.CASCADE)
@@ -89,11 +90,13 @@ class Syllabus(MPTTModel):
     def percent_correct(self, students=Student.objects.all()):
         total_attempted = StudentSyllabusAssessmentRecord.objects. \
             filter(student__in=students,
-                   syllabus_point__in=self.get_descendants(include_self=True)). \
+                   syllabus_point__in=self.get_descendants(include_self=True),
+                   most_recent=True). \
             aggregate(Sum('total_marks_attempted'))['total_marks_attempted__sum']
         total_correct = StudentSyllabusAssessmentRecord.objects. \
             filter(student__in=students,
-                   syllabus_point__in=self.get_descendants(include_self=True)). \
+                   syllabus_point__in=self.get_descendants(include_self=True),
+                   most_recent=True). \
             aggregate(Sum('total_marks_correct'))['total_marks_correct__sum']
         return round(total_correct / total_attempted * 100, 0)
 
@@ -136,6 +139,7 @@ class Sitting(models.Model):
     exam = models.ForeignKey(Exam, blank=False, null=False, on_delete=models.CASCADE)
     date = models.DateField(blank=False, null=False, default=datetime.date.today)
     students = models.ManyToManyField(Student)
+    resets_ratings = models.BooleanField(blank=True, null=True, default=False)
 
 
 def student_added_to_sitting(sender, instance, action, **kwargs):
@@ -164,6 +168,37 @@ class Mark(models.Model):
     class Meta:
         unique_together = ['student', 'question', 'sitting']
 
+    def set_student_syllabus_assessment_records(self):
+        for point in self.question.syllabus_points.all():
+            record, created = StudentSyllabusAssessmentRecord.objects.get_or_create(syllabus_point=point,
+                                                                                    student=self.student,
+                                                                                    sitting=self.sitting,
+                                                                                    defaults={'most_recent': True})
+            if created:
+                previous, created = StudentSyllabusAssessmentRecord.objects.get_or_create(syllabus_point=point,
+                                                                                          student=self.student,
+                                                                                          most_recent=True)
+                previous.most_recent = False
+
+            all_mark_records = Mark.objects.filter(student=self.student,
+                                                   question__syllabus_points=point)
+
+            if self.sitting.resets_ratings:
+                relevant_records = all_mark_records.filter(sitting__date__gte=self.sitting.date)
+            else:
+                last_reset = all_mark_records.filter(sitting__resets_ratings=True)
+                if last_reset.count():
+                    relevant_records = all_mark_records.filter(sitting__date__gte=last_reset.sitting.date)
+                else:
+                    relevant_records = all_mark_records
+
+            record.total_marks_attempted = relevant_records. \
+                aggregate(Sum('question__max_score'))['question__max_score__sum']
+            record.total_marks_correct = relevant_records.aggregate(Sum('score'))['score__sum']
+            record.percentage = round(record.total_marks_correct / record.total_marks_attempted * 100, 0)
+            record.rating = record.percentage * 0.05
+            record.save()
+
 
 class StudentSyllabusAssessmentRecord(models.Model):
     syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)
@@ -171,9 +206,9 @@ class StudentSyllabusAssessmentRecord(models.Model):
     total_marks_attempted = models.FloatField(blank=True, null=True)
     total_marks_correct = models.FloatField(blank=True, null=True)
     sitting = models.ForeignKey(Sitting, blank=True, null=True, on_delete=models.CASCADE)
-
-    class Meta:
-        unique_together = ['student', 'syllabus_point', 'sitting']
+    percentage = models.FloatField(blank=True, null=True)
+    rating = models.FloatField(blank=True, null=True)
+    most_recent = models.BooleanField(blank=True, null=True, default=False)
 
     @property
     def percentage_correct(self):
@@ -200,19 +235,9 @@ class StudentSyllabusManualTeacherRecord(models.Model):
     created_by = models.ForeignKey(User, blank=False, null=True, on_delete=models.SET_NULL)
 
 
-def student_mark_changed(sender, instance=Mark.objects.all(), **kwargs):
+def student_mark_changed(sender, instance=Mark.objects.none(), **kwargs):
     if instance.score:
-        for point in instance.question.syllabus_points.all():
-            record, created = StudentSyllabusAssessmentRecord.objects.get_or_create(student=instance.student,
-                                                                                    syllabus_point=point,
-                                                                                    sitting=instance.sitting)
-            record.total_marks_correct = Mark.objects.filter(student=instance.student,
-                                                             question__syllabus_points=point).aggregate(Sum('score'))[
-                'score__sum']
-            record.total_marks_attempted = Mark.objects.filter(student=instance.student,
-                                                               question__syllabus_points=point).aggregate(
-                Sum('question__max_score'))['question__max_score__sum']
-            record.save()
+        instance.set_student_syllabus_assessment_records()
 
 
 post_save.connect(student_mark_changed, sender=Mark)
