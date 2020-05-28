@@ -5,6 +5,7 @@ from django.db.models.signals import m2m_changed, post_save
 from django.contrib.auth.models import User
 from mptt.models import MPTTModel, TreeForeignKey, TreeManyToManyField
 import datetime
+from django.core.exceptions import ObjectDoesNotExist
 
 
 class Person(models.Model):
@@ -98,7 +99,10 @@ class Syllabus(MPTTModel):
                    syllabus_point__in=self.get_descendants(include_self=True),
                    most_recent=True). \
             aggregate(Sum('total_marks_correct'))['total_marks_correct__sum']
-        return round(total_correct / total_attempted * 100, 0)
+        if total_correct:
+            return round(total_correct / total_attempted * 100, 0)
+        else:
+            return 0
 
 
 class Exam(models.Model):
@@ -173,12 +177,17 @@ class Mark(models.Model):
             record, created = StudentSyllabusAssessmentRecord.objects.get_or_create(syllabus_point=point,
                                                                                     student=self.student,
                                                                                     sitting=self.sitting,
-                                                                                    defaults={'most_recent': True})
+                                                                                    )
             if created:
-                previous, created = StudentSyllabusAssessmentRecord.objects.get_or_create(syllabus_point=point,
+                try:
+                    previous = StudentSyllabusAssessmentRecord.objects.get(syllabus_point=point,
                                                                                           student=self.student,
                                                                                           most_recent=True)
-                previous.most_recent = False
+                    previous.most_recent = False
+                    previous.save()
+                    record.most_recent = True
+                except ObjectDoesNotExist:
+                    record.most_recent = True
 
             all_mark_records = Mark.objects.filter(student=self.student,
                                                    question__syllabus_points=point)
@@ -238,7 +247,6 @@ class StudentSyllabusManualTeacherRecord(models.Model):
 def student_mark_changed(sender, instance=Mark.objects.none(), **kwargs):
     if instance.score:
         instance.set_student_syllabus_assessment_records()
-
 
 post_save.connect(student_mark_changed, sender=Mark)
 

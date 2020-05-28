@@ -1,6 +1,7 @@
 from django.test import TestCase
 from GreenPen.models import Student, Teacher, Subject, TeachingGroup, Syllabus, Exam, Question, Mark, Sitting, StudentSyllabusAssessmentRecord
 from django.contrib.auth.models import User
+import datetime
 
 
 class StudentTestCase(TestCase):
@@ -307,17 +308,22 @@ class StudentSyllabusPercentTestCase(TestCase):
 
         self.assertEqual(StudentSyllabusAssessmentRecord.objects.all().count(), 1)
 
-    def test_percentages_correctly_calculated(self):
+    def test_mark_summary_records(self):
         bloggs_teacher, tubbs_teacher, skinner_student, chalke_student, potions, herbology, hb1 = set_up_class()
         q1, q2 = setUpQuestion()
-        sitting, created = Sitting.objects.get_or_create(exam=q1.exam)
+        sitting, created = Sitting.objects.get_or_create(exam=q1.exam,
+                                                         date=datetime.date.today()-datetime.timedelta(days=1))
+
+        # needed to set with a date before today so that the refresh test will be later.
+
         m1_skinner, created = Mark.objects.get_or_create(student=skinner_student,
                                                          question=q1,
                                                          sitting=sitting,
                                                          score=3)  # 100 %
 
         self.assertEqual(StudentSyllabusAssessmentRecord.objects.get(student=skinner_student,
-                                                                     syllabus_point=Syllabus.objects.get(text='first child')).percentage_correct,
+                                                                     syllabus_point=Syllabus.objects.get(text='first child'),
+                                                                     most_recent=True).percentage_correct,
                          100)
         m2_skinner, creatred = Mark.objects.get_or_create(student=skinner_student,
                                                           question=q2,
@@ -352,17 +358,86 @@ class StudentSyllabusPercentTestCase(TestCase):
                          percent_correct(students=Student.objects.filter(user__email__contains='school.com')),
                          50)  # student 1 = 1/2, student 2 = 1/1, avg = 1/2 = 50%.
 
-        q3 = Question.objects.create(exam=q1.exam,
-                                     max_score=4,
-                                     number='5',
-                                     order=5)
-        q3.syllabus_points.add(Syllabus.objects.get(text='first grandchild'))
+        # Now we'll create a new exam and sitting that re-sets the assessment record:
+
+        exam2, created = Exam.objects.get_or_create(name='rest exam')
+        sitting2, created = Sitting.objects.get_or_create(exam=exam2,
+                                                          resets_ratings=True,
+                                                          )
+        sitting.students.add(Student.objects.get(pk=skinner_student.pk))
+
+        q3, created = Question.objects.get_or_create(exam=exam2,
+                                           number='1',
+                                           order=1,
+                                           max_score=4)
+        q3.syllabus_points.add(Syllabus.objects.get(text='first child'))
 
         m3_skinner, created = Mark.objects.get_or_create(student=skinner_student,
                                                          question=q3,
-                                                         sitting=sitting,
-                                                         score=3)  # 50%
+                                                         sitting=sitting2,
+                                                         score=4)  # 100%
+
+        self.assertEqual(Syllabus.objects.
+                         get(text='first child').
+                         percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
+                         100)  # The previous sitting should have re-set the work.
+
         self.assertEqual(Syllabus.objects.
                          get(text='first child').
                          percent_correct(students=Student.objects.filter(user__email__contains='school.com')),
-                         70)  # student 1 Q1 = 3/3, student 2 Q1 = 1/3, student 1 q3 = 3/4 -> Total = 7/10
+                         71)  # skinner is 4/4 from q3 ONLY, chalke is 1/3 from q2 ONLY, so avg = 5/7 = 83%
+
+
+        # Test that it works for sub-points:
+
+        q4 = Question.objects.create(exam=exam2,
+                                     order=2,
+                                     number='2',
+                                     max_score=5)
+        q4.syllabus_points.add(Syllabus.objects.get(text='first grandchild'))
+
+        m4_skinner, created = Mark.objects.get_or_create(student=skinner_student,
+                                                         question=q4,
+                                                         sitting=sitting2,
+                                                         score=2)
+
+        # Check working for grandchild:
+
+        self.assertEqual(Syllabus.objects.get(text='first grandchild').
+                         percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
+                         40) # 2/5 = 40%
+
+        # Check that this has included the parent too
+        self.assertEqual(Syllabus.objects.get(text='first child').
+                         percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
+                         67)  # 4/4 + 2/5 = 6/9 = 67%
+
+        # Just for fun, let's re-check that we can still reset scores with a new test:
+
+        exam3 = Exam.objects.create(name='exam3')
+        sitting3 = Sitting.objects.create(exam=exam3,
+                                          date=datetime.date.today()+datetime.timedelta(days=1),
+                                          resets_ratings=True)
+        # This exam is one day ahead, so should become the only source of truth
+
+        q5 = Question.objects.create(exam=exam3,
+                                     max_score=10,
+                                     number='1',
+                                     order=1)
+        q5.syllabus_points.add(Syllabus.objects.get(text='first grandchild'))
+
+        m5, created = Mark.objects.get_or_create(student=skinner_student,
+                                                 sitting=sitting3,
+                                                 question=q5,
+                                                 score=3)
+
+        # Should only have re-set grandchildren:
+
+        self.assertEqual(Syllabus.objects.get(text='first grandchild').
+                         percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
+                         30) # 3/10 = 30%
+
+        # Should not have re-set the parent, so we should get:
+        self.assertEqual(Syllabus.objects.get(text='first child').
+                         percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
+                         50)  # 4/4 + 3/10 = 7/14 = 50%
