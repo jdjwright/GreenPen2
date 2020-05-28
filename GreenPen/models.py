@@ -91,18 +91,26 @@ class Syllabus(MPTTModel):
     def percent_correct(self, students=Student.objects.all()):
         total_attempted = StudentSyllabusAssessmentRecord.objects. \
             filter(student__in=students,
-                   syllabus_point__in=self.get_descendants(include_self=True),
+                   syllabus_point=self,
                    most_recent=True). \
             aggregate(Sum('total_marks_attempted'))['total_marks_attempted__sum']
         total_correct = StudentSyllabusAssessmentRecord.objects. \
             filter(student__in=students,
-                   syllabus_point__in=self.get_descendants(include_self=True),
+                   syllabus_point=self,
                    most_recent=True). \
             aggregate(Sum('total_marks_correct'))['total_marks_correct__sum']
         if total_correct:
             return round(total_correct / total_attempted * 100, 0)
         else:
             return 0
+
+
+    def set_student_records(self, sitting):
+        # Set this level's records:
+
+        record, created = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                                      sitting=sitting)
+
 
 
 class Exam(models.Model):
@@ -173,50 +181,31 @@ class Mark(models.Model):
         unique_together = ['student', 'question', 'sitting']
 
     def set_student_syllabus_assessment_records(self):
+
         for point in self.question.syllabus_points.all():
-            record, created = StudentSyllabusAssessmentRecord.objects.get_or_create(syllabus_point=point,
-                                                                                    student=self.student,
-                                                                                    sitting=self.sitting,
-                                                                                    )
-            if created:
-                try:
-                    previous = StudentSyllabusAssessmentRecord.objects.get(syllabus_point=point,
-                                                                                          student=self.student,
-                                                                                          most_recent=True)
-                    previous.most_recent = False
-                    previous.save()
-                    record.most_recent = True
-                except ObjectDoesNotExist:
-                    record.most_recent = True
-
-            all_mark_records = Mark.objects.filter(student=self.student,
-                                                   question__syllabus_points=point)
-
-            if self.sitting.resets_ratings:
-                relevant_records = all_mark_records.filter(sitting__date__gte=self.sitting.date)
-            else:
-                last_reset = all_mark_records.filter(sitting__resets_ratings=True)
-                if last_reset.count():
-                    relevant_records = all_mark_records.filter(sitting__date__gte=last_reset.sitting.date)
-                else:
-                    relevant_records = all_mark_records
-
-            record.total_marks_attempted = relevant_records. \
-                aggregate(Sum('question__max_score'))['question__max_score__sum']
-            record.total_marks_correct = relevant_records.aggregate(Sum('score'))['score__sum']
-            record.percentage = round(record.total_marks_correct / record.total_marks_attempted * 100, 0)
-            record.rating = record.percentage * 0.05
-            record.save()
+            record, created = StudentSyllabusAssessmentRecord.objects.get_or_create(student=self.student,
+                                                                           syllabus_point=point,
+                                                                           sitting=self.sitting)
 
 
 class StudentSyllabusAssessmentRecord(models.Model):
     syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
-    total_marks_attempted = models.FloatField(blank=True, null=True)
-    total_marks_correct = models.FloatField(blank=True, null=True)
     sitting = models.ForeignKey(Sitting, blank=True, null=True, on_delete=models.CASCADE)
+
+    attempted_this_level = models.FloatField(blank=True, null=True, help_text='total marks tried for this point only')
+    correct_this_level = models.FloatField(blank=True, null=True, help_text='total marks scored for this point only')
+    attempted_plus_children = models.FloatField(blank=True, null=True, help_text='total marks tried for this point and children')
+    correct_plus_children = models.FloatField(blank=True, null=True, help_text='total marks scored for this point and children')
+
     percentage = models.FloatField(blank=True, null=True)
     rating = models.FloatField(blank=True, null=True)
+    children_0_1 = models.IntegerField(blank=True, null=True, help_text='total children rated 0-1')
+    children_1_2 = models.IntegerField(blank=True, null=True, help_text='total children rated 1-2')
+    children_2_3 = models.IntegerField(blank=True, null=True, help_text='total children rated 2-3')
+    children_3_4 = models.IntegerField(blank=True, null=True, help_text='total children rated 3-4')
+    children_4_5 = models.IntegerField(blank=True, null=True, help_text='total children rated 4-5')
+
     most_recent = models.BooleanField(blank=True, null=True, default=False)
 
     @property
@@ -225,6 +214,79 @@ class StudentSyllabusAssessmentRecord(models.Model):
 
     def __str__(self):
         return str(self.student) + " " + str(self.syllabus_point) + " <" + str(self.percentage_correct) + ">"
+
+
+def syllabus_record_created(sender, instance, created, **kwargs):
+    """ Ensure that there's only ever one 'most recent' record, and that is set by the date of assessment. """
+    if created:
+        competitors = StudentSyllabusAssessmentRecord.objects.filter(syllabus_point=instance.syllabus_point,
+                                                                     student=instance.student).order_by('-sitting__date')
+        # This should order with most recent first
+
+        # Save computation if it's just us:
+        if competitors.count() == 1:
+            instance.most_recent = True
+            instance.save()
+            return instance
+
+        else:
+            for competitor in competitors:
+                competitor.most_recent = False
+                competitor.save()
+            competitors[0].most_recent = True
+            competitors[0].save()
+            return instance
+
+
+def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.none(), sitting=Sitting.objects.none()):
+    """ This is used to set an assessment record for a given sitting for a student. Note that this shouldn't be
+    used for all sittings, as we'd end up with lots of identical scores."""
+
+    # Hold old values in memory to use to re-set parents:
+    old_rating = record.rating
+    old_attempted_plus_children = record.attempted_plus_children
+    old_correct_plus_children = record.correct_plus_children
+
+    # 1. Set the levels for the current assessment record
+    # - Find all marks for this level (and ONLY this level) after the last reset point. We want ones scored after
+    #   the last reset, and not after this sitting.
+    # - Store these marks in 'level_totals'.
+
+    marks = Mark.objects.filter(question__syllabus_points=record.syllabus_point,
+                             student=record.student,
+                                sitting__date__lte=sitting.date)
+    if marks.filter(sitting__resets_ratings=True).count():
+        last_relevant_sitting = marks.filter(sitting__rests_ratings=True).order_by('-sitting__date')[0]
+        marks = marks.filter(sitting__date__gte=last_relevant_sitting.sitting.date)
+
+    data = marks.aggregate(Sum('question__max_score'), Sum('score'))
+    record.attempted_this_level = data['question__max_score__sum']
+    record.correct_this_level = data['score__sum']
+
+    # 2. Get total marks at this level by adding on children totals (use just children and their whole tree totals)
+    children_data = StudentSyllabusAssessmentRecord.objects.filter(student=record.student,
+                                                                   syllabus_point__in=record.syllabus_point.get_descendants()).\
+        aggregate(Sum('attempted_plus_children'), Sum('correct_plus_children'))
+
+    record.attempted_plus_children = data['question__max_score__sum'] + children_data['attempted_plus_children__sum']
+    record.correct_plus_children = data['score__sum'] + children_data['correct_plus_children__sum']
+
+    # 3. Iterate up through parents. Take parent old score, and add the difference between my previous totals and my new total.
+
+    delta_attempted = record.attempted_plus_children - old_attempted_plus_children
+    delta_correct = record.correct_plus_children - old_correct_plus_children
+
+    for parent in record.syllabus_point.get_ancestors():
+        student_record = StudentSyllabusAssessmentRecord.objects.get_or_create(student=record.student,
+                                                                               syllabus_point=parent,
+                                                                               most_recent=True)
+        student_record.attempted_plus_children += delta_attempted
+        student_record.correct_plus_children += delta_correct
+        student_record.save()
+
+    record.save()
+
+post_save.connect(syllabus_record_created, sender=StudentSyllabusAssessmentRecord)
 
 
 class StudentSyllabusManualStudentRecord(models.Model):

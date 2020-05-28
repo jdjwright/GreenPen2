@@ -27,5 +27,6 @@ urlpatterns = [
     path('uploadquestions', import_questions),
     path('uploadsittings', import_sittings),
     path('uploadmarks', import_marks),
-    path('student-autocomplete/', StudentComplete.as_view(), name='student-autocomplete')
+    path('student-autocomplete/', StudentComplete.as_view(), name='student-autocomplete'),
+    path('rating-records/<int:syllabus_pk>/<int:student_pk>', StudentAssessmentForPoint.as_view(), name='student-assessment-record')
 ]

@@ -306,7 +306,14 @@ class StudentSyllabusPercentTestCase(TestCase):
                                                          sitting=sitting,
                                                          score=3)  # 100 %
 
-        self.assertEqual(StudentSyllabusAssessmentRecord.objects.all().count(), 1)
+        self.assertEqual(StudentSyllabusAssessmentRecord.objects.filter(student=skinner_student,
+                         syllabus_point=q1.syllabus_points.all()[0]).count(), 1)
+
+        # And ensure that the parents are recorded, too
+
+        self.assertEqual(StudentSyllabusAssessmentRecord.objects.filter(student=skinner_student,
+                                                                        syllabus_point=q1.syllabus_points.all()[
+                                                                            0].parent).count(), 1)
 
     def test_mark_summary_records(self):
         bloggs_teacher, tubbs_teacher, skinner_student, chalke_student, potions, herbology, hb1 = set_up_class()
@@ -323,8 +330,11 @@ class StudentSyllabusPercentTestCase(TestCase):
 
         self.assertEqual(StudentSyllabusAssessmentRecord.objects.get(student=skinner_student,
                                                                      syllabus_point=Syllabus.objects.get(text='first child'),
-                                                                     most_recent=True).percentage_correct,
+                                                                     most_recent=True).percentage,
                          100)
+
+        # Check that the parent of this will include this in their percentage:
+
         m2_skinner, creatred = Mark.objects.get_or_create(student=skinner_student,
                                                           question=q2,
                                                           sitting=sitting,
@@ -441,3 +451,82 @@ class StudentSyllabusPercentTestCase(TestCase):
         self.assertEqual(Syllabus.objects.get(text='first child').
                          percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
                          50)  # 4/4 + 3/10 = 7/14 = 50%
+
+
+class StudentSyllabusAssessmentRecordTestCase(TestCase):
+
+    def test_most_recent_upates(self):
+        setUpSyllabus()
+
+        # Start with creating a single record:
+        student = Student.objects.create()
+        exam = Exam.objects.create()
+        q = Question.objects.create(max_score=3,
+                                    order=1,
+                                    number='1',
+                                    exam=exam)
+
+        q.syllabus_points.add(Syllabus.objects.get(text='first child'))
+        sitting = Sitting.objects.create(exam=exam,
+                                         date=datetime.date.today() - datetime.timedelta(days=10))
+        mark = Mark.objects.create(student=student,
+                                   question=q,
+                                   sitting=sitting,
+                                   score=1)
+
+        # Should have been created and be most recent:
+        record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             sitting=sitting,
+                                                             syllabus_point=Syllabus.objects.get(text='first child'))
+        self.assertEqual(record.most_recent, True)
+
+        # Now add a competitor from a day later:
+        s2 = Sitting.objects.create(exam=exam,
+                                    date=datetime.date.today())
+
+        m2 = Mark.objects.create(student=student,
+                                 question=q,
+                                 sitting=s2,
+                                 score=2)
+
+        # Old record shuld no longer be most recent:
+        old_record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             sitting=sitting,
+                                                             syllabus_point=Syllabus.objects.get(text='first child'))
+        self.assertEqual(old_record.most_recent, False)
+
+        # Sitting of most recent should be s2:
+
+        record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             sitting=s2,
+                                                             syllabus_point=Syllabus.objects.get(text='first child'))
+        self.assertEqual(record.sitting.date, s2.date)
+        self.assertEqual(record.most_recent, True)
+
+        # Add one more to be certain:
+
+        s3 = Sitting.objects.create(exam=exam,
+                                    date=datetime.date.today() + datetime.timedelta(days=10))
+        m3 = Mark.objects.create(sitting=s3,
+                                 question=q,
+                                 student=student,
+                                 score=3)
+
+        # Check the old two are  no longer most recent
+        oldest_record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                                 sitting=sitting,
+                                                                 syllabus_point=Syllabus.objects.get(
+                                                                     text='first child'))
+        self.assertEqual(oldest_record.most_recent, False)
+
+        old_record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                                 sitting=s2,
+                                                                 syllabus_point=Syllabus.objects.get(
+                                                                     text='first child'))
+        self.assertEqual(old_record.most_recent, False)
+
+        newest = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                                 sitting=s3,
+                                                                 syllabus_point=Syllabus.objects.get(
+                                                                     text='first child'))
+        self.assertEqual(newest.most_recent, True)

@@ -1,6 +1,7 @@
 from GreenPen.models import Student
 from django.views.generic.list import ListView, View
-from django.shortcuts import redirect, render
+
+from django.shortcuts import redirect, render, get_object_or_404
 from GreenPen.functions.imports import *
 from .forms import CSVDocForm
 import os
@@ -136,3 +137,14 @@ def import_marks(request):
         csvform = CSVDocForm()
     return render(request, 'GreenPen/csv_upload.html', {'csvform': csvform,
                                                         'title': 'Upload Marks'})
+
+
+class StudentAssessmentForPoint(TeacherOnlyMixin, ListView):
+
+    template_name = 'GreenPen/studnet_assessment_list.html'
+
+    def get_queryset(self):
+        syllabus = get_object_or_404(Syllabus, pk=self.kwargs['syllabus_pk'])
+        student = get_object_or_404(Student, pk=self.kwargs['student_pk'])
+        return StudentSyllabusAssessmentRecord.objects.filter(student=student,
+                                                              syllabus_point=syllabus)

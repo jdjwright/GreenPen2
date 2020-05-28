@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Studnet List</title>
+</head>
+<body>
+Student assessment record for {{ object_list.0.student }} of {{ object_list.0.syllabus_point }}
+<table>
+    <thead>
+    <tr>
+        <td>Date</td>
+        <td>Exam</td>
+        <td>Percentage</td>
+        <td>Rating</td>
+    </tr>
+    </thead>
+
+    <tbody>
+    {% for record in object_list %}
+        <tr>
+        <td>{{ record.sitting.date }}</td>
+        <td>{{ record.sitting.exam }}</td>
+        <td>{{ record.percentage }}</td>
+        <td>{{ record.rating}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</body>
+</html>
