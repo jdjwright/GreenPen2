@@ -530,3 +530,447 @@ class StudentSyllabusAssessmentRecordTestCase(TestCase):
                                                                  syllabus_point=Syllabus.objects.get(
                                                                      text='first child'))
         self.assertEqual(newest.most_recent, True)
+
+
+class CollectRatingsTestCase(TestCase):
+    def test_ratings(self):
+        student = Student.objects.create()
+
+        # - Root
+        #   - First child
+        #     - First grandchild
+        #     - Second grandchile
+        #   - Second child
+        #     - Third grandchild
+        #     - Fourth grandchild
+
+        r = Syllabus.objects.create(text='r')
+        c1 = Syllabus.objects.create(parent=r, text='c1')
+        g1 = Syllabus.objects.create(parent=c1, text='g1')
+        g2 = Syllabus.objects.create(parent=c1, text='g2')
+        c2 = Syllabus.objects.create(parent=r, text='c2')
+        g3 = Syllabus.objects.create(parent=c2, text='g3')
+        g4 = Syllabus.objects.create(parent=c2, text='g4')
+
+        # Give a 3/5 rating for g1:
+
+        exam1 = Exam.objects.create()
+        q1 = Question.objects.create(exam=exam1,
+                                     max_score=5,
+                                     order=1,
+                                     number='1')
+        q1.syllabus_points.add(g1)
+
+        sitting1 = Sitting.objects.create(exam=exam1)
+
+        m1 = Mark.objects.create(student=student,
+                                 sitting=sitting1,
+                                 question=q1,
+                                 score=3)
+
+        # Get the student record:
+        record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             syllabus_point=g1,
+                                                             most_recent=True)
+
+        # Check  rating is correct
+        self.assertEqual(record.rating, 3)
+
+        # Check totals are correct:
+
+        self.assertEqual(record.correct_this_level, 3)
+        self.assertEqual(record.attempted_this_level, 5)
+
+        # Check rating for parent is correct:
+
+        parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             syllabus_point=c1,
+                                                             sitting=sitting1)
+
+        self.assertEqual(parent.correct_this_level, 0)
+        self.assertEqual(parent.attempted_this_level, 0)
+        self.assertEqual(parent.correct_plus_children, 3)
+        self.assertEqual(parent.attempted_plus_children, 5)
+
+        self.assertEqual(parent.children_3_4, 0)
+        self.assertEqual(parent.children_0_1, 0)
+        self.assertEqual(parent.children_1_2, 0)
+        self.assertEqual(parent.children_2_3, 1)
+        self.assertEqual(parent.children_4_5, 0)
+
+        # And check rating for grandparent is correct:
+
+        parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             syllabus_point=r,
+                                                             sitting=sitting1)
+        self.assertEqual(parent.correct_this_level, 0)
+        self.assertEqual(parent.attempted_this_level, 0)
+        self.assertEqual(parent.correct_plus_children, 3)
+        self.assertEqual(parent.attempted_plus_children, 5)
+
+        self.assertEqual(parent.children_3_4, 0)
+        self.assertEqual(parent.children_0_1, 0)
+        self.assertEqual(parent.children_1_2, 0)
+        self.assertEqual(parent.children_2_3, 2) # Parent and child
+        self.assertEqual(parent.children_4_5, 0)
+
+        # Add a second to the same:
+        q2 = Question.objects.create(exam=exam1,
+                                     max_score=5,
+                                     order=2,
+                                     number='2')
+        q2.syllabus_points.add(g1)
+
+        m2 = Mark.objects.create(student=student,
+                                 sitting=sitting1,
+                                 question=q2,
+                                 score=4)
+
+        # Now, Q1=3/5, Q2 = 4/5, total = 7/10 = rating 3.5
+
+        # Get the student record again (need to refresh database!)
+        record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             syllabus_point=g1,
+                                                             most_recent=True)
+
+        # Check  rating is correct
+        self.assertEqual(record.rating, 3.5)
+
+        self.assertEqual(record.correct_this_level, 7)
+        self.assertEqual(record.attempted_this_level, 10)
+        self.assertEqual(record.correct_plus_children, 7)
+        self.assertEqual(record.attempted_plus_children, 10)
+
+        # Check rating for parent is correct:
+
+        parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             syllabus_point=c1,
+                                                             sitting=sitting1)
+
+        self.assertEqual(parent.correct_this_level, 0)
+        self.assertEqual(parent.attempted_this_level, 0)
+        self.assertEqual(parent.correct_plus_children, 7)
+        self.assertEqual(parent.attempted_plus_children, 10)
+
+        self.assertEqual(parent.children_3_4, 1)
+        self.assertEqual(parent.children_0_1, 0)
+        self.assertEqual(parent.children_1_2, 0)
+        self.assertEqual(parent.children_2_3, 0)
+        self.assertEqual(parent.children_4_5, 0)
+
+        # And check rating for grandparent is correct:
+
+        parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             syllabus_point=r,
+                                                             sitting=sitting1)
+        self.assertEqual(parent.children_3_4, 2) # Parent and child
+        self.assertEqual(parent.children_0_1, 0)
+        self.assertEqual(parent.children_1_2, 0)
+        self.assertEqual(parent.children_2_3, 0)
+        self.assertEqual(parent.children_4_5, 0)
+
+        self.assertEqual(parent.correct_this_level, 0)
+        self.assertEqual(parent.attempted_this_level, 0)
+        self.assertEqual(parent.correct_plus_children, 7)
+        self.assertEqual(parent.attempted_plus_children, 10)
+
+        # Add in a different rating for grandchild2:
+        q3 = Question.objects.create(exam=exam1,
+                                     max_score=5,
+                                     order=3,
+                                     number='3')
+        q3.syllabus_points.add(g2)
+
+        m3 = Mark.objects.create(student=student,
+                                 sitting=sitting1,
+                                 question=q3,
+                                 score=1) # Rating = 1
+
+        record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             syllabus_point=g2,
+                                                             most_recent=True)
+
+        self.assertEqual(record.rating, 1)
+
+
+
+        # Check rating for parent is correct:
+
+        parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             syllabus_point=c1,
+                                                             sitting=sitting1)
+        self.assertEqual(parent.children_3_4, 1)
+        self.assertEqual(parent.children_0_1, 1)
+        self.assertEqual(parent.children_1_2, 0)
+        self.assertEqual(parent.children_2_3, 0)
+        self.assertEqual(parent.children_4_5, 0)
+
+        # Parent rating should now be 1/5 + 3/5 + 4/5 = 8/15 = 2.66666666
+        self.assertEqual(round(parent.rating,1), 2.7)
+
+        # And check rating for grandparent is correct:
+
+        parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             syllabus_point=r,
+                                                             sitting=sitting1)
+        self.assertEqual(parent.children_3_4, 1)  # Parent and child
+        self.assertEqual(parent.children_0_1, 1)
+        self.assertEqual(parent.children_1_2, 0)
+        self.assertEqual(parent.children_2_3, 1)
+        self.assertEqual(parent.children_4_5, 0)
+
+        # Let's try adding on on the parent level:
+
+        q4 = Question.objects.create(number='3',
+                                     order=3,
+                                     exam=exam1,
+                                     max_score=12)
+
+        q4.syllabus_points.add(c1)
+
+        m4 = Mark.objects.create(student=student,
+                                 question=q4,
+                                 score=3,
+                                 sitting=sitting1)
+
+
+        #  Child records should be unchanged:
+        record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             syllabus_point=g2,
+                                                             most_recent=True)
+
+        self.assertEqual(record.rating, 1)
+
+        # Record for this level should change:
+        record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+                                                             syllabus_point=c1,
+                                                             most_recent=True)
+
+
+        # Percentage should be ating should now be 1/5 + 3/5 + 4/5 + 3/12= 11/27 = 41.%, rating 2.04
+        # Rating should be calculated using self and children:
+
+        self.assertEqual(round(record.rating, 1), 2.1) # Weird python rounding problems somewhere!
+        self.assertEqual(record.percentage, 41.0)
+
+
+class SyllabusReportingTestCase(TestCase):
+    def test_reports(self):
+        s1 = Student.objects.create()
+        s2 = Student.objects.create()
+
+        # - Root
+        #   - First child
+        #     - First grandchild
+        #     - Second grandchile
+        #   - Second child
+        #     - Third grandchild
+        #     - Fourth grandchild
+
+        r = Syllabus.objects.create(text='r')
+        c1 = Syllabus.objects.create(parent=r, text='c1')
+        g1 = Syllabus.objects.create(parent=c1, text='g1')
+        g2 = Syllabus.objects.create(parent=c1, text='g2')
+        c2 = Syllabus.objects.create(parent=r, text='c2')
+        g3 = Syllabus.objects.create(parent=c2, text='g3')
+        g4 = Syllabus.objects.create(parent=c2, text='g4')
+
+        # Give a 3/5 rating for g1:
+
+        exam1 = Exam.objects.create()
+        q1 = Question.objects.create(exam=exam1,
+                                     max_score=5,
+                                     order=1,
+                                     number='1')
+        q1.syllabus_points.add(g1)
+
+        sitting1 = Sitting.objects.create(exam=exam1)
+
+        m1_s1 = Mark.objects.create(student=s1,
+                                 sitting=sitting1,
+                                 question=q1,
+                                 score=3)
+        m1_s2 = Mark.objects.create(student=s2,
+                                 sitting=sitting1,
+                                 question=q1,
+                                 score=5)
+
+        # Test G1 reports corretly:
+        self.assertEqual(g1.cohort_stats(Student.objects.all())['percentage'], 80)
+
+        #
+        # # Check  rating is correct
+        # self.assertEqual(record.rating, 3)
+        #
+        # # Check totals are correct:
+        #
+        # self.assertEqual(record.correct_this_level, 3)
+        # self.assertEqual(record.attempted_this_level, 5)
+        #
+        # # Check rating for parent is correct:
+        #
+        # parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+        #                                                      syllabus_point=c1,
+        #                                                      sitting=sitting1)
+        #
+        # self.assertEqual(parent.correct_this_level, 0)
+        # self.assertEqual(parent.attempted_this_level, 0)
+        # self.assertEqual(parent.correct_plus_children, 3)
+        # self.assertEqual(parent.attempted_plus_children, 5)
+        #
+        # self.assertEqual(parent.children_3_4, 0)
+        # self.assertEqual(parent.children_0_1, 0)
+        # self.assertEqual(parent.children_1_2, 0)
+        # self.assertEqual(parent.children_2_3, 1)
+        # self.assertEqual(parent.children_4_5, 0)
+        #
+        # # And check rating for grandparent is correct:
+        #
+        # parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+        #                                                      syllabus_point=r,
+        #                                                      sitting=sitting1)
+        # self.assertEqual(parent.correct_this_level, 0)
+        # self.assertEqual(parent.attempted_this_level, 0)
+        # self.assertEqual(parent.correct_plus_children, 3)
+        # self.assertEqual(parent.attempted_plus_children, 5)
+        #
+        # self.assertEqual(parent.children_3_4, 0)
+        # self.assertEqual(parent.children_0_1, 0)
+        # self.assertEqual(parent.children_1_2, 0)
+        # self.assertEqual(parent.children_2_3, 2)  # Parent and child
+        # self.assertEqual(parent.children_4_5, 0)
+        #
+        # # Add a second to the same:
+        # q2 = Question.objects.create(exam=exam1,
+        #                              max_score=5,
+        #                              order=2,
+        #                              number='2')
+        # q2.syllabus_points.add(g1)
+        #
+        # m2 = Mark.objects.create(student=student,
+        #                          sitting=sitting1,
+        #                          question=q2,
+        #                          score=4)
+        #
+        # # Now, Q1=3/5, Q2 = 4/5, total = 7/10 = rating 3.5
+        #
+        # # Get the student record again (need to refresh database!)
+        # record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+        #                                                      syllabus_point=g1,
+        #                                                      most_recent=True)
+        #
+        # # Check  rating is correct
+        # self.assertEqual(record.rating, 3.5)
+        #
+        # self.assertEqual(record.correct_this_level, 7)
+        # self.assertEqual(record.attempted_this_level, 10)
+        # self.assertEqual(record.correct_plus_children, 7)
+        # self.assertEqual(record.attempted_plus_children, 10)
+        #
+        # # Check rating for parent is correct:
+        #
+        # parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+        #                                                      syllabus_point=c1,
+        #                                                      sitting=sitting1)
+        #
+        # self.assertEqual(parent.correct_this_level, 0)
+        # self.assertEqual(parent.attempted_this_level, 0)
+        # self.assertEqual(parent.correct_plus_children, 7)
+        # self.assertEqual(parent.attempted_plus_children, 10)
+        #
+        # self.assertEqual(parent.children_3_4, 1)
+        # self.assertEqual(parent.children_0_1, 0)
+        # self.assertEqual(parent.children_1_2, 0)
+        # self.assertEqual(parent.children_2_3, 0)
+        # self.assertEqual(parent.children_4_5, 0)
+        #
+        # # And check rating for grandparent is correct:
+        #
+        # parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+        #                                                      syllabus_point=r,
+        #                                                      sitting=sitting1)
+        # self.assertEqual(parent.children_3_4, 2)  # Parent and child
+        # self.assertEqual(parent.children_0_1, 0)
+        # self.assertEqual(parent.children_1_2, 0)
+        # self.assertEqual(parent.children_2_3, 0)
+        # self.assertEqual(parent.children_4_5, 0)
+        #
+        # self.assertEqual(parent.correct_this_level, 0)
+        # self.assertEqual(parent.attempted_this_level, 0)
+        # self.assertEqual(parent.correct_plus_children, 7)
+        # self.assertEqual(parent.attempted_plus_children, 10)
+        #
+        # # Add in a different rating for grandchild2:
+        # q3 = Question.objects.create(exam=exam1,
+        #                              max_score=5,
+        #                              order=3,
+        #                              number='3')
+        # q3.syllabus_points.add(g2)
+        #
+        # m3 = Mark.objects.create(student=student,
+        #                          sitting=sitting1,
+        #                          question=q3,
+        #                          score=1)  # Rating = 1
+        #
+        # record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+        #                                                      syllabus_point=g2,
+        #                                                      most_recent=True)
+        #
+        # self.assertEqual(record.rating, 1)
+        #
+        # # Check rating for parent is correct:
+        #
+        # parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+        #                                                      syllabus_point=c1,
+        #                                                      sitting=sitting1)
+        # self.assertEqual(parent.children_3_4, 1)
+        # self.assertEqual(parent.children_0_1, 1)
+        # self.assertEqual(parent.children_1_2, 0)
+        # self.assertEqual(parent.children_2_3, 0)
+        # self.assertEqual(parent.children_4_5, 0)
+        #
+        # # Parent rating should now be 1/5 + 3/5 + 4/5 = 8/15 = 2.66666666
+        # self.assertEqual(round(parent.rating, 1), 2.7)
+        #
+        # # And check rating for grandparent is correct:
+        #
+        # parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
+        #                                                      syllabus_point=r,
+        #                                                      sitting=sitting1)
+        # self.assertEqual(parent.children_3_4, 1)  # Parent and child
+        # self.assertEqual(parent.children_0_1, 1)
+        # self.assertEqual(parent.children_1_2, 0)
+        # self.assertEqual(parent.children_2_3, 1)
+        # self.assertEqual(parent.children_4_5, 0)
+        #
+        # # Let's try adding on on the parent level:
+        #
+        # q4 = Question.objects.create(number='3',
+        #                              order=3,
+        #                              exam=exam1,
+        #                              max_score=12)
+        #
+        # q4.syllabus_points.add(c1)
+        #
+        # m4 = Mark.objects.create(student=student,
+        #                          question=q4,
+        #                          score=3,
+        #                          sitting=sitting1)
+        #
+        # #  Child records should be unchanged:
+        # record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+        #                                                      syllabus_point=g2,
+        #                                                      most_recent=True)
+        #
+        # self.assertEqual(record.rating, 1)
+        #
+        # # Record for this level should change:
+        # record = StudentSyllabusAssessmentRecord.objects.get(student=student,
+        #                                                      syllabus_point=c1,
+        #                                                      most_recent=True)
+        #
+        # # Percentage should be ating should now be 1/5 + 3/5 + 4/5 + 3/12= 11/27 = 41.%, rating 2.04
+        # # Rating should be calculated using self and children:
+        #
+        # self.assertEqual(round(record.rating, 1), 2.1)  # Weird python rounding problems somewhere!
+        # self.assertEqual(record.percentage, 41.0)

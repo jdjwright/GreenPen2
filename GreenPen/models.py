@@ -113,6 +113,19 @@ class Syllabus(MPTTModel):
         else:
             return 0
 
+    def cohort_stats(self, students=Student.objects.none()):
+        records = StudentSyllabusAssessmentRecord.objects.filter(student__in=students,
+                                                                 syllabus_point=self,
+                                                                 most_recent=True)
+        data = records.aggregate(percentage=Avg('percentage'),
+                                 rating=Avg('rating'),
+                                 children_0_1=Sum('children_0_1'),
+                                 children_1_2=Sum('children_1_2'),
+                                 children_2_3=Sum('children_2_3'),
+                                 children_3_4=Sum('children_3_4'),
+                                 children_4_5=Sum('children_4_5'))
+        return data
+
 
 class Exam(models.Model):
     name = models.CharField(max_length=256, blank=False, null=False)
@@ -237,7 +250,7 @@ class StudentSyllabusAssessmentRecord(models.Model):
         """ These need to be stored to speed up reports via database aggregation """
 
         self.percentage = round(self.correct_plus_children / self.attempted_plus_children * 100, 0)
-        self.rating = self.percentage * 0.02
+        self.rating = self.percentage * 0.05
 
         # Set the children elements
         relevant_children = StudentSyllabusAssessmentRecord.objects.filter(student=self.student,
@@ -245,10 +258,10 @@ class StudentSyllabusAssessmentRecord(models.Model):
                                                                            syllabus_point__in=self.syllabus_point.
                                                                            get_descendants())
         self.children_0_1 = relevant_children.filter(rating__lte=1).count()
-        self.children_1_2 = relevant_children.filter(rating__lte=2).count()
-        self.children_2_3 = relevant_children.filter(rating__lte=3).count()
-        self.children_3_4 = relevant_children.filter(rating__lte=4).count()
-        self.children_4_5 = relevant_children.filter(rating__lte=5).count()
+        self.children_1_2 = relevant_children.filter(rating__lte=2, rating__gt=1).count()
+        self.children_2_3 = relevant_children.filter(rating__lte=3, rating__gt=2).count()
+        self.children_3_4 = relevant_children.filter(rating__lte=4, rating__gt=3).count()
+        self.children_4_5 = relevant_children.filter(rating__lte=5, rating__gt=4).count()
         self.save()
 
 
@@ -291,16 +304,21 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
     used for all sittings, as we'd end up with lots of identical scores."""
 
     # Hold old values in memory to use to re-set parents:
-    try:
+    # We need to check if there was a previous value from a different sitting. However,
+    # we also need to be aware that the previous record may be from this same sitting, so
+    # need to test if we're the only one:
+    total_records = StudentSyllabusAssessmentRecord.objects.filter(student=record.student,
+                                                   syllabus_point=record.syllabus_point).count()
+    if StudentSyllabusAssessmentRecord.objects.filter(student=record.student,
+                                                   syllabus_point=record.syllabus_point).count() == 1:
+        old_attempted_plus_children = record.attempted_plus_children
+        old_correct_plus_children = record.correct_plus_children
+    else:
         previous_record = StudentSyllabusAssessmentRecord.objects.get(student=record.student,
                                                                   syllabus_point=record.syllabus_point,
                                                                   order=record.order - 1)
         old_attempted_plus_children = previous_record.attempted_plus_children
         old_correct_plus_children = previous_record.correct_plus_children
-    except ObjectDoesNotExist:
-        old_attempted_plus_children = 0
-        old_correct_plus_children = 0
-
 
 
     # 1. Set the levels for the current assessment record
@@ -321,12 +339,13 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
 
     # 2. Get total marks at this level by adding on children totals (use just children and their whole tree totals)
     children_data = StudentSyllabusAssessmentRecord.objects.filter(student=record.student,
-                                                                   syllabus_point__in=record.syllabus_point.get_descendants()). \
-        aggregate(Sum('attempted_plus_children'), Sum('correct_plus_children'))
+                                                                   syllabus_point__in=record.syllabus_point.get_descendants(),
+                                                                   most_recent=True). \
+        aggregate(Sum('attempted_this_level'), Sum('correct_this_level'))
 
     record.attempted_plus_children = data['question__max_score__sum'] + float(
-        children_data['attempted_plus_children__sum'] or 0)
-    record.correct_plus_children = data['score__sum'] + float(children_data['correct_plus_children__sum'] or 0)
+        children_data['attempted_this_level__sum'] or 0)
+    record.correct_plus_children = data['score__sum'] + float(children_data['correct_this_level__sum'] or 0)
 
     # Set calculated fields:
     record.save()
@@ -337,7 +356,9 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
 
     delta_attempted = record.attempted_plus_children - old_attempted_plus_children
     delta_correct = record.correct_plus_children - old_correct_plus_children
-    for parent in record.syllabus_point.get_ancestors():
+    # TODO: Remove debug statement
+    parents = list(record.syllabus_point.get_ancestors(ascending=True))
+    for parent in parents:
 
         # Need to get the last record since this may have been from a previous sitting.
         # If we didn't do this, we'd always start with 0 as our attempted_plus_children etc.
@@ -350,12 +371,12 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
                                                                                    'correct_plus_children': delta_correct})
         if created:
             previous.set_calculated_fields()
-            return
+            continue
         else:
             student_record, created = StudentSyllabusAssessmentRecord.objects.get_or_create(student=record.student,
                                                                                    syllabus_point=parent,
                                                                                    sitting=record.sitting)
-            student_record.attempted_plus_children =previous.attempted_plus_children + delta_attempted
+            student_record.attempted_plus_children = previous.attempted_plus_children + delta_attempted
             student_record.correct_plus_children = previous.correct_plus_children + delta_correct
             student_record.set_calculated_fields()
 
@@ -393,3 +414,5 @@ class CSVDoc(models.Model):
     description = models.CharField(max_length=255, blank=True)
     document = models.FileField(upload_to='documents/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+
