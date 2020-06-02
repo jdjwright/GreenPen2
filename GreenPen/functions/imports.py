@@ -102,14 +102,17 @@ def import_marks_from_csv(path):
         next(qs, None)
 
         for row in qs:
-            print('Adding ' + row[1])
+            print('Adding ' + str(row[1]))
             try:
                 float(row[2])
             except ValueError:
                 continue
-            mark, created = Mark.objects.get_or_create(question_id=row[0],
+            try:
+                mark, created = Mark.objects.get_or_create(question_id=row[0],
                                                        student=Student.objects.get(student_id=row[1]),
                                                        sitting_id=row[3])
+            except:
+                print('Failed above' + str(row))
             mark.score = row[2]
             mark.student_notes = row[4]
             mark.save()

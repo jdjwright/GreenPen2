@@ -199,7 +199,14 @@ class Mark(models.Model):
             record, created = StudentSyllabusAssessmentRecord.objects.get_or_create(student=self.student,
                                                                                     syllabus_point=point,
                                                                                     sitting=self.sitting)
-            set_assessment_record_chain(record, record.sitting)
+            # Here be dragons! When we create a record, logic in the background then sets
+            # it to the most recent. HOWEVER, we've loaded this into memory, so the instance
+            # that gets sent to set_assessment_record_chain is the OLD one, without
+            # the correct 'most recent' flag.
+            record = StudentSyllabusAssessmentRecord.objects.get(student=self.student,
+                                                                 syllabus_point=point,
+                                                                 sitting=self.sitting)
+            set_assessment_record_chain(record)
 
 
 class StudentSyllabusAssessmentRecord(models.Model):
@@ -253,10 +260,15 @@ class StudentSyllabusAssessmentRecord(models.Model):
         self.rating = self.percentage * 0.05
 
         # Set the children elements
+        # Need to include self so that we can aggregate ratings for cohorts (e.g. if we
+        # are at the last node (leaf node) we need to know how many got a rating of 2;
+        # therefore include self here.,
+        # Need to save self, otherwise won't appear in the searched records:
+        self.save()
         relevant_children = StudentSyllabusAssessmentRecord.objects.filter(student=self.student,
                                                                            most_recent=True,
                                                                            syllabus_point__in=self.syllabus_point.
-                                                                           get_descendants())
+                                                                           get_descendants(include_self=True))
         self.children_0_1 = relevant_children.filter(rating__lte=1).count()
         self.children_1_2 = relevant_children.filter(rating__lte=2, rating__gt=1).count()
         self.children_2_3 = relevant_children.filter(rating__lte=3, rating__gt=2).count()
@@ -270,36 +282,25 @@ def syllabus_record_created(sender, instance, created, **kwargs):
     if created:
         competitors = StudentSyllabusAssessmentRecord.objects.filter(syllabus_point=instance.syllabus_point,
                                                                      student=instance.student).order_by(
-                                                                                                '-sitting__date')
+            '-sitting__date')
         # This should order with most recent first
-        # TODO: Remove - debug statement
-        total_records = competitors.count()
-        # Save computation if it's just us:
-        if total_records == 1:
-            instance.most_recent = True
-            instance.order = total_records
-            instance.save()
-            return instance
 
-        else:
-            i = total_records
-            for competitor in competitors:
-                competitor.most_recent = False
-                competitor.order = i
-                i += -1
-                competitor.save()
-            most_recent_competitor = competitors[0]
-            if most_recent_competitor == instance:
-                instance.most_recent = True
-                instance.order = total_records
-                instance.save()
-            most_recent_competitor.most_recent = True
-            most_recent_competitor.order = total_records
-            most_recent_competitor.save()
-            return instance
+        i = competitors.count()
+        for competitor in competitors:
+            competitor.most_recent = False
+            competitor.order = i
+            i += -1
+            competitor.save()
+        most_recent_competitor = competitors[0]
+        most_recent_competitor.most_recent = True
+        most_recent_competitor.save()
+
+        # Refresh from DB so that we don't send back the old instance with the wrong date and order:
+        instance = StudentSyllabusAssessmentRecord.objects.get(pk=instance.pk)
+        return instance
 
 
-def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.none(), sitting=Sitting.objects.none()):
+def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.none()):
     """ This is used to set an assessment record for a given sitting for a student. Note that this shouldn't be
     used for all sittings, as we'd end up with lots of identical scores."""
 
@@ -307,20 +308,29 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
     # We need to check if there was a previous value from a different sitting. However,
     # we also need to be aware that the previous record may be from this same sitting, so
     # need to test if we're the only one:
+
+    # Be careful here; if we're working with a chain that occured BEFORE another assessment
+    # (e.g. a student forgot to add an assessment score and has just put it in)
+    # then the retrieval of the preivious one could fail.
     total_records = StudentSyllabusAssessmentRecord.objects.filter(student=record.student,
-                                                   syllabus_point=record.syllabus_point).count()
+                                                                   syllabus_point=record.syllabus_point,
+                                                                   ).count()
     if StudentSyllabusAssessmentRecord.objects.filter(student=record.student,
-                                                   syllabus_point=record.syllabus_point).count() == 1:
+                                                      syllabus_point=record.syllabus_point).count() <= 1:
         old_attempted_plus_children = record.attempted_plus_children
         old_correct_plus_children = record.correct_plus_children
     else:
-        previous_record = StudentSyllabusAssessmentRecord.objects.get(student=record.student,
-                                                                  syllabus_point=record.syllabus_point,
-                                                                  order=record.order - 1)
-        old_attempted_plus_children = previous_record.attempted_plus_children
-        old_correct_plus_children = previous_record.correct_plus_children
-
-
+        try:
+            previous_record = StudentSyllabusAssessmentRecord.objects.get(student=record.student,
+                                                                          syllabus_point=record.syllabus_point,
+                                                                          order=record.order - 1)
+            old_attempted_plus_children = previous_record.attempted_plus_children
+            old_correct_plus_children = previous_record.correct_plus_children
+        except ObjectDoesNotExist:
+            # We shouldn't ever get here, since we should have filtered out earlier ones, but just in case...
+            print("Failed when record pk was " + str(record.pk))
+            old_attempted_plus_children = record.attempted_plus_children
+            old_correct_plus_children = record.correct_plus_children
     # 1. Set the levels for the current assessment record
     # - Find all marks for this level (and ONLY this level) after the last reset point. We want ones scored after
     #   the last reset, and not after this sitting.
@@ -328,7 +338,7 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
 
     marks = Mark.objects.filter(question__syllabus_points=record.syllabus_point,
                                 student=record.student,
-                                sitting__date__lte=sitting.date)
+                                sitting__date__lte=record.sitting.date)
     if marks.filter(sitting__resets_ratings=True).count():
         last_relevant_sitting = marks.filter(sitting__resets_ratings=True).order_by('-sitting__date')[0]
         marks = marks.filter(sitting__date__gte=last_relevant_sitting.sitting.date)
@@ -356,30 +366,37 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
 
     delta_attempted = record.attempted_plus_children - old_attempted_plus_children
     delta_correct = record.correct_plus_children - old_correct_plus_children
-    # TODO: Remove debug statement
     parents = list(record.syllabus_point.get_ancestors(ascending=True))
     for parent in parents:
 
         # Need to get the last record since this may have been from a previous sitting.
         # If we didn't do this, we'd always start with 0 as our attempted_plus_children etc.
-
+        # THIS IS WRONG; previous should be closest by date.
         previous, created = StudentSyllabusAssessmentRecord.objects.get_or_create(student=record.student,
-                                                                         syllabus_point=parent,
-                                                                         most_recent=True,
-                                                                         defaults={'sitting': record.sitting,
-                                                                                   'attempted_plus_children': delta_attempted,
-                                                                                   'correct_plus_children': delta_correct})
+                                                                                  syllabus_point=parent,
+                                                                                  most_recent=True,
+                                                                                  defaults={'sitting': record.sitting,
+                                                                                            'attempted_plus_children': delta_attempted,
+                                                                                            'correct_plus_children': delta_correct})
         if created:
+            previous = StudentSyllabusAssessmentRecord.objects.get(student=record.student,
+                                                                                  syllabus_point=parent,
+                                                                                  most_recent=True)
             previous.set_calculated_fields()
             continue
         else:
+            # Todo: remove debug statement
+            records = list(StudentSyllabusAssessmentRecord.objects.all())
             student_record, created = StudentSyllabusAssessmentRecord.objects.get_or_create(student=record.student,
-                                                                                   syllabus_point=parent,
-                                                                                   sitting=record.sitting)
+                                                                                            syllabus_point=parent,
+                                                                                            sitting=record.sitting)
+            # Here be dragons again! We need to refresh the db because we have to automatically set the order.
+            student_record = StudentSyllabusAssessmentRecord.objects.get(student=record.student,
+                                                                         syllabus_point=parent,
+                                                                         sitting=record.sitting)
             student_record.attempted_plus_children = previous.attempted_plus_children + delta_attempted
             student_record.correct_plus_children = previous.correct_plus_children + delta_correct
             student_record.set_calculated_fields()
-
 
 
 post_save.connect(syllabus_record_created, sender=StudentSyllabusAssessmentRecord)
@@ -414,5 +431,3 @@ class CSVDoc(models.Model):
     description = models.CharField(max_length=255, blank=True)
     document = models.FileField(upload_to='documents/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
-
-
