@@ -533,6 +533,75 @@ class StudentSyllabusAssessmentRecordTestCase(TestCase):
                                                                      text='first child'))
         self.assertEqual(newest.most_recent, True)
 
+    def test_add_sitting_when_newer_exist(self):
+        """ This is necessary to check behaviour when importing exams or if students
+        enter exam data after another exam."""
+        student = Student.objects.create()
+
+        # - Root
+        #   - First child
+        #     - First grandchild
+        #     - Second grandchile
+        #   - Second child
+        #     - Third grandchild
+        #     - Fourth grandchild
+
+        r = Syllabus.objects.create(text='r')
+        c1 = Syllabus.objects.create(parent=r, text='c1')
+        g1 = Syllabus.objects.create(parent=c1, text='g1')
+        g2 = Syllabus.objects.create(parent=c1, text='g2')
+        c2 = Syllabus.objects.create(parent=r, text='c2')
+        g3 = Syllabus.objects.create(parent=c2, text='g3')
+        g4 = Syllabus.objects.create(parent=c2, text='g4')
+
+        # Add a future exam and sitting:
+        e1 = Exam.objects.create()
+        s_future = Sitting.objects.create(date=datetime.date.today() + datetime.timedelta(days=1),
+                                          exam=e1)
+        s_today = Sitting.objects.create(exam=e1)
+
+        q1 = Question.objects.create(exam=e1,
+                                     order=1,
+                                     number='1',
+                                     max_score=5)
+        q1.syllabus_points.add(g1)
+
+        m1 = Mark.objects.create(student=student,
+                                 question=q1,
+                                 sitting=s_future,
+                                 score=5)
+
+        record = StudentSyllabusAssessmentRecord.objects.get(most_recent=True,
+                                                             syllabus_point=g1,
+                                                             student=student)
+
+        self.assertEqual(record.rating, 5)
+
+        # Now add a past exam:
+
+        m2 = Mark.objects.create(student=student,
+                                 question=q1,
+                                 sitting=s_today,
+                                 score=0)
+        # Check that a new record has been created:
+        self.assertEqual(StudentSyllabusAssessmentRecord.objects.filter(student=student,
+                                                                        syllabus_point=g1).count(), 2)
+        # refresh from db:
+        record = StudentSyllabusAssessmentRecord.objects.get(most_recent=True,
+                                                             syllabus_point=g1,
+                                                             student=student)
+
+        self.assertEqual(record.rating, 2.5)
+
+        # We should also have one other assessment record:
+        self.assertEqual(record.order, 2)
+
+        older = StudentSyllabusAssessmentRecord.objects.get(syllabus_point=g1,
+                                                            student=student,
+                                                            order=1)
+        self.assertEqual(older.rating, 0)
+
+
 
 class CollectRatingsTestCase(TestCase):
     def test_ratings(self):
@@ -784,7 +853,7 @@ class SyllabusReportingTestCase(TestCase):
         # - Root
         #   - First child
         #     - First grandchild
-        #     - Second grandchile
+        #     - Second grandchild
         #   - Second child
         #     - Third grandchild
         #     - Fourth grandchild
@@ -817,6 +886,15 @@ class SyllabusReportingTestCase(TestCase):
                                  question=q1,
                                  score=5)
 
+        #                              Att   Corr    Rtg     0-1  1-2  2-3  3-4  4-5
+        # - Root                       10     8       4      0    0    3    0    3
+        #   - First child              10     8       4      0    0    2    0    2
+        #     - First grandchild       10     8       5      0    0    1    0    1
+        #     - Second grandchild      n/a
+        #   - Second child
+        #     - Third grandchild
+        #     - Fourth grandchild
+
         stats = g1.cohort_stats(Student.objects.all())
 
         # Test G1 reports corretly:
@@ -824,19 +902,19 @@ class SyllabusReportingTestCase(TestCase):
         self.assertEqual(g1.cohort_stats(Student.objects.all())['rating'], 4.0)
         self.assertEqual(g1.cohort_stats(Student.objects.all())['children_0_1'], 0)
         self.assertEqual(g1.cohort_stats(Student.objects.all())['children_1_2'], 0)
-        self.assertEqual(g1.cohort_stats(Student.objects.all())['children_2_3'], 0)
+        self.assertEqual(g1.cohort_stats(Student.objects.all())['children_2_3'], 1)
         self.assertEqual(g1.cohort_stats(Student.objects.all())['children_3_4'], 0)
-        self.assertEqual(g1.cohort_stats(Student.objects.all())['children_4_5'], 0)
+        self.assertEqual(g1.cohort_stats(Student.objects.all())['children_4_5'], 1)
 
         #Check that parents are reported correctly:
-
+        stats = c1.cohort_stats(Student.objects.all())
         self.assertEqual(c1.cohort_stats(Student.objects.all())['percentage'], 80)
         self.assertEqual(c1.cohort_stats(Student.objects.all())['rating'], 4.0)
         self.assertEqual(c1.cohort_stats(Student.objects.all())['children_0_1'], 0)
         self.assertEqual(c1.cohort_stats(Student.objects.all())['children_1_2'], 0)
-        self.assertEqual(c1.cohort_stats(Student.objects.all())['children_2_3'], 1)
+        self.assertEqual(c1.cohort_stats(Student.objects.all())['children_2_3'], 2)
         self.assertEqual(c1.cohort_stats(Student.objects.all())['children_3_4'], 0)
-        self.assertEqual(c1.cohort_stats(Student.objects.all())['children_4_5'], 1)
+        self.assertEqual(c1.cohort_stats(Student.objects.all())['children_4_5'], 2)
 
         # Check that grandparents are reported correctly:
         # NB: This will be 2 for each, since there is one rating at child and one at
@@ -846,9 +924,9 @@ class SyllabusReportingTestCase(TestCase):
         self.assertEqual(r.cohort_stats(Student.objects.all())['rating'], 4.0)
         self.assertEqual(r.cohort_stats(Student.objects.all())['children_0_1'], 0)
         self.assertEqual(r.cohort_stats(Student.objects.all())['children_1_2'], 0)
-        self.assertEqual(r.cohort_stats(Student.objects.all())['children_2_3'], 2)
+        self.assertEqual(r.cohort_stats(Student.objects.all())['children_2_3'], 3)
         self.assertEqual(r.cohort_stats(Student.objects.all())['children_3_4'], 0)
-        self.assertEqual(r.cohort_stats(Student.objects.all())['children_4_5'], 2)
+        self.assertEqual(r.cohort_stats(Student.objects.all())['children_4_5'], 3)
 
         # Create a different score on a different group:
         q2 = Question.objects.create(exam=exam1,
@@ -866,12 +944,21 @@ class SyllabusReportingTestCase(TestCase):
                                     question=q2,
                                     score=1) # 11%, 0.6 rating
 
+        #                              Att   Corr    Rtg     0-1  1-2  2-3  3-4  4-5
+        # - Root                       28     13     2.31    3    0    5    0    3
+        #   - First child              10     8       4      0    0    2    0    2
+        #     - First grandchild       10     8       5      0    0    1    0    1
+        #     - Second grandchild      n/a
+        #   - Second child             18     5       1.3    2    0    2    0    0
+        #     - Third grandchild       18     5       1.3    1    0    1    0    0
+        #     - Fourth grandchild
+
         stats = g3.cohort_stats(Student.objects.all())
         self.assertEqual(stats['percentage'], 27.5)
         self.assertEqual(stats['rating'], 1.375)
-        self.assertEqual(stats['children_0_1'], 0)
+        self.assertEqual(stats['children_0_1'], 1)
         self.assertEqual(stats['children_1_2'], 0)
-        self.assertEqual(stats['children_2_3'], 0)
+        self.assertEqual(stats['children_2_3'], 1)
         self.assertEqual(stats['children_3_4'], 0)
         self.assertEqual(stats['children_4_5'], 0)
 
@@ -879,9 +966,9 @@ class SyllabusReportingTestCase(TestCase):
         stats = c2.cohort_stats(Student.objects.all())
         self.assertEqual(stats['percentage'], 27.5)
         self.assertEqual(stats['rating'], 1.375)
-        self.assertEqual(stats['children_0_1'], 1)
+        self.assertEqual(stats['children_0_1'], 2)
         self.assertEqual(stats['children_1_2'], 0)
-        self.assertEqual(stats['children_2_3'], 1)
+        self.assertEqual(stats['children_2_3'], 2)
         self.assertEqual(stats['children_3_4'], 0)
         self.assertEqual(stats['children_4_5'], 0)
 
@@ -892,7 +979,7 @@ class SyllabusReportingTestCase(TestCase):
         self.assertEqual(stats['rating'], 2.325)
         self.assertEqual(stats['children_0_1'], 2)
         self.assertEqual(stats['children_1_2'], 0)
-        self.assertEqual(stats['children_2_3'], 4)
+        self.assertEqual(stats['children_2_3'], 6)
         self.assertEqual(stats['children_3_4'], 0)
         self.assertEqual(stats['children_4_5'], 2)
 
@@ -918,7 +1005,7 @@ class SyllabusReportingTestCase(TestCase):
         self.assertEqual(stats['children_0_1'], 0)
         self.assertEqual(stats['children_1_2'], 0)
         self.assertEqual(stats['children_2_3'], 0)
-        self.assertEqual(stats['children_3_4'], 0)
+        self.assertEqual(stats['children_3_4'], 1)
         self.assertEqual(stats['children_4_5'], 0)
 
         # Now test for a new assessment
@@ -944,5 +1031,5 @@ class SyllabusReportingTestCase(TestCase):
         self.assertEqual(stats['children_1_2'], 0)
         self.assertEqual(stats['children_2_3'], 0)
         self.assertEqual(stats['children_3_4'], 0)
-        self.assertEqual(stats['children_4_5'], 0)
+        self.assertEqual(stats['children_4_5'], 1)
 

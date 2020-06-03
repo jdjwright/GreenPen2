@@ -207,6 +207,13 @@ class Mark(models.Model):
                                                                  syllabus_point=point,
                                                                  sitting=self.sitting)
             set_assessment_record_chain(record)
+            # If the record chain was not the most recent, we also need to re-set
+            # the records that came after it:
+            if not record.most_recent:
+                for newerrec in StudentSyllabusAssessmentRecord.objects.filter(student=self.student,
+                                                                             syllabus_point=point,
+                                                                             sitting__date__gte=record.sitting.date):
+                    set_assessment_record_chain(newerrec)
 
 
 class StudentSyllabusAssessmentRecord(models.Model):
@@ -292,12 +299,17 @@ def syllabus_record_created(sender, instance, created, **kwargs):
             i += -1
             competitor.save()
         most_recent_competitor = competitors[0]
+        if instance.pk == most_recent_competitor.pk: # Don't use just == as might have changed flags
+            newer_reset_reqd = False
+        else:
+            newer_reset_reqd = True
         most_recent_competitor.most_recent = True
         most_recent_competitor.save()
 
         # Refresh from DB so that we don't send back the old instance with the wrong date and order:
         instance = StudentSyllabusAssessmentRecord.objects.get(pk=instance.pk)
-        return instance
+
+        return instance, newer_reset_reqd
 
 
 def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.none()):
@@ -327,8 +339,6 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
             old_attempted_plus_children = previous_record.attempted_plus_children
             old_correct_plus_children = previous_record.correct_plus_children
         except ObjectDoesNotExist:
-            # We shouldn't ever get here, since we should have filtered out earlier ones, but just in case...
-            print("Failed when record pk was " + str(record.pk))
             old_attempted_plus_children = record.attempted_plus_children
             old_correct_plus_children = record.correct_plus_children
     # 1. Set the levels for the current assessment record
@@ -420,7 +430,7 @@ class StudentSyllabusManualTeacherRecord(models.Model):
 
 
 def student_mark_changed(sender, instance=Mark.objects.none(), **kwargs):
-    if instance.score:
+    if instance.score is not None:
         instance.set_student_syllabus_assessment_records()
 
 
