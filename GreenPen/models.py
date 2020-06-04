@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from mptt.models import MPTTModel, TreeForeignKey, TreeManyToManyField
 import datetime
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import IntegrityError, transaction
 
 
 class Person(models.Model):
@@ -292,12 +293,26 @@ def syllabus_record_created(sender, instance, created, **kwargs):
             '-sitting__date')
         # This should order with most recent first
 
-        i = competitors.count()
+        # todo: remove debug
+        comp_list=list(competitors)
+        total_comps = competitors.count()
+        i = total_comps  # maximum order number
+        j = 1 # used for duplicate competior order number; needs to increment after a clash.
+        # We can run into trouble here if we set a compeitor when another already has that order.
+
         for competitor in competitors:
             competitor.most_recent = False
             competitor.order = i
             i += -1
-            competitor.save()
+            try:
+                with transaction.atomic():
+                    competitor.save()
+            except IntegrityError:  # This occurs if we try to write a new order number when another has it.
+                other = competitors.get(order=competitor.order)
+                other.order = (total_comps + j)
+                j += 1
+                other.save()
+                competitor.save()
         most_recent_competitor = competitors[0]
         if instance.pk == most_recent_competitor.pk: # Don't use just == as might have changed flags
             newer_reset_reqd = False
@@ -396,7 +411,6 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
             continue
         else:
             # Todo: remove debug statement
-            records = list(StudentSyllabusAssessmentRecord.objects.all())
             student_record, created = StudentSyllabusAssessmentRecord.objects.get_or_create(student=record.student,
                                                                                             syllabus_point=parent,
                                                                                             sitting=record.sitting)

@@ -148,3 +148,14 @@ class StudentAssessmentForPoint(TeacherOnlyMixin, ListView):
         student = get_object_or_404(Student, pk=self.kwargs['student_pk'])
         return StudentSyllabusAssessmentRecord.objects.filter(student=student,
                                                               syllabus_point=syllabus)
+
+
+class ClassAssessmentForPoint(TeacherOnlyMixin, ListView):
+
+    template_name = 'GreenPen/class_assessment_list.html'
+
+    def get_queryset(self):
+        syllabus = get_object_or_404(Syllabus, pk=self.kwargs['syllabus_pk'])
+        group = get_object_or_404(TeachingGroup, pk=self.kwargs['group_pk'])
+        return StudentSyllabusAssessmentRecord.objects.filter(student__in=group.students.all(),
+                                                              syllabus_point=syllabus)

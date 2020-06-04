@@ -532,6 +532,46 @@ class StudentSyllabusAssessmentRecordTestCase(TestCase):
                                                                  syllabus_point=Syllabus.objects.get(
                                                                      text='first child'))
         self.assertEqual(newest.most_recent, True)
+    def test_order_integrity(self):
+        # Ran into a problem with integrity errors when we set up a new sitting
+        # after other sittings, so that when the ordering was set it tried to save one with
+        # an order that already existed.
+
+        # E.g, set up existing order: 1, 2, 3, 4, 5
+        st = Student.objects.create()
+        e1 = Exam.objects.create()
+        q1 = Question.objects.create(order=1,
+                                     exam=e1,
+                                     number='1',
+                                     max_score=3)
+        pt = Syllabus.objects.create()
+        q1.syllabus_points.add(pt)
+        s1 = Sitting.objects.create(exam=e1, date=datetime.date.today())
+        m1 = Mark.objects.create(student=st, question=q1, sitting=s1, score=1)
+        s2 = Sitting.objects.create(exam=e1, date=datetime.date.today() + datetime.timedelta(days=1))
+        m2 = Mark.objects.create(student=st, question=q1, sitting=s2, score=1)
+        s3= Sitting.objects.create(exam=e1, date=datetime.date.today() + datetime.timedelta(days=2))
+        m3 = Mark.objects.create(student=st, question=q1, sitting=s3, score=1)
+        self.assertEqual(StudentSyllabusAssessmentRecord.objects.get(order=3,
+                                                                     student=st,
+                                                                     syllabus_point=pt).sitting.date,
+                         datetime.date.today() + datetime.timedelta(days=2))
+        s4 = Sitting.objects.create(exam=e1, date=datetime.date.today() + datetime.timedelta(days=3))
+        m4 = Mark.objects.create(student=st, question=q1, sitting=s4, score=1)
+        s5 = Sitting.objects.create(exam=e1, date=datetime.date.today() + datetime.timedelta(days=4))
+        m5 = Mark.objects.create(student=st, question=q1, sitting=s5, score=1)
+
+
+        # Add a new one at order number 3:
+
+        s6 = Sitting.objects.create(exam=e1, date=datetime.date.today() + datetime.timedelta(days=2.1))
+        m6 = Mark.objects.create(student=st, question=q1, sitting=s6, score=1)
+        records = StudentSyllabusAssessmentRecord.objects.filter(student=st,
+                                                                syllabus_point=pt)
+        self.assertEqual(records.count(), 6)
+        self.assertEqual(records.get(order=3).sitting.date, s6.date)
+
+
 
     def test_add_sitting_when_newer_exist(self):
         """ This is necessary to check behaviour when importing exams or if students

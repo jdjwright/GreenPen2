@@ -102,7 +102,7 @@ def import_marks_from_csv(path):
         next(qs, None)
 
         for row in qs:
-            print('Adding ' + str(row[1]))
+            print('Adding ' + str(row))
             try:
                 float(row[2])
             except ValueError:
@@ -113,6 +113,7 @@ def import_marks_from_csv(path):
                                                        sitting_id=row[3])
             except:
                 print('Failed above' + str(row))
-            mark.score = row[2]
-            mark.student_notes = row[4]
-            mark.save()
+            if mark.score is None:
+                mark.score = row[2]
+                mark.student_notes = row[4]
+                mark.save()
