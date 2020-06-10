@@ -1,0 +1,189 @@
+h1,h2,h3{
+    color: rgb(0, 0, 0);
+}
+
+table {
+  border:1px solid black;
+}
+table th {
+  border-bottom:1px solid black;
+}
+
+th.rotate {
+  height:80px;
+  white-space: nowrap;
+  position:relative;
+}
+
+th.rotate > div {
+  transform: rotate(90deg);
+  position:absolute;
+  left:0;
+  right:0;
+  top: 10px;
+  margin:auto;
+
+}
+
+.journalEntry {
+    border: 2px solid;
+    border-radius: 5px;
+}
+
+.journalText {
+    background-color: #a8a8a6;
+
+}
+
+.journalRating {
+    background-color: #d6f5fd;
+
+}
+
+.flex {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-around
+}
+
+.row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+    align-items: flex-start;
+    border: 1px
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 100%;
+  flex: 1;
+}
+
+.contact-form-cntr {
+  width: 100%;
+  border: 1px solid #00426B;
+  border-radius: 3px;
+  padding: 10px;
+  margin-bottom: 20px;
+  overflow:auto;
+}
+
+.django-ckeditor-widget {
+    width: 100%;
+    min-width: 300px;
+
+}
+
+.exam-entry-row {
+    text-align: center;
+}
+
+.score-field-warning {
+    color: red;
+}
+
+.score-warning {
+
+    display: none;
+}
+
+.max_score {
+    display: none;
+}
+
+.mark_entry {
+
+}
+
+.last-button {
+    margin: 20px;
+}
+
+.change-warning {
+    position: fixed;
+    z-index: 200;
+}
+
+/* Taken from W3Schools: https://www.w3schools.com/howto/howto_js_treeview.asp */
+.mptt_tree {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+
+}
+
+.caret {
+  cursor: pointer;
+  user-select: none; /* Prevent text selection */
+}
+
+/* Create the caret/arrow with a unicode, and style it */
+.caret::before {
+  content: "\25B6";
+  color: black;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+/* Rotate the caret/arrow icon when clicked on (using JavaScript) */
+.caret-down::before {
+  transform: rotate(90deg);
+}
+
+/* Hide the nested list */
+.nested {
+  display: none;
+}
+
+/* Show the nested list when the user clicks on the caret/arrow (with JavaScript) */
+.active {
+  display: block;
+}
+
+.has-children{
+    list-style-type: none;
+}
+
+.no-children{
+    list-style-type: none;
+}
+
+/* dal bootstrap css fix */
+.select2-container {
+    width: 100% !important;
+    min-width: 10em !important;
+}
+/* django-addanother bootstrap css fix */
+.related-widget-wrapper{
+    padding-right: 16px;
+    position: relative;
+}
+.related-widget-wrapper-link{
+    position: absolute;
+    top: 3px;
+    right: 0px;
+}
+.select2-selection--single {
+  height: 100% !important;
+}
+.select2-selection__rendered{
+  word-wrap: break-word !important;
+  text-overflow: inherit !important;
+  white-space: normal !important;
+}
+
+
+
+.mptt-radio-search {
+  flex-basis: 40%;
+}
+
+.right {
+
+  height: 100vh;
+  overflow: auto;
+}

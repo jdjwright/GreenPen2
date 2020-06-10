@@ -1,9 +1,10 @@
 from GreenPen.models import Student
 from django.views.generic.list import ListView, View
-
-from django.shortcuts import redirect, render, get_object_or_404
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import redirect, render, get_object_or_404, HttpResponseRedirect
+from django.forms import inlineformset_factory
 from GreenPen.functions.imports import *
-from .forms import CSVDocForm
+from .forms import *
 import os
 
 # For authenticating views
@@ -158,4 +159,49 @@ class ClassAssessmentForPoint(TeacherOnlyMixin, ListView):
         syllabus = get_object_or_404(Syllabus, pk=self.kwargs['syllabus_pk'])
         group = get_object_or_404(TeachingGroup, pk=self.kwargs['group_pk'])
         return StudentSyllabusAssessmentRecord.objects.filter(student__in=group.students.all(),
-                                                              syllabus_point=syllabus)
+                                                              syllabus_point=syllabus).order_by(
+            'sitting__date'
+        )
+
+
+class EditExamQsView(TeacherOnlyMixin, View):
+    template_name = 'GreenPen/exam_details.html'
+    syllabus_widget = autocomplete.ModelSelect2Multiple(url='syllabus-autocomplete',
+                                                                 forward=['points'],
+                                                                 )
+    setquestionsformset = inlineformset_factory(Exam, Question,
+                                                form=SetQuestions,
+                                                extra=10,
+                                                can_order=True,
+                                                can_delete=True)
+
+    def get(self, request, *args, **kwargs):
+        exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
+        form = self.setquestionsformset(instance=exam)
+        return render(request, self.template_name, {'form': form})
+
+    def post(self, request, *args, **kwargs):
+        exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
+        form = self.setquestionsformset(request.POST)
+        if form.is_valid():
+            # <process form cleaned data>
+            return HttpResponseRedirect('/success/')
+
+        return render(request, self.template_name, {'form': form})
+
+
+class ExamListView(ListView):
+    queryset = Exam.objects.none()
+
+    def get_queryset(self):
+        if self.request.user.groups.filter(name='Teachers'):
+            self.template_name = 'GreenPen/exam_list_teacher.html'
+            return Exam.objects.all()
+
+        elif self.request.user.groups.filter(name='Students'):
+            self.template_name = 'GreenPen/exam_list.html'
+            return Exam.objects.filter(sitting__students__user=self.request.user)
+
+        else:
+            raise PermissionDenied
+

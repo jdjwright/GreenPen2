@@ -167,6 +167,7 @@ class Sitting(models.Model):
     date = models.DateField(blank=False, null=False, default=datetime.date.today)
     students = models.ManyToManyField(Student)
     resets_ratings = models.BooleanField(blank=True, null=True, default=False)
+    group = models.ForeignKey(TeachingGroup, blank=True, null=True, on_delete=models.SET_NULL)
 
 
 def student_added_to_sitting(sender, instance, action, **kwargs):
@@ -293,8 +294,6 @@ def syllabus_record_created(sender, instance, created, **kwargs):
             '-sitting__date')
         # This should order with most recent first
 
-        # todo: remove debug
-        comp_list=list(competitors)
         total_comps = competitors.count()
         i = total_comps  # maximum order number
         j = 1 # used for duplicate competior order number; needs to increment after a clash.

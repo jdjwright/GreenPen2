@@ -776,8 +776,6 @@ class CollectRatingsTestCase(TestCase):
         self.assertEqual(parent.children_3_4, 2)
         self.assertEqual(parent.children_0_1, 0)
         self.assertEqual(parent.children_1_2, 0)
-        # Todo: remove debug statement
-        records = list(StudentSyllabusAssessmentRecord.objects.all())
         self.assertEqual(parent.children_2_3, 0)
         self.assertEqual(parent.children_4_5, 0)
 

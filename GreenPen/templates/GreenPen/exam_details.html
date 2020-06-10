@@ -1,0 +1,29 @@
+{% extends 'GreenPen/base.html' %}
+{% block title %}Exam Details{% endblock title %}
+{% block description %}These are the details of the exam {{ exam.name }}.{% endblock description %}
+
+{% block content %}
+
+<form method="post">
+    <h2>Questions</h2>
+
+    <p>You can use this from to create questions for your exam. If you need to re-order questions, then you can use up to two decimal places. E.g., if you want to add a question after question 4, order is 4.1. When you save the form, it will re-order them to whole numbers.</p>
+    <p>If you want to delete a question, set its order to 0 - that will delete it.</p>
+
+
+        {% csrf_token %}
+    Search syllabus points below:
+        {{ parent_form }}
+
+
+        {{ form.as_table }}
+
+                <button type="submit" class="btn btn-primary">Save</button>
+
+
+{% endblock content %}
+
+{% block script %}
+ {{ form.media }}
+    {{ parent_form.media }}
+{% endblock script %}

@@ -15,7 +15,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from GreenPen.autocomplete import StudentComplete
+from GreenPen.autocomplete import *
 from GreenPen.views import *
 
 urlpatterns = [
@@ -27,6 +27,9 @@ urlpatterns = [
     path('uploadquestions', import_questions),
     path('uploadsittings', import_sittings),
     path('uploadmarks', import_marks),
-    path('student-autocomplete/', StudentComplete.as_view(), name='student-autocomplete'),
-    path('rating-records/<int:syllabus_pk>/<int:student_pk>', StudentAssessmentForPoint.as_view(), name='student-assessment-record')
+    path('student-autocomplete', StudentComplete.as_view(), name='student-autocomplete'),
+    path('syllabus-autocomplete', SyllabusComplete.as_view(), name='syllabus-autocomplete'),
+    path('rating-records/<int:syllabus_pk>/<int:student_pk>', StudentAssessmentForPoint.as_view(), name='student-assessment-record'),
+    path('exam', ExamListView.as_view(), name='exam-list'),
+    path('exam/<int:exam>/edit', EditExamQsView.as_view(), name='edit-exam')
 ]

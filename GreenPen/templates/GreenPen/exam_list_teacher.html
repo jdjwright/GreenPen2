@@ -1,0 +1,17 @@
+{% extends 'GreenPen/base.html' %}
+{% load auth_extras %}
+{% block content %}
+    <h1>Exam list</h1>
+
+    <ul class="list-group">
+        {% for exam in object_list %}
+            <a href="{% if request.user|has_group:'Teachers' %}{% url 'edit-exam' exam.pk %}{% else %}#{% endif %}" class="list-group-item d-flex justify-content-between align-items-center">{{ exam.name }}
+                <ul>
+                    {% for sitting in exam.sitting_set.all %}
+                        <li><strong>{{ sitting.date }}</strong>: {{ sitting.teachingroup }}</li>
+                    {% endfor %}
+                </ul><span class="badge badge-primary badge-pill">{{ exam.total_score }}</span></a>
+        {% endfor %}
+    </ul>
+
+{% endblock content %}
