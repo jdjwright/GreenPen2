@@ -169,6 +169,34 @@ class Sitting(models.Model):
     resets_ratings = models.BooleanField(blank=True, null=True, default=False)
     group = models.ForeignKey(TeachingGroup, blank=True, null=True, on_delete=models.SET_NULL)
 
+    def __str__(self):
+        return str(self.exam) + " " + str(self.date) + "(" + str(self.pk) + ")"
+
+    def avg_percent(self):
+        student_marks = Mark.objects.filter(sitting=self,
+                                            score__isnull=False)
+        if student_marks.count():
+            data = student_marks.aggregate(scored=Sum('score'), total=Sum('question__max_score'))
+            return int(data['scored'] / data['total'] * 100)
+        else:
+            return "No scores"
+
+    def avg_pc_badge_class(self):
+        if self.avg_percent() == "No scores":
+            return "badge-secondary"
+        if self.avg_percent() < 20:
+            return "badge-danger"
+        elif self.avg_percent() < 40:
+            return "badge-warning"
+        elif self.avg_percent() < 60:
+            return "badge-info"
+        elif self.avg_percent() < 80:
+            return "badge-primary"
+        elif self.avg_percent() <= 100:
+            return "badge-success"
+        else:
+            return "badge-secondary"
+
 
 def student_added_to_sitting(sender, instance, action, **kwargs):
     if action == 'post_add':

@@ -56,12 +56,6 @@ th.rotate > div {
     border: 1px
 }
 
-.column {
-  display: flex;
-  flex-direction: column;
-  flex-basis: 100%;
-  flex: 1;
-}
 
 .contact-form-cntr {
   width: 100%;
@@ -186,4 +180,24 @@ th.rotate > div {
 
   height: 100vh;
   overflow: auto;
+}
+
+.exam-order {
+    display: none;
+
+}
+
+.question {
+    margin-bottom: 20px;
+}
+
+.savebar {
+    position: fixed;
+  left: -20px;
+  bottom: 20px;
+  width: 100%;
+}
+
+.empty-question {
+    display: none
 }

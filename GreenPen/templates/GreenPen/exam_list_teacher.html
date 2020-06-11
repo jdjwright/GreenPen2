@@ -3,15 +3,25 @@
 {% block content %}
     <h1>Exam list</h1>
 
-    <ul class="list-group">
+    <div class="card-group">
         {% for exam in object_list %}
-            <a href="{% if request.user|has_group:'Teachers' %}{% url 'edit-exam' exam.pk %}{% else %}#{% endif %}" class="list-group-item d-flex justify-content-between align-items-center">{{ exam.name }}
-                <ul>
-                    {% for sitting in exam.sitting_set.all %}
-                        <li><strong>{{ sitting.date }}</strong>: {{ sitting.teachingroup }}</li>
-                    {% endfor %}
-                </ul><span class="badge badge-primary badge-pill">{{ exam.total_score }}</span></a>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body align-items-top">
+                        <a href="{% url 'edit-exam' exam.pk %}" class="card-title">{{ exam.name }}</a>
+                    </div>
+                        <ul class="list-group list-group-flush align-self-stretch">
+                            {% for sitting in exam.sitting_set.all %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">{{ sitting.date }}: {{ sitting.teachingroup }}
+                                <span class="badge {{ sitting.avg_pc_badge_class }} badge-pill">{{ sitting.avg_percent }}</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+            </div>
         {% endfor %}
-    </ul>
+    </div>
+
+
 
 {% endblock content %}

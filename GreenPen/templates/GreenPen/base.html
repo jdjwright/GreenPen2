@@ -97,19 +97,10 @@
     {% endfor %}
 {% endif %}
 </div>
-<div class="container">
-    <h5>{% block title %}{% endblock title %}</h5>
-</div>
-
-<div class="container">
-    <h3>{% block description %}{% endblock description %}</h3>
-</div>
-
-<div class="container">
+<div class="container-fluid">
     {% block content %}
     {% endblock content %}
 </div>
-
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
         integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
