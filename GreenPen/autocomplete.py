@@ -25,7 +25,7 @@ class SyllabusComplete(autocomplete.Select2QuerySetView):
         qs = Syllabus.objects.all()
 
         if self.forwarded.get('points', None):
-            qs = qs.get(parent__pk=self.forwarded.get('points')).get_descendants()
+            qs = qs.get(pk=self.forwarded.get('points')).get_descendants()
 
         if self.q:
             qs = qs.filter(text__icontains=self.q)

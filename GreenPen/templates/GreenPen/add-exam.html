@@ -1,0 +1,17 @@
+{% extends 'GreenPen/base.html' %}
+
+{% block content %}
+<h1>Add an Exam</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p}}
+           <div class="savebar">
+        <button type="submit" class="btn btn-success float-right">Save</button>
+   </div>
+    </form>
+
+{% endblock %}
+
+{% block script %}
+{{ form.media }}
+{% endblock %}

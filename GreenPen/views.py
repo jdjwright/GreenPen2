@@ -1,10 +1,12 @@
 from GreenPen.models import Student
 from django.views.generic.list import ListView, View
+from django.views.generic.edit import CreateView
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import redirect, render, get_object_or_404, HttpResponseRedirect
+from django.shortcuts import redirect, render, get_object_or_404, reverse
 from django.forms import inlineformset_factory
 from GreenPen.functions.imports import *
 from .forms import *
+from .widgets import *
 import os
 
 # For authenticating views
@@ -175,22 +177,39 @@ class EditExamQsView(TeacherOnlyMixin, View):
                                                 can_order=False,
                                                 can_delete=True)
 
+    parent_form = SyllabusChoiceForm()
+
     def get(self, request, *args, **kwargs):
+
         exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
+
+        # Add an extra blank if we have no questions added:
+        if not exam.question_set.count():
+            self.setquestionsformset = inlineformset_factory(Exam, Question,
+                                                        form=SetQuestions,
+                                                        extra=1,
+                                                        can_order=False,
+                                                        can_delete=True)
+
         form = self.setquestionsformset(instance=exam)
-        return render(request, self.template_name, {'form': form})
+        return render(request, self.template_name, {'form': form,
+                                                    'parent_form': self.parent_form})
 
     def post(self, request, *args, **kwargs):
         exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
         form = self.setquestionsformset(request.POST, instance=exam)
         if form.is_valid():
             # <process form cleaned data>
+            for q in form.deleted_forms:
+                question = q.cleaned_data['id'].delete()
             form.save()
+            return redirect(reverse('edit-exam', args=(exam.pk,)))
 
-        return render(request, self.template_name, {'form': form})
+        return render(request, self.template_name, {'form': form,
+                                                    'parent_form': self.parent_form})
 
 
-class ExamListView(ListView):
+class ExamListView(TeacherOnlyMixin, ListView):
     queryset = Exam.objects.none()
 
     def get_queryset(self):
@@ -205,3 +224,8 @@ class ExamListView(ListView):
         else:
             raise PermissionDenied
 
+
+class AddExam(TeacherOnlyMixin, CreateView):
+    template_name = 'Greenpen/add-exam.html'
+    form_class = AddExamForm
+    model = Exam

@@ -1,0 +1,1 @@
+{% include "GreenPen/mptt_input.html" %} {% if widget.has_children %}<span class="caret">{% endif %}{% if widget.wrap_label %}<label{% if widget.attrs.id %} for="{{ widget.attrs.id }}"{% endif %}>{% endif %}{% if widget.wrap_label %} {{ widget.label }}</label>{% endif %}{% if widget.has_children %}</span>{% endif %}

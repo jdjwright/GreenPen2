@@ -10,13 +10,12 @@
 <form method="post">
     <h2>Questions</h2>
 
-    <p>You can use this from to create questions for your exam. If you need to re-order questions, then you can use up to two decimal places. E.g., if you want to add a question after question 4, order is 4.1. When you save the form, it will re-order them to whole numbers.</p>
-    <p>If you want to delete a question, set its order to 0 - that will delete it.</p>
+    <p>Use this for to add questions to an exam. To search within a particular syllabus point, select a point from the tree on the left. This will restrict the searches to just your syllabus point.</p>
 
 
         {% csrf_token %}
     Search syllabus points below:
-        {{ parent_form|crispy }}
+
         {{ form.management_form }}
 {{ form.non_field_errors }}
 
@@ -24,29 +23,34 @@
     {{ hidden_field.errors }}
     {{ hidden_field }}
   {% endfor %}
-        {% for subform in form.forms %}
-            <div class="row question">
+ <div class="row">
+                <div class="col-sm-6 parent-form">
+                {{ parent_form }}
+                </div>
+                <div class="col-sm-6 question-div">
+        {% for subform in form.forms %}<div class="row question">
             <div class="col">
             <div class="card">
                 <div class="row">
-                <div class="col-sm-11">
+                <div class="col-sm-10">
                     <div class="row"><br>{{ subform.order.errors }}
                         <div class="exam-order">{{ subform.order }}</div><div class="exam-delete">{{ subform.DELETE }}</div>{{ subform.exam }}{{ subform.id }}
-                        <div class="col-md-6">
+                        <div class="col-sm-6">
                             {{ subform.number|as_crispy_field }}<br>{{ subform.number.errors }}
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-sm-6">
                             {{ subform.max_score|as_crispy_field }}<br>{{ subform.max_score.errors }}
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col">
+                        <div class="col-sm-12">
                             {{ subform.syllabus_points }}<br>{{ subform.syllabus_points.errors }}
                         </div>
                     </div>
                 </div>
 
-                <div class="col-xs-1 question-controls">
+                <div class="col-xs-2 question-controls">
+
                     <div class="up-arrow">
                         <button type="button" class="btn btn-primary up-button">
                         <svg class="bi bi-arrow-up-square" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -86,8 +90,9 @@
             </div>
             </div>
             </div>
-            </div>
-        {% endfor %}
+            </div>{% endfor %}
+                </div>
+ </div>
         <div class="savebar">
                   <button type="button" class="btn btn-primary float-right" id="add-question">+</button>
 

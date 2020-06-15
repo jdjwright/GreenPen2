@@ -139,13 +139,16 @@ class Exam(models.Model):
     def __str__(self):
         return self.name
 
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse('edit-exam', args=[str(self.id)])
 
 class Question(models.Model):
     exam = models.ForeignKey(Exam, blank=False, null=False, on_delete=models.CASCADE)
     order = models.FloatField(blank=False, null=False)
     number = models.CharField(max_length=10, blank=False, null=False)
-    max_score = models.FloatField(blank=True, null=True)
-    syllabus_points = TreeManyToManyField(Syllabus)
+    max_score = models.FloatField(blank=False, null=True)
+    syllabus_points = TreeManyToManyField(Syllabus, blank=True)
 
     class Meta:
         ordering = ['order']

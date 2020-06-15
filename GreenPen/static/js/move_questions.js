@@ -1,4 +1,4 @@
-$(".up-button").click(function() {
+$(document).on('click',".up-button", function() {
     let question_div = $(this).closest($('.question'));
     let order_box = question_div.find($('.exam-order input'));
     let current = order_box.val();
@@ -15,7 +15,7 @@ $(".up-button").click(function() {
     swapped_box.val(Number(current)+1);
 });
 
-$(".down-button").click(function() {
+$(document).on('click',".down-button", function() {
     let question_div = $(this).closest($('.question'));
     let order_box = question_div.find($('.exam-order input'));
     let current = order_box.val();
@@ -34,7 +34,7 @@ $(".down-button").click(function() {
     swapped_box.val(Number(current)-1);
 });
 
-$(".insert-button").click(function() {
+$(document).on('click',".insert-button", function() {
     let empty_q = $("#empty-question");
     let form_idx = $('#id_question_set-TOTAL_FORMS').val();
     let current_q = $(this).closest($('.question'));
@@ -56,7 +56,7 @@ $(".insert-button").click(function() {
     })
 });
 
-$(".delete-button").click(function(){
+$(document).on('click',".delete-button", function(){
     let current_q = $(this).closest($('.question'));
     current_q.find('.exam-delete input').prop('checked', true);
     current_q.nextUntil($('#empty-question')).each(function() {
