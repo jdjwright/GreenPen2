@@ -34,8 +34,34 @@ $(".down-button").click(function() {
     swapped_box.val(Number(current)-1);
 });
 
-$("#add-question").click(function() {
+$(".insert-button").click(function() {
     let empty_q = $("#empty-question");
-    let total_qs = $('.question').length;
-    let last = $().find()
+    let form_idx = $('#id_question_set-TOTAL_FORMS').val();
+    let current_q = $(this).closest($('.question'));
+    let current_order_box = current_q.find('.exam-order input');
+    let newq = empty_q.clone(true).insertAfter(current_q);
+    newq.html().replace(/__prefix__/g, form_idx);
+    let debug = newq.html();
+    let debug1 = newq.html().replace(/__prefix__/g, form_idx);
+    newq.html(debug1);
+    newq.removeClass('empty-question').addClass('question');
+
+    $('#id_question_set-TOTAL_FORMS').val(parseInt(form_idx) + 1);
+
+    let new_order_box = newq.find($('.exam-order input'));
+    new_order_box.val(Number(current_order_box.val()) +1);
+    newq.nextUntil($('#empty-question')).each(function() {
+        let order_box = $(this).find('.exam-order input');
+        order_box.val(Number(order_box.val())+1);
+    })
 });
+
+$(".delete-button").click(function(){
+    let current_q = $(this).closest($('.question'));
+    current_q.find('.exam-delete input').prop('checked', true);
+    current_q.nextUntil($('#empty-question')).each(function() {
+        let order_box = $(this).find('.exam-order input');
+        order_box.val(Number(order_box.val())-1);
+    })
+    current_q.addClass('deleted-question')
+})

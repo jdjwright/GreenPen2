@@ -183,7 +183,6 @@ th.rotate > div {
 }
 
 .exam-order {
-    display: none;
 
 }
 
@@ -196,8 +195,21 @@ th.rotate > div {
   left: -20px;
   bottom: 20px;
   width: 100%;
+    z-index: 1;
 }
 
 .empty-question {
-    display: none
+
+}
+
+.question-controls {
+    flex-direction: column;
+    align-items: center;
+    align-self: center;
+    margin: 20px;
+
+}
+
+.deleted-question {
+    display: none;
 }

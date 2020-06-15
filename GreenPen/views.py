@@ -172,7 +172,7 @@ class EditExamQsView(TeacherOnlyMixin, View):
     setquestionsformset = inlineformset_factory(Exam, Question,
                                                 form=SetQuestions,
                                                 extra=0,
-                                                can_order=True,
+                                                can_order=False,
                                                 can_delete=True)
 
     def get(self, request, *args, **kwargs):
@@ -185,7 +185,7 @@ class EditExamQsView(TeacherOnlyMixin, View):
         form = self.setquestionsformset(request.POST, instance=exam)
         if form.is_valid():
             # <process form cleaned data>
-            return HttpResponseRedirect('/success/')
+            form.save()
 
         return render(request, self.template_name, {'form': form})
 

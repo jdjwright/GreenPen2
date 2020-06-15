@@ -23,13 +23,14 @@ class CSVDocForm(forms.ModelForm):
 class SetQuestions(forms.ModelForm):
     class Meta:
         model = Question
-        fields = ['number', 'max_score', 'syllabus_points', ]
+        fields = ['number', 'max_score', 'syllabus_points', 'order', 'id']
         widgets = {
             'syllabus_points': autocomplete.ModelSelect2Multiple(url='syllabus-autocomplete',
                                                                  forward=['points'],
                                                                  ),
-            #'exam': forms.HiddenInput(),
-            #'order': forms.NumberInput(attrs={'class': 'form-control'}),
+            'exam': forms.HiddenInput(),
+            'id': forms.HiddenInput(),
+            'order': forms.NumberInput(attrs={'class': 'form-control'}),
             #'number': forms.TextInput(attrs={'class': 'form-control'}),
             #'max_score': forms.NumberInput(attrs={'class': 'form-control'}),
         }
