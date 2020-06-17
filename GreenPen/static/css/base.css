@@ -218,3 +218,14 @@ th.rotate > div {
 .exam-delete {
     display: none;
 }
+
+.question-div {
+    overflow-y: scroll;
+
+}
+
+.question-form {
+    margin: 0;
+    overflow: hidden;
+    height: 100%;
+}

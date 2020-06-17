@@ -46,7 +46,7 @@ class TreeSelect(forms.RadioSelect):
         js = ('js/mptt_radio_collapse_list_view.js',)
 
     template_name = 'GreenPen/treeselectmultiple.html'
-    option_template_name = 'Greenpen/treecheckbox.html'
+    option_template_name = 'GreenPen/treecheckbox.html'
     level_indicator = ''
 
     def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):

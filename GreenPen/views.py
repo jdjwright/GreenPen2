@@ -1,5 +1,6 @@
 from GreenPen.models import Student
 from django.views.generic.list import ListView, View
+from django.http import JsonResponse
 from django.views.generic.edit import CreateView
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect, render, get_object_or_404, reverse
@@ -173,23 +174,24 @@ class EditExamQsView(TeacherOnlyMixin, View):
                                                                  )
     setquestionsformset = inlineformset_factory(Exam, Question,
                                                 form=SetQuestions,
-                                                extra=0,
+                                                extra=50,
                                                 can_order=False,
                                                 can_delete=True)
 
     parent_form = SyllabusChoiceForm()
 
+
     def get(self, request, *args, **kwargs):
 
         exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
 
-        # Add an extra blank if we have no questions added:
-        if not exam.question_set.count():
-            self.setquestionsformset = inlineformset_factory(Exam, Question,
-                                                        form=SetQuestions,
-                                                        extra=1,
-                                                        can_order=False,
-                                                        can_delete=True)
+        # # Add an extra blank if we have no questions added:
+        # if not exam.question_set.count():
+        #     self.setquestionsformset = inlineformset_factory(Exam, Question,
+        #                                                 form=SetQuestions,
+        #                                                 extra=1,
+        #                                                 can_order=False,
+        #                                                 can_delete=True)
 
         form = self.setquestionsformset(instance=exam)
         return render(request, self.template_name, {'form': form,
@@ -229,3 +231,9 @@ class AddExam(TeacherOnlyMixin, CreateView):
     template_name = 'Greenpen/add-exam.html'
     form_class = AddExamForm
     model = Exam
+
+
+def send_syllabus_children(request, syllabus_pk):
+    points = Syllabus.objects.get(pk=syllabus_pk).get_children()
+
+    return JsonResponse({'points': points})

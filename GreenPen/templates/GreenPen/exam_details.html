@@ -6,7 +6,7 @@
 {% block description %}These are the details of the exam {{ exam.name }}.{% endblock description %}
 
 {% block content %}
-
+ {{ form.media }}
 <form method="post">
     <h2>Questions</h2>
 
@@ -23,12 +23,12 @@
     {{ hidden_field.errors }}
     {{ hidden_field }}
   {% endfor %}
- <div class="row">
+ <div class="row question-form">
                 <div class="col-sm-6 parent-form">
                 {{ parent_form }}
                 </div>
                 <div class="col-sm-6 question-div">
-        {% for subform in form.forms %}<div class="row question">
+        {% for subform in form.forms %}<div class="row {% if subform.order.value %}question{% elif not forloop.counter0 %}question{% else %}blank-question{% endif %}">
             <div class="col">
             <div class="card">
                 <div class="row">
@@ -93,81 +93,19 @@
             </div>{% endfor %}
                 </div>
  </div>
-        <div class="savebar">
+        <div class="col savebar">
                   <button type="button" class="btn btn-primary float-right" id="add-question">+</button>
 
         <button type="submit" class="btn btn-success float-right">Save</button>
       </div>
     </form>
-        <div class="row empty-question" id="empty-question">
-            <div class="col">
-            <div class="card">
-                <div class="row">
-                <div class="col-sm-11">
-                    <div class="row">
-                        <div class="exam-order">{{ form.empty_form.order }}</div> <div class="deleted-question">{{ form.empty_form.DELETE }}</div>{{ form.empty_form.exam }}{{ form.empty_form.id }}
-                        <div class="col-md-6">
-                            {{ form.empty_form.number|as_crispy_field }}
-                        </div>
-                        <div class="col-md-6">
-                            {{ form.empty_form.max_score|as_crispy_field }}
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col">
-                            {{ form.empty_form.syllabus_points }}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xs-1 question-controls">
-                    <div class="up-arrow">
-                        <button type="button" class="btn btn-primary up-button">
-                        <svg class="bi bi-arrow-up-square" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                        <path fill-rule="evenodd" d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
-                        <path fill-rule="evenodd" d="M4.646 8.354a.5.5 0 0 0 .708 0L8 5.707l2.646 2.647a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 0 0 0 .708z"/>
-                        <path fill-rule="evenodd" d="M8 11.5a.5.5 0 0 0 .5-.5V6a.5.5 0 0 0-1 0v5a.5.5 0 0 0 .5.5z"/>
-                        </svg>
-                        </button>
-                    </div>
-                    <div class="down-arrow">
-                        <button type="button" class="btn btn-primary down-button">
-                        <svg class="bi bi-arrow-down-square" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                          <path fill-rule="evenodd" d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
-                          <path fill-rule="evenodd" d="M4.646 7.646a.5.5 0 0 1 .708 0L8 10.293l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z"/>
-                          <path fill-rule="evenodd" d="M8 4.5a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5z"/>
-                        </svg>
-                        </button>
-                    </div>
-                    <div class="delete-icon">
-                        <button type="button" class="btn btn-danger delete-button">
-                        <svg class="bi bi-trash" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                        <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                        </svg>
-                        </button>
-                    </div>
-                    <div class="insert-icon">
-                        <button type="button" class="btn insert-button">
-                            <svg class="bi bi-plus-square" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                              <path fill-rule="evenodd" d="M8 3.5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5H4a.5.5 0 0 1 0-1h3.5V4a.5.5 0 0 1 .5-.5z"/>
-                              <path fill-rule="evenodd" d="M7.5 8a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1H8.5V12a.5.5 0 0 1-1 0V8z"/>
-                              <path fill-rule="evenodd" d="M14 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            </div>
-            </div>
-        </div>
 
 
 
 {% endblock content %}
 
 {% block script %}
- {{ form.media }}
+
     {{ parent_form.media }}
 
     <script src="{% static "js/move_questions.js"%}"></script>

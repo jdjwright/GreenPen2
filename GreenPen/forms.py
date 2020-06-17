@@ -44,12 +44,14 @@ class SetQuestions(forms.ModelForm):
 
 
 class SyllabusChoiceForm(forms.Form):
-    points = TreeNodeChoiceField(queryset=Syllabus.objects.all(),
+    qs = Syllabus.objects.all()
+    points = TreeNodeChoiceField(queryset=qs,
                                  widget=TreeSelect(attrs={'class': 'syllabus-checkbox'}),
                                  level_indicator='')
 
     def _get_level_indicator(self, obj):
         return ''
+
 
 
 class AddExamForm(forms.ModelForm):
