@@ -33,5 +33,6 @@ urlpatterns = [
     path('rating-records/<int:syllabus_pk>/<int:student_pk>', StudentAssessmentForPoint.as_view(), name='student-assessment-record'),
     path('exam', ExamListView.as_view(), name='exam-list'),
     path('exam/add', AddExam.as_view(), name='add-exam'),
-    path('exam/<int:exam>/edit', EditExamQsView.as_view(), name='edit-exam')
+    path('exam/<int:exam>/edit', EditExamQsView.as_view(), name='edit-exam'),
+    path('bs', sample, name='bs-sample')
 ]

@@ -237,3 +237,7 @@ def send_syllabus_children(request, syllabus_pk):
     points = Syllabus.objects.get(pk=syllabus_pk).get_children()
 
     return JsonResponse({'points': points})
+
+
+def sample(request):
+    return render(request, 'GreenPen/bs_base.html')
