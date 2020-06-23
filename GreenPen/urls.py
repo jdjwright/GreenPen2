@@ -14,9 +14,10 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from GreenPen.autocomplete import *
 from GreenPen.views import *
+from GreenPen.dash_apps.finished_apps import simpleexample
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -34,5 +35,7 @@ urlpatterns = [
     path('exam', ExamListView.as_view(), name='exam-list'),
     path('exam/add', AddExam.as_view(), name='add-exam'),
     path('exam/<int:exam>/edit', EditExamQsView.as_view(), name='edit-exam'),
-    path('bs', sample, name='bs-sample')
+    path('bs', sample, name='bs-sample'),
+    path('django_plotly_dash/', include('django_plotly_dash.urls')),
+
 ]

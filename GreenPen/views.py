@@ -10,6 +10,9 @@ from .forms import *
 from .widgets import *
 import os
 
+from plotly.offline import plot
+import plotly.graph_objects as go
+
 # For authenticating views
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
@@ -240,4 +243,76 @@ def send_syllabus_children(request, syllabus_pk):
 
 
 def sample(request):
-    return render(request, 'GreenPen/bs_base.html')
+    def scatter():
+        x1 = [1, 2, 3, 4]
+        y1 = [30, 35, 25, 45]
+
+        trace = go.Scatter(
+            x=x1,
+            y=y1
+        )
+        layout = dict(
+            title='Simple Graph',
+            xaxis=dict(range=[min(x1), max(x1)]),
+            yaxis=dict(range=[min(y1), max(y1)])
+        )
+
+        fig = go.Figure(data=[trace], layout=layout)
+
+        plot_div = plot(fig, output_type='div', include_plotlyjs=False)
+
+        return plot_div
+    
+    def simple_sunburst():
+        points = ['Syllabus', 'Sub 1', 'sub2', 'sub3', 'sub1_text1', 'sub2_text1', 'sub2_text2']
+        parent = ['', 'Syllabus', 'Syllabus', 'Syllabus', 'Sub 1', 'Sub 2', 'Sub 2']
+        value = ['5', '1', '1', '1', '1', '1', '1']
+
+        burst = go.Sunburst(
+            labels=points,
+            parents=parent,
+            values=value
+        )
+
+        fig = go.Figure(go.Sunburst(
+            labels=["Eve", "Cain", "Seth", "Enos", "Noam", "Abel", "Awan", "Enoch", "Azura"],
+            parents=["", "Eve", "Eve", "Seth", "Seth", "Eve", "Eve", "Awan", "Eve"],
+            values=[65, 14, 12, 10, 2, 6, 6, 4, 4],
+            branchvalues="total",
+        ))
+        fig.update_layout(margin=dict(t=0, l=0, r=0, b=0))
+        plot_div = plot(fig, output_type='div', include_plotlyjs=False)
+        return plot_div
+
+    def syllabus_sunburst():
+        students = Student.objects.all()
+        points = Syllabus.objects.get(pk=2).get_descendants(include_self=True)
+        labels = [point.text for point in points]
+        parents = [point.parent.text for point in points]
+        parents[0] = ""
+        values = [point.cohort_stats(students)['rating'] for point in points]
+
+        fig = go.Figure(go.Sunburst(
+            labels=labels,
+            parents=parents,
+            #values=values,
+            marker=dict(colors=values,
+                        colorscale='RdYlGn',
+                        cmid=2.5),
+            hovertemplate='<b>{% label %}</b><br>Average rating: {% label %}',
+            maxdepth=3
+
+        ))
+        fig.update_layout(margin=dict(t=0, l=0, r=0, b=0),
+                          uniformtext=dict(minsize=10, mode='hide'))
+        plot_div = plot(fig, output_type='div', include_plotlyjs=False)
+        return plot_div
+
+    context = {
+        'plot1': scatter(),
+        'plot2': simple_sunburst(),
+        'plot3': syllabus_sunburst(),
+    }
+    
+    
+    return render(request, 'GreenPen/plotly_test.html', context)
