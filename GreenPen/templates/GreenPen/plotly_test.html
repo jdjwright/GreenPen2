@@ -5,16 +5,10 @@
     {% load plotly_dash %}
 <h1>Home Page</h1>
 
-    <div class="{% plotly_class name='simpleexample' %} card" style="height: 100%; width: 100%">
-    {% plotly_app name='simpleexample' ratio=0.65 %}
-    </div>
 
-    <div class="card">{{ plot1 | safe }}</div>
-    <div class="card">
-    {{ plot2 | safe }}
-    </div>
-    <div class="card">
-    {{ plot3 | safe }}
+
+    <div class="{% plotly_class name='SyllabusExample' %}" card style="height: 100%; width: 100%">
+    {% plotly_app name='SyllabusExample' ratio=0.7 %}
     </div>
 
 

@@ -200,6 +200,18 @@ class Sitting(models.Model):
         else:
             return "badge-secondary"
 
+    def avg_syllabus_rating(self, syllabus=Syllabus.objects.none()):
+        """
+        Calculate the average rating for the cohort taking this exam.
+        Optionally, restrict it to just a single syllabus point.
+        """
+        ratings = StudentSyllabusAssessmentRecord.objects.filter(sitting=self,
+                                                                 syllabus_point=syllabus,
+                                                                 rating__isnull=False)
+        if ratings.count():
+            return round(ratings.aggregate(avg=Avg('rating'))['avg'],1)
+        else:
+            return 0
 
 def student_added_to_sitting(sender, instance, action, **kwargs):
     if action == 'post_add':

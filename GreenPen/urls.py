@@ -17,7 +17,7 @@ from django.contrib import admin
 from django.urls import path, include
 from GreenPen.autocomplete import *
 from GreenPen.views import *
-from GreenPen.dash_apps.finished_apps import simpleexample
+from GreenPen.dash_apps.finished_apps import simpleexample, SyllabusExample
 
 urlpatterns = [
     path('admin/', admin.site.urls),
