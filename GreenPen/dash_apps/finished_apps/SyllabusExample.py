@@ -12,12 +12,20 @@ subject_options = [dict(label=subject.text, value=subject.pk) for subject in Syl
 
 app.layout = html.Div([
     html.Div([
-        dcc.Graph(id='syllabus-graph', animate=True),
         dcc.Dropdown(
             id='subject-dropdown',
             options=subject_options,
-            value=2
-        )],
+            value=2,
+
+        ),
+        dcc.Loading(
+                    id="loading-2",
+                    children=[html.Div([html.Div(id="loading-output-2")])],
+                    type="circle",
+                    ),
+        dcc.Graph(id='syllabus-graph', animate=True),
+
+        ],
     ),
     html.Div([
         html.H3('Over time'),
@@ -66,7 +74,7 @@ def display_value(*args, **kwargs):
     subject_pk = get_root_pk(callback)
     students = Student.objects.all()
     parent_point = Syllabus.objects.get(pk=subject_pk)
-    points = parent_point.get_descendants(include_self=True).filter(level__lte=parent_point.level+2)
+    points = parent_point.get_descendants(include_self=True).filter(level__lte=parent_point.level + 2)
     labels = [point.text for point in points]
     ids = [point.pk for point in points]
     parents = [point.parent.text for point in points]
@@ -107,19 +115,42 @@ def display_value(*args, **kwargs):
     parent_pk = get_root_pk(callback)
     parent_point = Syllabus.objects.get(pk=parent_pk)
 
-    records = Sitting.objects.filter(exam__question__syllabus_points__in=parent_point.get_descendants()).order_by('date')
-    labels = [sitting.exam.name for sitting in records]
-    x = [sitting.date for sitting in records]
-    y = [sitting.avg_syllabus_rating(parent_point) for sitting in records]
+    records = Sitting.objects.filter(exam__question__syllabus_points__in=parent_point.get_descendants()). \
+        order_by('date').distinct()
+    # text = [sitting.exam.name for sitting in records]
+    # x = [sitting.date for sitting in records]
+    # y = [sitting.avg_syllabus_rating(parent_point) for sitting in records]
+
+    text = []
+    x = []
+    y = []
+
+    for sitting in records:
+        if sitting.avg_syllabus_rating(parent_point) != 'none':
+            text.append(sitting.exam.name)
+            x.append(sitting.date)
+            y.append(sitting.avg_syllabus_rating(parent_point))
 
     graph = go.Scatter(
         x=x,
-        y=y
+        y=y,
+        text=text,
+        mode='lines+markers',
+        marker=dict(color=y,
+                    colorscale='RdYlGn',
+                    cmid=2.5,
+                    cmax=5,
+                    cmin=0),
 
     )
     layout = go.Layout(
-
-
+        xaxis={
+            'title': 'Date of assessment',
+        },
+        yaxis={
+            'title': 'Average student rating',
+            'range': [0, 5]
+        }
     )
 
     return {'data': [graph], 'layout': layout}

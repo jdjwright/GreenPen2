@@ -211,7 +211,7 @@ class Sitting(models.Model):
         if ratings.count():
             return round(ratings.aggregate(avg=Avg('rating'))['avg'],1)
         else:
-            return 0
+            return 'none'
 
 def student_added_to_sitting(sender, instance, action, **kwargs):
     if action == 'post_add':
