@@ -57,7 +57,7 @@ class Teacher(Person):
         return Student.objects.filter(Q(teachinggroup__teachers=self) | Q(teachinggroup__subject__HoDs=self))
 
     def __str__(self):
-        return self.title + " " + self.full_name() + " (" + self.staff_code + ")"
+        return str(self.title) + " " + str(self.full_name()) + " (" + str(self.staff_code) + ")"
 
 
 class Subject(models.Model):
@@ -70,7 +70,7 @@ class Subject(models.Model):
 
 class TeachingGroup(models.Model):
     name = models.CharField(max_length=256, blank=True, null=True)
-    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, blank=False, null=True)
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, blank=True, null=True)
     teachers = models.ManyToManyField(Teacher)
     students = models.ManyToManyField(Student)
     syllabus = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.SET_NULL)
@@ -78,6 +78,24 @@ class TeachingGroup(models.Model):
 
     def __str__(self):
         return self.name
+
+    def ratings_between_range(self, min_rating, max_rating, sittings=False, students=False, syllabus_pts=False):
+        records = StudentSyllabusAssessmentRecord.objects.filter(student__in=self.students.all(),
+                                                                 rating__lt=max_rating,
+                                                                 rating__gte=min_rating)
+        if sittings:
+            # Have to do it this way to prevent an error of referencing Sittings before
+            # using it.
+            records.filter(sitting__in=sittings)
+        if students:
+            records.filter(student__in=students)
+        if syllabus_pts:
+            records.filter(syllabus_point__in=syllabus_pts)
+        return records.distinct().count()
+
+
+
+
 
 
 class Syllabus(MPTTModel):
