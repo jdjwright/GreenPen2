@@ -2,6 +2,7 @@ import dash_core_components as dcc
 import dash_daq as daq
 import dash_html_components as html
 from dash.dependencies import Input, Output
+import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
 from django_plotly_dash import DjangoDash
 from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup
@@ -80,8 +81,10 @@ def get_root_pk(callback):
             subject_pk = callback.inputs['subject-dropdown.value']
 
         else:
-            subject_pk = 0
-            raise NotImplemented # Occurs if cause of callback has not been defined here.
+            # In this case, the user clicked a different graph. We therefore
+            # need to use the last-stored value from the plot, found as below:
+            subject_pk = callback.inputs['syllabus-graph.clickData']['points'][0]['customdata']
+
 
     else:
         subject_pk = callback.inputs['subject-dropdown.value']
@@ -196,12 +199,14 @@ def update_group_graph(*args, **kwargs):
     callback = kwargs['callback_context']
     parent_point = Syllabus.objects.get(pk=get_root_pk(callback))
     points = parent_point.get_descendants()
+    groups = TeachingGroup.objects.filter(syllabus__in=parent_point.get_ancestors(include_self=True))
 
     # Filter students
 
     students = Student.objects.all()
     # Filter out sittings
-    sittings = Sitting.objects.all()
+    sittings = Sitting.objects.filter(exam__question__syllabus_points__in=parent_point.get_descendants()). \
+        order_by('date').distinct()
 
     # Create the graphs
     if Input('group-students-by-classes', 'value'):
@@ -212,7 +217,6 @@ def update_group_graph(*args, **kwargs):
         # Spit out by-student graph
         pass
 
-    groups = TeachingGroup.objects.filter(syllabus__in=parent_point.get_ancestors(include_self=True))
     y_0_1 = []
     y_1_2 = []
     y_2_3 = []
@@ -223,11 +227,11 @@ def update_group_graph(*args, **kwargs):
 
     for group in groups:
         names.append(group.name)
-        y_0_1.append(group.ratings_between_range(0, 1, sittings, students, points))
-        y_1_2.append(group.ratings_between_range(1, 2, sittings, students, points))
-        y_2_3.append(group.ratings_between_range(2, 3, sittings, students, points))
-        y_3_4.append(group.ratings_between_range(3, 4, sittings, students, points))
-        y_4_5.append(group.ratings_between_range(4, 5.1, sittings, students, points)) # Must do this to include 5.0 ratings
+        y_0_1.append(group.ratings_pc_between_range(0, 1, sittings, students, points))
+        y_1_2.append(group.ratings_pc_between_range(1, 2, sittings, students, points))
+        y_2_3.append(group.ratings_pc_between_range(2, 3, sittings, students, points))
+        y_3_4.append(group.ratings_pc_between_range(3, 4, sittings, students, points))
+        y_4_5.append(group.ratings_pc_between_range(4, 5.1, sittings, students, points)) # Must do this to include 5.0 ratings
 
     # Create a bar for each level:
     data.append(go.Bar(name='0-1', x=names, y=y_0_1))

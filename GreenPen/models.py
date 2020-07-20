@@ -1,9 +1,10 @@
 from django.db import models
 from django.utils import timezone
-from django.db.models import Q, Sum, Avg
+from django.db.models import Q, Sum, Avg, QuerySet
 from django.db.models.signals import m2m_changed, post_save
 from django.contrib.auth.models import User
 from mptt.models import MPTTModel, TreeForeignKey, TreeManyToManyField
+from mptt.querysets import TreeQuerySet
 import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, transaction
@@ -79,23 +80,23 @@ class TeachingGroup(models.Model):
     def __str__(self):
         return self.name
 
-    def ratings_between_range(self, min_rating, max_rating, sittings=False, students=False, syllabus_pts=False):
-        records = StudentSyllabusAssessmentRecord.objects.filter(student__in=self.students.all(),
-                                                                 rating__lt=max_rating,
-                                                                 rating__gte=min_rating)
-        if sittings:
+    def ratings_pc_between_range(self, min_rating, max_rating, sittings=False, students=False, syllabus_pts=False):
+        all_records = StudentSyllabusAssessmentRecord.objects.filter(student__in=self.students.all())
+        if isinstance(sittings, QuerySet):
             # Have to do it this way to prevent an error of referencing Sittings before
             # using it.
-            records.filter(sitting__in=sittings)
-        if students:
-            records.filter(student__in=students)
-        if syllabus_pts:
-            records.filter(syllabus_point__in=syllabus_pts)
-        return records.distinct().count()
+            all_records = all_records.filter(sitting__in=sittings)
+        if isinstance(students, QuerySet):
+            all_records = all_records.filter(student__in=students)
+        if isinstance(syllabus_pts, TreeQuerySet):
+            all_records = all_records.filter(syllabus_point__in=syllabus_pts)
 
-
-
-
+        total = all_records.distinct().count()
+        if not total:
+            return 0
+        relevant_records = all_records.filter(rating__gte=min_rating,
+                                              rating__lt=max_rating).distinct().count()
+        return round(relevant_records / total * 100, 0)
 
 
 class Syllabus(MPTTModel):
@@ -160,6 +161,7 @@ class Exam(models.Model):
     def get_absolute_url(self):
         from django.urls import reverse
         return reverse('edit-exam', args=[str(self.id)])
+
 
 class Question(models.Model):
     exam = models.ForeignKey(Exam, blank=False, null=False, on_delete=models.CASCADE)
@@ -227,9 +229,10 @@ class Sitting(models.Model):
                                                                  syllabus_point=syllabus,
                                                                  rating__isnull=False)
         if ratings.count():
-            return round(ratings.aggregate(avg=Avg('rating'))['avg'],1)
+            return round(ratings.aggregate(avg=Avg('rating'))['avg'], 1)
         else:
             return 'none'
+
 
 def student_added_to_sitting(sender, instance, action, **kwargs):
     if action == 'post_add':
@@ -274,8 +277,8 @@ class Mark(models.Model):
             # the records that came after it:
             if not record.most_recent:
                 for newerrec in StudentSyllabusAssessmentRecord.objects.filter(student=self.student,
-                                                                             syllabus_point=point,
-                                                                             sitting__date__gte=record.sitting.date):
+                                                                               syllabus_point=point,
+                                                                               sitting__date__gte=record.sitting.date):
                     set_assessment_record_chain(newerrec)
 
 
@@ -357,7 +360,7 @@ def syllabus_record_created(sender, instance, created, **kwargs):
 
         total_comps = competitors.count()
         i = total_comps  # maximum order number
-        j = 1 # used for duplicate competior order number; needs to increment after a clash.
+        j = 1  # used for duplicate competior order number; needs to increment after a clash.
         # We can run into trouble here if we set a compeitor when another already has that order.
 
         for competitor in competitors:
@@ -374,7 +377,7 @@ def syllabus_record_created(sender, instance, created, **kwargs):
                 other.save()
                 competitor.save()
         most_recent_competitor = competitors[0]
-        if instance.pk == most_recent_competitor.pk: # Don't use just == as might have changed flags
+        if instance.pk == most_recent_competitor.pk:  # Don't use just == as might have changed flags
             newer_reset_reqd = False
         else:
             newer_reset_reqd = True
@@ -465,8 +468,8 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
                                                                                             'correct_plus_children': delta_correct})
         if created:
             previous = StudentSyllabusAssessmentRecord.objects.get(student=record.student,
-                                                                                  syllabus_point=parent,
-                                                                                  most_recent=True)
+                                                                   syllabus_point=parent,
+                                                                   most_recent=True)
             previous.set_calculated_fields()
             continue
         else:
