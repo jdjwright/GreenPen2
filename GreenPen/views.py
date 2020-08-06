@@ -145,6 +145,41 @@ def import_marks(request):
     return render(request, 'GreenPen/csv_upload.html', {'csvform': csvform,
                                                         'title': 'Upload Marks'})
 
+@user_passes_test(check_superuser)
+def update_classes(request):
+    # Deal with getting a CSV file
+
+    if request.method == 'POST':
+        csvform = CSVDocForm(request.POST, request.FILES)
+        if csvform.is_valid():
+            file = csvform.save()
+            path = file.document.path
+            update_groups(path)
+            os.remove(path)
+            file.delete()
+            return redirect('/')
+    else:
+        csvform = CSVDocForm()
+    return render(request, 'GreenPen/csv_upload.html', {'csvform': csvform,
+                                                        'title': 'Upload Marks'})
+
+def update_assignments(request):
+    # Deal with getting a CSV file
+
+    if request.method == 'POST':
+        csvform = CSVDocForm(request.POST, request.FILES)
+        if csvform.is_valid():
+            file = csvform.save()
+            path = file.document.path
+            update_group_assignments(path)
+            os.remove(path)
+            file.delete()
+            return redirect('/')
+    else:
+        csvform = CSVDocForm()
+    return render(request, 'GreenPen/csv_upload.html', {'csvform': csvform,
+                                                        'title': 'Upload Marks'})
+
 
 class StudentAssessmentForPoint(TeacherOnlyMixin, ListView):
 

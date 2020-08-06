@@ -1,11 +1,13 @@
 import dash_core_components as dcc
 import dash_daq as daq
 import dash_html_components as html
+
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
 from django_plotly_dash import DjangoDash
 from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup
+from GreenPen.settings import CURRENT_ACADEMIC_YEAR
 
 
 # Helper functions:
@@ -19,8 +21,11 @@ def get_groups_from_graph(callback):
     :returns: A queryset of all groups from any click events on the graph
     """
 
+    # Start by finding our syllabus so we only get groups taught that syllabus:
+    current_selected = Syllabus.objects.get(pk=get_root_pk(callback))
     # Groups to return
-    groups = TeachingGroup.objects.all()
+    groups = TeachingGroup.objects.filter(year_taught=CURRENT_ACADEMIC_YEAR,
+                                          syllabus__in=current_selected.get_ancestors(include_self=True))
     ## Easy filter; If we've clicked a teaching group.
 
     if callback.inputs['group-chart.clickData']:
@@ -35,11 +40,9 @@ def get_groups_from_graph(callback):
     if callback.inputs['time-chart.clickData']:
         sitting_pk = callback.inputs['time-chart.clickData']['points'][0]['customdata']
         sitting = Sitting.objects.get(pk=sitting_pk)
-        groups = groups.filter(students=students)
+        groups = TeachingGroup.objects.filter(sitting=sitting)
 
     return groups
-
-
 
 
 def get_students_from_graph(callback):
@@ -60,42 +63,56 @@ def get_students_from_graph(callback):
             return Student.objects.filter(teachinggroup__pk=group_pk)
 
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+external_stylesheets=[dbc.themes.BOOTSTRAP]
 
 app = DjangoDash('SyllabusExample', external_stylesheets=external_stylesheets)
 subject_options = [dict(label=subject.text, value=subject.pk) for subject in Syllabus.objects.filter(level=2)]
 
 app.layout = html.Div([
-    html.Div([
-        dcc.Dropdown(
-            id='subject-dropdown',
-            options=subject_options,
-            value=2
-        ),
-
-        dcc.Loading(
-            id="sullabus-graph-loading",
-            type="default",
-            children=dcc.Graph(id='syllabus-graph')
-        ),
-
-    ],
-    ),
-    html.Div([
-        html.H3('Over Time'),
-        dcc.Loading(
-            id="time-chart-loading",
-            type="default",
-            children=dcc.Graph(id='time-chart')
-        )
+    dbc.Row([
+        dbc.Col([
+            html.Div([
+                dcc.Dropdown(
+                    id='subject-dropdown',
+                    options=subject_options,
+                    value=2
+                ), ])
+        ]),
     ]),
-    html.Div([
-        html.H3('Group Performance'),
-        dcc.Loading(
-            id="group-performance-loading",
-            type="default",
-            children=dcc.Graph(id='group-chart')
-        )
+    dbc.Row([
+        dbc.Col(
+        html.Div([
+            dcc.Loading(
+                id="sullabus-graph-loading",
+                type="default",
+                children=dcc.Graph(id='syllabus-graph')
+            ),
+        ]), sm=4
+        ),
+        dbc.Col([
+            html.Div([
+                html.H3('Over Time'),
+                dcc.Loading(
+                    id="time-chart-loading",
+                    type="default",
+                    children=dcc.Graph(id='time-chart')
+                ),
+            html.Button('Reset filter on this graph', id='time-chart-reset')
+            ])
+
+        ], sm=4
+        ),
+        dbc.Col([
+            html.Div([
+            html.H3('Group Performance'),
+            dcc.Loading(
+                id="group-performance-loading",
+                type="default",
+                children=dcc.Graph(id='group-chart')
+            ),
+            html.Button('Reset filter on this graph', id='group-performance-reset')
+            ])
+        ], sm=4)
     ])
 ])
 
@@ -123,7 +140,6 @@ def get_root_pk(callback):
     # Check if the user has at some point filtered on the sunburst:
     if 'syllabus-graph.clickData' in callback.inputs:
         if callback.inputs['syllabus-graph.clickData']:
-
             subject_pk = callback.inputs['syllabus-graph.clickData']['points'][0]['customdata']
 
     return subject_pk
@@ -179,14 +195,16 @@ def update_syllabus_sunburst(*args, **kwargs):
     Output('time-chart', 'figure'),
     [Input('subject-dropdown', 'value'),
      Input('syllabus-graph', 'clickData'),
-     Input('group-chart', 'clickData')])
+     Input('group-chart', 'clickData'),
+     Input('time-chart', 'clickData')])
 def update_rating_time_graph(*args, **kwargs):
     callback = kwargs['callback_context']
     parent_pk = get_root_pk(callback)
     parent_point = Syllabus.objects.get(pk=parent_pk)
-
+    groups = get_groups_from_graph(callback)
     students = get_students_from_graph(callback)
     records = Sitting.objects.filter(exam__question__syllabus_points__in=parent_point.get_descendants(),
+                                     group__in=groups
                                      ).order_by('date').distinct()
     # text = [sitting.exam.name for sitting in records]
     # x = [sitting.date for sitting in records]
@@ -199,7 +217,8 @@ def update_rating_time_graph(*args, **kwargs):
 
     for sitting in records:
         if sitting.avg_syllabus_rating(parent_point) != 'none':
-            text.append(sitting.exam.name)
+            string = str(sitting.group.name) + "<br>" + str(sitting.exam.name)
+            text.append(string)
             x.append(sitting.date)
             y.append(sitting.avg_syllabus_rating(parent_point))
             ids.append(sitting.pk)
@@ -238,11 +257,16 @@ def update_rating_time_graph(*args, **kwargs):
      Input('group-chart', 'clickData')])
 def update_group_graph(*args, **kwargs):
     """ Update the group performance graph for interractions """
+
+
     # Filter out syllabus points
     callback = kwargs['callback_context']
+
+    # If we've clicked the reset, remove the clickData input for this:
+    if callback:
+        pass
     parent_point = Syllabus.objects.get(pk=get_root_pk(callback))
     points = parent_point.get_descendants()
-
 
     ## Filter students
     # Check if we've filtered anything:
@@ -271,15 +295,31 @@ def update_group_graph(*args, **kwargs):
     data = []
     customdata = []
 
-    for group in groups:
-        names.append(group.name)
-        y_0_1.append(group.ratings_pc_between_range(0, 1, sittings, students, points))
-        y_1_2.append(group.ratings_pc_between_range(1, 2, sittings, students, points))
-        y_2_3.append(group.ratings_pc_between_range(2, 3, sittings, students, points))
-        y_3_4.append(group.ratings_pc_between_range(3, 4, sittings, students, points))
-        y_4_5.append(
-            group.ratings_pc_between_range(4, 5.1, sittings, students, points))  # Must do this to include 5.0 ratings
-        customdata.append('group_' + str(group.pk))
+    # If we only have one group, it's better to output individual students.
+    if groups.count() == 1:
+        students = groups[0].students.all()
+        group = groups[0]
+        for student in students:
+            student_qs = Student.objects.filter(pk=student.pk)
+            names.append(student.full_name())
+            y_0_1.append(group.ratings_pc_between_range(0, 1, sittings, student_qs, points))
+            y_1_2.append(group.ratings_pc_between_range(1, 2, sittings, student_qs, points))
+            y_2_3.append(group.ratings_pc_between_range(2, 3, sittings, student_qs, points))
+            y_3_4.append(group.ratings_pc_between_range(3, 4, sittings, student_qs, points))
+            y_4_5.append(group.ratings_pc_between_range(4, 5.1, sittings, student_qs,
+                                                 points))  # Must do this to include 5.0 ratings
+            customdata.append('student_' + str(student.pk))
+
+    else:
+        for group in groups:
+            names.append(group.name)
+            y_0_1.append(group.ratings_pc_between_range(0, 1, sittings, students, points))
+            y_1_2.append(group.ratings_pc_between_range(1, 2, sittings, students, points))
+            y_2_3.append(group.ratings_pc_between_range(2, 3, sittings, students, points))
+            y_3_4.append(group.ratings_pc_between_range(3, 4, sittings, students, points))
+            y_4_5.append(
+                group.ratings_pc_between_range(4, 5.1, sittings, students, points))  # Must do this to include 5.0 ratings
+            customdata.append('group_' + str(group.pk))
 
     # Create a bar for each level:
     data.append(go.Bar(name='0-1', x=names, y=y_0_1, customdata=customdata))
@@ -295,3 +335,19 @@ def update_group_graph(*args, **kwargs):
 
 def clicked_sitting(callback):
     pass
+
+
+@app.expanded_callback(
+    Output('group-chart', 'clickData'),
+    [Input('group-performance-reset', 'n_clicks')]
+)
+def reset_group_graph(*args, **kwargs):
+    return False
+
+
+@app.expanded_callback(
+    Output('time-chart', 'clickData'),
+    [Input('time-chart-reset', 'n_clicks')]
+)
+def reset_time_graph(*args, **kwargs):
+    return False

@@ -31,14 +31,17 @@ def import_classgroups_from_csv(path):
         teacher_auth_group, created = Group.objects.get_or_create(name='Teachers')
         for row in classes:
             print('Adding ' + row[0])
-            teachinggroup, created = TeachingGroup.objects.get_or_create(name=row[0])
+            teachinggroup, created = TeachingGroup.objects.get_or_create(pk=row[4], defaults={'name': row[0],
+                                                                                              'subject': row[5],
+                                                                                              'archived': row[1],
+                                                                                              'year_taught': row[6]})
             teacher_user, created = User.objects.get_or_create(email=row[2], defaults={'username': row[2],
                                                                                        'first_name': 'Unknown',
                                                                                        'last_name': 'Teacher'})
             teacher_user.groups.add(teacher_auth_group)
             teacher, created = Teacher.objects.get_or_create(user=teacher_user)
             teachinggroup.teachers.add(teacher)
-            student = Student.objects.get(student_id=row[3])
+            student, created = Student.objects.get_or_create(student_id=row[3])
             teachinggroup.students.add(student)
 
 
@@ -91,9 +94,12 @@ def import_sittings_from_csv(path):
             exam, created = Exam.objects.get_or_create(pk=row[0])
             sitting, created = Sitting.objects.get_or_create(pk=row[1],
                                                              defaults={'date': row[3],
-                                                                       'exam': exam})
-            sitting.students.add(Student.objects.get_or_create(student_id=row[2])[0])
-
+                                                                       'exam': exam,
+                                                                       'group__pk': row[2]})
+            sitting.date = row[3]
+            sitting.exam = exam
+            sitting.group = TeachingGroup.objects.get(pk=row[2])
+            sitting.save()
 
 def import_marks_from_csv(path):
     with open(path, newline='') as csvfile:
@@ -117,3 +123,44 @@ def import_marks_from_csv(path):
                 mark.score = row[2]
                 mark.student_notes = row[4]
                 mark.save()
+
+
+def update_groups(path):
+    """
+    This updates group information only from the classgorup csv file
+    :param path: File path to csv
+    :return: nothing
+    """
+
+    with open(path, newline='') as csvfile:
+        classes = csv.reader(csvfile, delimiter=',', quotechar='"')
+        # Skip headers
+        next(classes, None)
+        teacher_auth_group, created = Group.objects.get_or_create(name='Teachers')
+        for row in classes:
+            print('Adding ' + row[0])
+            teachinggroup, created = TeachingGroup.objects.get_or_create(pk=row[4])
+            teachinggroup.name = row[0]
+            subject = Syllabus.objects.get(pk=row[5])
+            teachinggroup.syllabus = subject
+            if row[1] == 'TRUE':
+                teachinggroup.archived = True
+            teachinggroup.year_taught = row[6]
+            teachinggroup.save()
+            teacher_user, created = User.objects.get_or_create(email=row[2], defaults={'username': row[2],
+                                                                                       'first_name': 'Unknown',
+                                                                                       'last_name': 'Teacher'})
+            teacher_user.groups.add(teacher_auth_group)
+            teacher, created = Teacher.objects.get_or_create(user=teacher_user)
+            teachinggroup.teachers.add(teacher)
+
+def update_group_assignments(path):
+    with open(path, newline='') as csvfile:
+        classes = csv.reader(csvfile, delimiter=',', quotechar='"')
+        # Skip headers
+        next(classes, None)
+        teacher_auth_group, created = Group.objects.get_or_create(name='Teachers')
+        for row in classes:
+            print('Adding ' + row[0])
+            teachinggroup = TeachingGroup.objects.get(pk=row[4])
+            teachinggroup.students.add(Student.objects.get(student_id=row[3]))

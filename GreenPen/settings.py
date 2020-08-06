@@ -103,7 +103,7 @@ PLOTLY_COMPONENTS = [
     'dash_core_components',
     'dash_html_components',
     'dash_renderer',
-
+    'dash_bootstrap_components',
     'dpd_components'
 ]
 # Database
@@ -171,3 +171,5 @@ MEDIA_URL = "/mediafiles/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "mediafiles")
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'
+
+CURRENT_ACADEMIC_YEAR = 1

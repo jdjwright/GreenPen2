@@ -76,6 +76,7 @@ class TeachingGroup(models.Model):
     students = models.ManyToManyField(Student)
     syllabus = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.SET_NULL)
     archived = models.BooleanField(blank=True, null=True, default=False)
+    year_taught = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
         return self.name
