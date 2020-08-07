@@ -1,6 +1,6 @@
 from GreenPen.models import Student
 from django.views.generic.list import ListView, View
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.views.generic.edit import CreateView
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect, render, get_object_or_404, reverse
@@ -26,6 +26,7 @@ def check_teacher(user):
 
     else:
         return False
+
 
 def check_superuser(user=User.objects.all()):
     return user.is_superuser
@@ -285,81 +286,6 @@ def send_syllabus_children(request, syllabus_pk):
     return JsonResponse({'points': points})
 
 
-def sample(request):
-    def scatter():
-        x1 = [1, 2, 3, 4]
-        y1 = [30, 35, 25, 45]
-
-        trace = go.Scatter(
-            x=x1,
-            y=y1
-        )
-        layout = dict(
-            title='Simple Graph',
-            xaxis=dict(range=[min(x1), max(x1)]),
-            yaxis=dict(range=[min(y1), max(y1)])
-        )
-
-        fig = go.Figure(data=[trace], layout=layout)
-
-        plot_div = plot(fig, output_type='div', include_plotlyjs=False)
-
-        return plot_div
-    
-    def simple_sunburst():
-        points = ['Syllabus', 'Sub 1', 'sub2', 'sub3', 'sub1_text1', 'sub2_text1', 'sub2_text2']
-        parent = ['', 'Syllabus', 'Syllabus', 'Syllabus', 'Sub 1', 'Sub 2', 'Sub 2']
-        value = ['5', '1', '1', '1', '1', '1', '1']
-
-        burst = go.Sunburst(
-            labels=points,
-            parents=parent,
-            values=value
-        )
-
-        fig = go.Figure(go.Sunburst(
-            labels=["Eve", "Cain", "Seth", "Enos", "Noam", "Abel", "Awan", "Enoch", "Azura"],
-            parents=["", "Eve", "Eve", "Seth", "Seth", "Eve", "Eve", "Awan", "Eve"],
-            values=[65, 14, 12, 10, 2, 6, 6, 4, 4],
-            branchvalues="total",
-        ))
-        fig.update_layout(margin=dict(t=0, l=0, r=0, b=0))
-        plot_div = plot(fig, output_type='div', include_plotlyjs=False)
-        return plot_div
-
-    def syllabus_sunburst():
-        students = Student.objects.all()
-        points = Syllabus.objects.get(pk=2).get_descendants(include_self=True)
-        labels = [point.text for point in points]
-        parents = [point.parent.text for point in points]
-        parents[0] = ""
-        values = [point.cohort_stats(students)['rating'] for point in points]
-
-        fig = go.Figure(go.Sunburst(
-            labels=labels,
-            parents=parents,
-            #values=values,
-            marker=dict(colors=values,
-                        colorscale='RdYlGn',
-                        cmid=2.5),
-            hovertemplate='<b>{% label %}</b><br>Average rating: {% label %}',
-            maxdepth=3
-
-        ))
-        fig.update_layout(margin=dict(t=0, l=0, r=0, b=0),
-                          uniformtext=dict(minsize=10, mode='hide'))
-        plot_div = plot(fig, output_type='div', include_plotlyjs=False)
-        return plot_div
-
-    context = {
-        'plot1': scatter(),
-        'plot2': simple_sunburst(),
-        'plot3': syllabus_sunburst(),
-    }
-    
-    
-    return render(request, 'GreenPen/plotly_test.html', context)
-
 
 @user_passes_test(check_superuser)
 def exam_result_view(request, sitting_pk):
@@ -369,6 +295,11 @@ def exam_result_view(request, sitting_pk):
     students = sitting.group.students.all().order_by('user__last_name')
     context['students'] = students
     marks = []
+
+    # Build 2D array in the stucture:
+    # Question number |  Student 1 score | Student 2 score .....
+    # ...
+    # Total           | Student 1 total  | Student 2 total
     for question in sitting.exam.question_set.all().order_by('order'):
         row = []
         row.append(question)
@@ -381,6 +312,31 @@ def exam_result_view(request, sitting_pk):
             except ObjectDoesNotExist:
                 row.append('')
         marks.append(row)
+
+    lastrow = ['Total']
+    for student in students:
+        lastrow.append(sitting.student_total(student))
+    context['lastrow'] = lastrow
     context['marks'] = marks
 
     return render(request, 'GreenPen/exam_results.html', context)
+
+
+@user_passes_test(check_teacher)
+def teacher_dashboard(request):
+
+    return render(request, 'GreenPen/teacher_dashboard.html')
+
+
+def student_dashboard(request, student_pk):
+    student = get_object_or_404(Student, pk=student_pk)
+
+    # Check use is allowed to see this data:
+    if request.user.is_superuser or request.user.groups.filter(name='Teachers').count():
+        pass
+    elif request.user.groups.filter(name='Students'):
+        if student.user != request.user:
+            return HttpResponseForbidden
+
+    return render(request, 'Greenpen/student_dashboard.html', {'student': student})
+

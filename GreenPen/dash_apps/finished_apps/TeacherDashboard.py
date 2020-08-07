@@ -65,7 +65,7 @@ def get_students_from_graph(callback):
 
 external_stylesheets=[dbc.themes.BOOTSTRAP]
 
-app = DjangoDash('SyllabusExample', external_stylesheets=external_stylesheets)
+app = DjangoDash('TeacherDashboard', external_stylesheets=external_stylesheets)
 subject_options = [dict(label=subject.text, value=subject.pk) for subject in Syllabus.objects.filter(level=2)]
 
 app.layout = html.Div([
@@ -164,19 +164,20 @@ def update_syllabus_sunburst(*args, **kwargs):
     ids = [point.pk for point in points]
     parents = [point.parent.text for point in points]
     parents[0] = ""
-    values = [point.cohort_stats(students)['rating'] for point in points]
+    values = [1 for point in points]
+    colors = [point.cohort_stats(students)['rating'] for point in points]
 
     graph = go.Sunburst(
         labels=labels,
         parents=parents,
         values=values,
         customdata=ids,
-        marker=dict(colors=values,
+        marker=dict(colors=colors,
                     colorscale='RdYlGn',
                     cmid=2.5,
                     cmax=5,
                     cmin=0),
-        hovertemplate='<b>%{label}</b><br>Average rating: %{value}',
+        hovertemplate='<b>%{label}</b><br>Average rating: %{color}',
         name='',
 
     )

@@ -1,0 +1,15 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% load static %}
+{% block content %}
+    {% load plotly_dash %}
+{% block heading %}Student Dashboard for {{ student }}{% endblock %}
+
+
+
+    <div class="{% plotly_class name='StudentDashboard' %}" card style="height: auto; width: 100%">
+    {% plotly_app name='StudentDashboard' ratio=0.7 %}
+    </div>
+
+
+{% endblock %}

@@ -17,7 +17,7 @@ from django.contrib import admin
 from django.urls import path, include
 from GreenPen.autocomplete import *
 from GreenPen.views import *
-from GreenPen.dash_apps.finished_apps import simpleexample, SyllabusExample
+from GreenPen.dash_apps.finished_apps import TeacherDashboard, StudentDashboard
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -37,7 +37,8 @@ urlpatterns = [
     path('exam', ExamListView.as_view(), name='exam-list'),
     path('exam/add', AddExam.as_view(), name='add-exam'),
     path('exam/<int:exam>/edit', EditExamQsView.as_view(), name='edit-exam'),
-    path('bs', sample, name='bs-sample'),
+    path('student/<int:student_pk>/dashboard', student_dashboard, name='student=dashboard'),
+    path('bs', teacher_dashboard, name='bs-sample'),
     path('django_plotly_dash/', include('django_plotly_dash.urls')),
     path('sitting/<int:sitting_pk>/results', exam_result_view, name='exam-results')
 

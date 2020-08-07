@@ -234,6 +234,11 @@ class Sitting(models.Model):
         else:
             return 'none'
 
+    def student_total(self, student=Student.objects.none()):
+        marks = Mark.objects.filter(sitting=self,
+                                 student=student)
+        return marks.aggregate(total=Sum('score'))['total']
+
 
 def student_added_to_sitting(sender, instance, action, **kwargs):
     if action == 'post_add':
