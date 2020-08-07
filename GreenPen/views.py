@@ -18,6 +18,14 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
 
 
+def check_teacher(user):
+    if user.is_superuser:
+        return True
+    elif user.groups.filter(name='Teacher').count():
+        return True
+
+    else:
+        return False
 
 def check_superuser(user=User.objects.all()):
     return user.is_superuser
@@ -351,3 +359,28 @@ def sample(request):
     
     
     return render(request, 'GreenPen/plotly_test.html', context)
+
+
+@user_passes_test(check_superuser)
+def exam_result_view(request, sitting_pk):
+    context = {}
+    sitting = Sitting.objects.get(pk=sitting_pk)
+    context['sitting'] = sitting
+    students = sitting.group.students.all().order_by('user__last_name')
+    context['students'] = students
+    marks = []
+    for question in sitting.exam.question_set.all().order_by('order'):
+        row = []
+        row.append(question)
+        for student in students:
+            try:
+                row.append(Mark.objects.get(sitting=sitting,
+                                                student=student,
+                                                question=question,
+                                                  ))
+            except ObjectDoesNotExist:
+                row.append('')
+        marks.append(row)
+    context['marks'] = marks
+
+    return render(request, 'GreenPen/exam_results.html', context)

@@ -189,7 +189,7 @@ post_save.connect(new_question_created, sender=Question)
 class Sitting(models.Model):
     exam = models.ForeignKey(Exam, blank=False, null=False, on_delete=models.CASCADE)
     date = models.DateField(blank=False, null=False, default=datetime.date.today)
-    students = models.ManyToManyField(Student)
+    students = models.ManyToManyField(Student) # Depreciated
     resets_ratings = models.BooleanField(blank=True, null=True, default=False)
     group = models.ForeignKey(TeachingGroup, blank=True, null=True, on_delete=models.SET_NULL)
 

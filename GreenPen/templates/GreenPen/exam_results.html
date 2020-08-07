@@ -1,0 +1,20 @@
+{% extends 'Greenpen/bs_base.html' %}
+
+{% block content %}
+<h1>Exam results for {{ sitting.group }} taking {{ sitting.exam }} on {{ sitting.date }}</h1>
+
+<table class="table">
+    <thead>
+    <tr>
+        <td></td>
+        {% for student in students %}<td>{{ student.full_name }}</td>{% endfor %}
+    </tr>
+    </thead>
+
+    <tbody>
+    {% for row in marks %}<tr>
+        {% for mark in row %}<td>{% if forloop.counter0 %}{{ mark.score }}{% else %}Q{{ mark.number }}{% endif %}</td>{% endfor %}
+    </tr>{% endfor %}
+    </tbody>
+</table>
+{% endblock content %}

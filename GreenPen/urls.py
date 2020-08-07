@@ -39,5 +39,6 @@ urlpatterns = [
     path('exam/<int:exam>/edit', EditExamQsView.as_view(), name='edit-exam'),
     path('bs', sample, name='bs-sample'),
     path('django_plotly_dash/', include('django_plotly_dash.urls')),
+    path('sitting/<int:sitting_pk>/results', exam_result_view, name='exam-results')
 
 ]
