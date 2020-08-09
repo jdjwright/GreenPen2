@@ -43,6 +43,12 @@ class SetQuestions(forms.ModelForm):
         )
 
 
+class EditMark(forms.ModelForm):
+    class Meta:
+        model = Mark
+        fields = ['score', 'student_notes']
+
+
 class SyllabusChoiceForm(forms.Form):
     qs = Syllabus.objects.all()
     points = TreeNodeChoiceField(queryset=qs,

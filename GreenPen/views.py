@@ -1,5 +1,6 @@
-from GreenPen.models import Student
+from GreenPen.models import Student, Question
 from django.views.generic.list import ListView, View
+from django.views.generic.edit import UpdateView
 from django.http import JsonResponse, HttpResponseForbidden
 from django.views.generic.edit import CreateView
 from django.core.exceptions import PermissionDenied
@@ -340,3 +341,41 @@ def student_dashboard(request, student_pk):
 
     return render(request, 'Greenpen/student_dashboard.html', {'student': student})
 
+
+def input_mark(request, mark_pk):
+
+    mark = Mark.objects.get(pk=mark_pk)
+
+    # Check teacher of students own mark:
+    if request.user.groups.filter(name='Teachers').count():
+        pass
+    elif request.user == mark.student.user:
+        pass
+    else:
+        raise HttpResponseForbidden
+
+    form = EditMark(instance=mark)
+
+    if request.method == 'POST':
+        form = EditMark(request.POST, instance=mark)
+        if form.is_valid():
+            if form.cleaned_data['score'] > mark.question.max_score:
+                form.add_error('score', 'Score is higher than max for that question!')
+            else:
+                form.save()
+                try:
+                    next_q = Question.objects.get(exam=mark.question.exam,
+                                                  order=mark.question.order + 1)
+                except ObjectDoesNotExist:
+                    next_q = False
+
+                if next_q:
+                    next_mark, created = Mark.objects.get_or_create(student=mark.student,
+                                                            sitting=mark.sitting,
+                                                           question=next_q)
+                    return redirect('input_mark', mark_pk=next_mark.pk)
+                else:
+                    return redirect('student_dashboard', student_pk=mark.student.pk)
+
+    return render(request, 'GreenPen/input_mark.html', {'mark': mark,
+                                                        'form': form})

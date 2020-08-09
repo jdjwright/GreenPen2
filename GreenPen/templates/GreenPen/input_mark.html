@@ -1,0 +1,28 @@
+{% extends 'GreenPen/bs_base.html' %}
+{% load crispy_forms_tags %}
+{% block content %}
+    <div class="row">
+<h1>Input Mark</h1>
+        </div>
+    <div class="row">
+        <div class="col">
+            <div class="card-body">
+                <h3>Student: {{ mark.student }}</h3>
+                <h3>Exam: {{ mark.question.exam }}</h3>
+                <h3>Question: {{ mark.question }}</h3>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col">{{form.score|as_crispy_field}}</div><div class="col">/ {{ mark.question.max_score }}</div>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                    {{ form.student_notes|as_crispy_field }}
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary">Next</button>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

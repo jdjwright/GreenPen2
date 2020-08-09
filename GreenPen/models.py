@@ -8,6 +8,7 @@ from mptt.querysets import TreeQuerySet
 import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, transaction
+from django.urls import reverse
 
 
 class Person(models.Model):
@@ -287,6 +288,8 @@ class Mark(models.Model):
                                                                                sitting__date__gte=record.sitting.date):
                     set_assessment_record_chain(newerrec)
 
+    def get_absolute_url(self):
+        return reverse('edit-mark', kwargs={'pk': self.pk})
 
 class StudentSyllabusAssessmentRecord(models.Model):
     syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)
