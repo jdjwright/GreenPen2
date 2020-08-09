@@ -7,13 +7,13 @@
     <thead>
     <tr>
         <td></td>
-        {% for student in students %}<td><a href="{% url 'student=dashboard' student.pk %}">{{ student.full_name }}</a></td>{% endfor %}
+        {% for student in students %}<td><a href="{% url 'student-dashboard' student.pk %}">{{ student.full_name }}</a></td>{% endfor %}
     </tr>
     </thead>
 
     <tbody>
     {% for row in marks %}<tr>
-        {% for mark in row %}<td>{% if forloop.counter0 %}{{ mark.score }}{% else %}Q{{ mark.number }}{% endif %}</td>{% endfor %}
+        {% for mark in row %}<td>{% if forloop.counter0 %}{% if mark.pk %}<a href="{% url 'input_mark' mark.pk%}">{{ mark.score }}</a>{% else %}{{ mark.score }}{% endif %}{% else %}Q{{ mark.number }}{% endif %}</td>{% endfor %}
     </tr>{% endfor %}
     <tr>
         {% for column in lastrow %}<td>{{ column }}</td>{% endfor %}

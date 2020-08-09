@@ -173,6 +173,7 @@ def update_classes(request):
     return render(request, 'GreenPen/csv_upload.html', {'csvform': csvform,
                                                         'title': 'Upload Marks'})
 
+@user_passes_test(check_superuser)
 def update_assignments(request):
     # Deal with getting a CSV file
 
@@ -311,6 +312,13 @@ def exam_result_view(request, sitting_pk):
                                                 question=question,
                                                   ))
             except ObjectDoesNotExist:
+                # creating lots of marks can overload the server,
+                # so we will only create the first mark for each student.
+                if question.order == 1:
+                    row.append(Mark.objects.create(sitting=sitting,
+                                                   student=student,
+                                                   question=question))
+
                 row.append('')
         marks.append(row)
 
@@ -375,7 +383,7 @@ def input_mark(request, mark_pk):
                                                            question=next_q)
                     return redirect('input_mark', mark_pk=next_mark.pk)
                 else:
-                    return redirect('student_dashboard', student_pk=mark.student.pk)
+                    return redirect('student-dashboard', student_pk=mark.student.pk)
 
     return render(request, 'GreenPen/input_mark.html', {'mark': mark,
                                                         'form': form})
