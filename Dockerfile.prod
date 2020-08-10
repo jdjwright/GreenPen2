@@ -19,4 +19,4 @@ RUN pip install -r requirements.txt
 # copy project
 COPY . /usr/src/app/
 
-ENTRYPOINT ["/home/app/web/entrypoint.prod.sh"]
+ENTRYPOINT ["/usr/src/app/entrypoint.prod.sh"]
