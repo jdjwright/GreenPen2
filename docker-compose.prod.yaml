@@ -6,7 +6,7 @@ services:
     build:
       context: ./
       dockerfile: Dockerfile.prod
-    command: daphne GreenPen.asgi:application --bind localhost:8000
+    command: daphne -p 8000 GreenPen.asgi:application
     volumes:
       - static_volume:/home/app/web/staticfiles
       - media_volume:/home/app/web/mediafiles
