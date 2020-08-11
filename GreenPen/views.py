@@ -1,13 +1,16 @@
 from GreenPen.models import Student, Question
 from django.views.generic.list import ListView, View
 from django.views.generic.edit import UpdateView
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseForbidden, Http404
+from django.forms import modelformset_factory
 from django.views.generic.edit import CreateView
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect, render, get_object_or_404, reverse
 from django.forms import inlineformset_factory
 from GreenPen.functions.imports import *
 from .forms import *
+from .settings import CURRENT_ACADEMIC_YEAR
+from django.contrib.auth.decorators import login_required
 from .widgets import *
 import os
 
@@ -54,7 +57,7 @@ def splash(request):
 
     elif request.user.groups.filter(name='Students').count():
         student = Student.objects.get(user=request.user)
-        return redirect(reverse('student-dasshboard', args=(student.pk)))
+        return redirect(reverse('student-dashboard', args=[student.pk]))
 
 
 @user_passes_test(check_superuser)
@@ -399,3 +402,131 @@ def input_mark(request, mark_pk):
 
     return render(request, 'GreenPen/input_mark.html', {'mark': mark,
                                                         'form': form})
+
+
+@user_passes_test(check_superuser)
+def year_rollover_part1(request):
+    # Deal with getting a CSV file
+    RolloverFormSet = modelformset_factory(TeachingGroup, TeachingGroupRollover, extra=0)
+    qs = TeachingGroup.objects.filter(archived=False, year_taught=CURRENT_ACADEMIC_YEAR)
+    rollover_form = RolloverFormSet(queryset=qs)
+
+    if request.method == 'POST':
+        rollover_form = RolloverFormSet(request.POST, queryset=qs)
+        if rollover_form.is_valid():
+            rollover_form.save()
+
+            # Now change the group names
+            for group in TeachingGroup.objects.filter(archived=False, year_taught=CURRENT_ACADEMIC_YEAR):
+                if group.rollover_name:
+                    group.name = group.rollover_name
+                    group.rollover_name = False
+                    group.year_taught = CURRENT_ACADEMIC_YEAR + 1
+                    group.save()
+
+                else:
+                    group.archived = True
+                    group.save()
+
+            return redirect(reverse('rollover2'))
+
+    return render(request, 'GreenPen/rollover_part_1.html', {'rollover_form': rollover_form,
+                                                        'title': 'Upload Marks'})
+
+
+@user_passes_test(check_superuser)
+def year_rollover_part2(request):
+    # Deal with getting a CSV file
+
+    if request.method == 'POST':
+        csvform = CSVDocForm(request.POST, request.FILES)
+        if csvform.is_valid():
+            file = csvform.save()
+            path = file.document.path
+            import_groups_from_sims(path)
+            os.remove(path)
+            file.delete()
+            return redirect('/')
+    else:
+        csvform = CSVDocForm()
+    return render(request, 'GreenPen/csv_upload.html', {'csvform': csvform,
+                                                        'title': 'Upload Marks'})
+
+
+@user_passes_test(check_teacher)
+def new_sitting(request, exam_pk):
+
+    exam = Exam.objects.get(pk=exam_pk)
+    questions = Question.objects.filter(exam=exam)
+    sittingform = NewSittingForm()
+    if request.method == 'POST':
+        sittingform = NewSittingForm(request.POST)
+        if sittingform.is_valid():
+
+            classgroup = sittingform.cleaned_data['group']
+            sitting = Sitting.objects.create(exam=exam, group=classgroup, date=sittingform.cleaned_data['date'],
+                                             )
+            students = classgroup.students.all()
+            for student in students:
+                for question in questions:
+                    Mark.objects.get_or_create(student=student, question=question, sitting=sitting)
+            return redirect(reverse('exam-results', args=[sitting.pk, ]))
+
+        else:
+            return render(request, 'GreenPen/add-sitting.html', {'sittingform': sittingform,
+                                                            'exam': exam})
+
+    return render(request, 'GreenPen/add-sitting.html', {'sittingform': sittingform,
+                                                         'exam': exam})
+
+
+@user_passes_test(check_teacher)
+def confirm_delete_sitting(request, sitting_pk):
+    sitting = Sitting.objects.get(pk=sitting_pk)
+
+    return render(request, 'GreenPen/confirm_delete_sitting.html', {'sitting': sitting})
+
+
+@user_passes_test(check_teacher)
+def delete_sitting(request, sitting_pk):
+    sitting = Sitting.objects.get(pk=sitting_pk)
+    sitting.delete()
+
+    return redirect(reverse('exam-list'))
+
+
+@login_required
+def student_exam_view(request, student_pk):
+    student = Student.objects.get(student_id=student_pk)
+    if request.user.groups.filter(name='Teachers').count():
+        pass
+    elif request.user.groups.filter(name='Students').count():
+        if student.user == request.user:
+            pass
+        else:
+            raise HttpResponseForbidden
+    else:
+        raise HttpResponseForbidden
+
+    sittings = Sitting.objects.filter(group__students=student).order_by('date')
+    data = []
+    for sitting in sittings:
+        first_q = sitting.exam.question_set.order_by('order')[0]
+        first_mark, created = Mark.objects.get_or_create(student=student,
+                                                         sitting=sitting,
+                                                         question=first_q)
+        row = {'exam': sitting.exam,
+               'sitting': sitting,
+               'score': sitting.student_total(student),
+               'first_mark': first_mark}
+        data.append(row)
+    return render(request, 'GreenPen/exam_list_student.html', {'student': student,
+                                                              'data': data})
+
+
+def student_exam_entry(request):
+    if request.user.groups.filter(name='Students').count():
+        student = Student.objects.get(user=request.user)
+        return redirect(reverse('student-exam-list', args=[student.student_id,]))
+    else:
+        raise Http404

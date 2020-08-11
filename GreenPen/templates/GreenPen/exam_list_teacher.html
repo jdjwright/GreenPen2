@@ -2,7 +2,6 @@
 {% load auth_extras %}
 {% block content %}
     <h1>Exam list</h1>
-
     <div class="card-group">
         {% for exam in object_list %}
             <div class="col-lg-4">
@@ -18,7 +17,7 @@
                             {% endfor %}
                         </ul>
                     <div class="card-footer align-bottom align-items-bottom">
-                        <a href="#" class="card-link"><i class="fas fa-plus"></i>Add sitting</a>
+                        <a href="{% url 'new-sitting' exam.pk %}" class="card-link"><i class="fas fa-plus"></i>Add sitting</a>
                     </div>
                     </div>
             </div>

@@ -1,0 +1,19 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% block content %}
+<h1>Delete Sitting</h1>
+    <div>Please confirm that you want to delete the sitting of {{ sitting.exam }} with group {{sitting.group }} on {{ sitting.date }}.
+    Data for the following students will be <strong>unrecoverable</strong>:</div>
+    <div>
+    <ul class="list-group">
+        {% for student in sitting.group.students.all %}
+        <li class="list-group-item">{{ student }}</li>
+        {% endfor %}
+    </ul>
+    </div>
+<div>
+    <a href="{% url 'exam-results' sitting.pk %}" class="btn btn-primary">Go back</a>
+    <a href="{% url 'delete-sitting2' sitting.pk %}" class="btn btn-danger">Delete</a>
+</div>
+
+{% endblock content %}

@@ -1,5 +1,5 @@
 from dal import autocomplete
-from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam
+from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, TeachingGroup
 from django import forms
 from mptt.forms import TreeNodeChoiceField
 from .widgets import TreeSelect, TreeSelectMultiple
@@ -67,3 +67,15 @@ class AddExamForm(forms.ModelForm):
         widgets = {
             'syllabus': TreeSelect(attrs={'class': 'syllabus-checkbox'})
         }
+
+
+class TeachingGroupRollover(forms.ModelForm):
+    class Meta:
+        models = TeachingGroup
+        fields = ['name', 'rollover_name']
+        widgets = {'name': forms.TextInput(attrs={'readonly': 'readonly'})}
+
+
+class NewSittingForm(forms.Form):
+    group = forms.ModelChoiceField(TeachingGroup.objects.filter(archived=False))
+    date = forms.DateField(widget=forms.SelectDateWidget)

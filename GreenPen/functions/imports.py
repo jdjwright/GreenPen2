@@ -1,4 +1,5 @@
 from GreenPen.models import *
+from GreenPen.settings import CURRENT_ACADEMIC_YEAR
 from django.contrib.auth.models import User, Group
 import csv
 
@@ -164,3 +165,35 @@ def update_group_assignments(path):
             print('Adding ' + row[0])
             teachinggroup = TeachingGroup.objects.get(pk=row[4])
             teachinggroup.students.add(Student.objects.get(student_id=row[3]))
+
+def import_groups_from_sims(path):
+    with open(path, newline='') as csvfile:
+        students = csv.reader(csvfile, delimiter=',', quotechar='"')
+        # Skip headers
+        next(students, None)
+        teacher_auth_group, created = Group.objects.get_or_create(name='Teachers')
+        current_group_name = ''
+        current_group = ''
+        for row in students:
+            if current_group_name != row[0]:
+                # Only create a group and update a teacher once
+                current_group_name = row[0]
+                current_group, created = TeachingGroup.objects.get_or_create(name=current_group_name,
+                                                                    year_taught=CURRENT_ACADEMIC_YEAR + 1)
+
+                teacher, created = Teacher.objects.get_or_create(staff_code=row[9])
+                current_group.teachers.add(teacher)
+                current_group.save()
+
+            # Now we add the students:
+            student, created = Student.objects.get_or_create(student_id=row[15])
+            student.tutor_group = row[12]
+            student.year_group = row[16]
+            student.user, created = User.objects.get_or_create(username=row[15])
+            student.user.first_name = row[11]
+            student.user.last_name = row[10]
+            student.user.email = row[14]
+            student.save()
+            student.user.save()
+            current_group.students.add(student)
+            print("Added " + str(student))

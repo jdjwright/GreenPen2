@@ -1,0 +1,21 @@
+{% extends 'GreenPen/bs_base.html' %}
+{% load crispy_forms_tags %}
+{% block content %}
+<h1>Rollover Academic years</h1>
+    <h3>Part One: Rollover Classgroups</h3>
+    <div>
+    <p>Use this form to chose the new classes for your yeargroup.</p>
+    <form method="post">
+    {{ rollover_form.management_form }}
+    {% csrf_token %}
+    {% for form in rollover_form %}
+        <div class="row">{{ form.id }}
+            <div class="col-sm-5">{{ form.name|as_crispy_field }}</div>
+            <div class="col-sm-2">--></div>
+            <div class="col-sm-5">{{ form.rollover_name|as_crispy_field }}</div>
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn-primary">Next</button>
+    </form>
+    </div>
+{% endblock content %}

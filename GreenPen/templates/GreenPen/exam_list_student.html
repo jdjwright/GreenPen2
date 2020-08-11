@@ -1,0 +1,27 @@
+{% extends 'GreenPen/bs_base.html' %}
+{% load auth_extras %}
+{% block content %}
+    <h1>Exam list for {{ student }}</h1>
+    <div class="card-group">
+        {% for row in data %}
+
+            <div class="col-lg-4">
+                <div class="card-header">
+                    <h5 class="card-title"><a href="" class="card-title">{{ row.exam }}</a></h5>
+                </div>
+                <div class="card-body">
+                <ul class="list-group">
+
+                    <li class="list-group-item"><a href="{% url 'input_mark' row.first_mark.pk %}">{{ row.sitting.date }}: {{ row.score }}</a>
+                    </li>
+
+                </ul>
+</div>
+            </div>
+        {% endfor %}
+    </div>
+
+
+
+
+{% endblock content %}

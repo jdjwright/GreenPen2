@@ -2,8 +2,8 @@
 
 {% block content %}
 <h1>Exam results for {{ sitting.group }} taking {{ sitting.exam }} on {{ sitting.date }}</h1>
-
-<table class="table">
+<a href="{% url 'delete-sitting1' sitting.pk %}" class="btn btn-danger">Delete exam</a>
+<table class="table table-responsive">
     <thead>
     <tr>
         <td></td>

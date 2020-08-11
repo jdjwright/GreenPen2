@@ -78,6 +78,7 @@ class TeachingGroup(models.Model):
     syllabus = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.SET_NULL)
     archived = models.BooleanField(blank=True, null=True, default=False)
     year_taught = models.IntegerField(null=True, blank=True)
+    rollover_name = models.CharField(max_length=256, blank=True, null=True)
 
     def __str__(self):
         return self.name
