@@ -1,5 +1,28 @@
 {% extends 'GreenPen/bs_base.html' %}
 
 {% block content %}
+  <body>
+    <div class="align-left">
+        {% if user.is_authenticated %}
+            <H2>Hi, {{ user.username }}, welcome back.</H2>
+        {% else %}
+        {% endif %}
+    </div>
+    <div class="center">
+                <div class="jumbotron">
+                    <h1 class="display-4">Welcome to Greenpen</h1>
+                         <p class="lead">Greenpen is an assessment management system which allows students, teachers and parents to see an individual student's progress against assessment objectivies.</p>
+                    <hr class="my-4">
+                    <p>It is currently under development by:
+                    <ul class="list-group">
+                    <li class="list-group-item"><a href="twiter.com/jdjw">James Wright</a></li>
+                    <li class="list-group-item">Joseph Rowland</li>
+                </ul></p>
+                    <button class="btn-primary"><a href="{% url 'social:begin' 'google-oauth2' %}">Login with Google</a></button>
 
+          </p>
+        </div>
+
+        </div>
+    </body>
 {% endblock %}

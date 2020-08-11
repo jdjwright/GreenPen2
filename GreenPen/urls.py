@@ -21,6 +21,7 @@ from GreenPen.views import *
 from GreenPen.dash_apps.finished_apps import TeacherDashboard, StudentDashboard
 
 urlpatterns = [
+    path('', splash, name='splash'),
     path('admin/', admin.site.urls),
     path('syllabus/json/<int:syllabus_pk>', send_syllabus_children, name='ajax-syllabus-children'),
     path('students/', StudentList.as_view(), name='student_list'),

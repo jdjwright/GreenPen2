@@ -22,7 +22,7 @@ from django.contrib.auth.mixins import UserPassesTestMixin
 def check_teacher(user):
     if user.is_superuser:
         return True
-    elif user.groups.filter(name='Teacher').count():
+    elif user.groups.filter(name='Teachers').count():
         return True
 
     else:
@@ -43,6 +43,18 @@ class TeacherOnlyMixin(UserPassesTestMixin):
 
 class StudentList(TeacherOnlyMixin, ListView):
     model = Student
+
+
+def splash(request):
+    if not request.user.is_authenticated:
+        return render(request, 'GreenPen/splash.html')
+
+    if request.user.groups.filter(name='Teachers').count():
+        return redirect(reverse('bs-sample'))
+
+    elif request.user.groups.filter(name='Students').count():
+        student = Student.objects.get(user=request.user)
+        return redirect(reverse('student-dasshboard', args=(student.pk)))
 
 
 @user_passes_test(check_superuser)
