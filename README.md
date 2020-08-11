@@ -9,6 +9,13 @@ GreenPen is an open-source assessment management suite, which allows teachers an
 3. Bring test that the initial setup works correctly with `docker-compose up --build`.
 4. Assuming this works correctly, you can now start developing.
 
+## Deployment
+
+1. Clone the repository to your remote server using `git clone`.
+2. Edit the script `init-letsencrypt.sh` to include your email address, and set the correct `staging` variable (start with 1 for testing, then 0 when you've verified it's correct.
+3. Run `chmod +x init-letsencrypt.sh` and `sudo ./init-letsencrypt.sh`
+4. Run `docker-compose -f docker-compose.prod.yaml up -d --build` to bring up the server.
+
 ## Use with PyCharm
 
 The GreenPen developers use PyCharm as their IDE. To add docker to your PyCharm installation, follow the instructions on the [PyCharm website](https://www.jetbrains.com/help/pycharm/using-docker-as-a-remote-interpreter.html)
