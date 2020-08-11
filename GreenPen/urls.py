@@ -14,6 +14,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.contrib.auth.views import LogoutView, LoginView
 from django.urls import path, include
 from GreenPen.autocomplete import *
 from GreenPen.views import *
@@ -41,6 +42,9 @@ urlpatterns = [
     path('bs', teacher_dashboard, name='bs-sample'),
     path('django_plotly_dash/', include('django_plotly_dash.urls')),
     path('sitting/<int:sitting_pk>/results', exam_result_view, name='exam-results'),
-    path('marks/<int:mark_pk>', input_mark, name='input_mark')
+    path('marks/<int:mark_pk>', input_mark, name='input_mark'),
+    path('logout/', LogoutView.as_view(), name='logout'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('auth/', include('social_django.urls', namespace='social')),
 
 ]

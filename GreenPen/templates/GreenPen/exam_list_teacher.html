@@ -5,18 +5,21 @@
 
     <div class="card-group">
         {% for exam in object_list %}
-            <div class="col-md-4">
-                <div class="card h-100">
-                    <div class="card-body align-items-top">
-                        <a href="{% url 'edit-exam' exam.pk %}" class="card-title">{{ exam.name }}</a>
+            <div class="col-lg-4">
+                <div class="card h-10 d-flex flex-column justify-content-between">
+                    <div class="card-header">
+                        <h5 class="card-title"><a href="{% url 'edit-exam' exam.pk %}" class="card-title">{{ exam.name }}</a></h5>
                     </div>
-                        <ul class="list-group list-group-flush align-self-stretch">
+                        <ul class="list-group list-group-flush align-top align-items-top">
                             {% for sitting in exam.sitting_set.all %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center"><a href="{% url 'exam-results' sitting.pk %}">{{ sitting.date }}: {{ sitting.group }}</a>
                                 <span class="badge {{ sitting.avg_pc_badge_class }} badge-pill">{{ sitting.avg_percent }}</span>
                                 </li>
                             {% endfor %}
                         </ul>
+                    <div class="card-footer align-bottom align-items-bottom">
+                        <a href="#" class="card-link"><i class="fas fa-plus"></i>Add sitting</a>
+                    </div>
                     </div>
             </div>
         {% endfor %}
