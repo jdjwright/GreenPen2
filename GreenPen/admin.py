@@ -12,3 +12,7 @@ admin.site.register(Question)
 admin.site.register(TeachingGroup)
 admin.site.register(Sitting)
 admin.site.register(Teacher)
+
+reigster_list = [Lesson, LessonSuspension, LessonResources, LessonSlot, TimetabledLesson]
+for item in reigster_list:
+    admin.site.register(item)
