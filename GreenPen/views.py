@@ -292,7 +292,7 @@ class ExamListView(TeacherOnlyMixin, ListView):
 
 
 class AddExam(TeacherOnlyMixin, CreateView):
-    template_name = 'Greenpen/add-exam.html'
+    template_name = 'GreenPen/add-exam.html'
     form_class = AddExamForm
     model = Exam
 
@@ -362,7 +362,7 @@ def student_dashboard(request, student_pk):
         if student.user != request.user:
             return HttpResponseForbidden
 
-    return render(request, 'Greenpen/student_dashboard.html', {'student': student})
+    return render(request, 'GreenPen/student_dashboard.html', {'student': student})
 
 
 def input_mark(request, mark_pk):
