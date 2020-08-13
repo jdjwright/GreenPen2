@@ -65,6 +65,27 @@
         </div>
       </li>
     {% endif %}
+
+{% if request.user.is_staff %}
+      <div class="sidebar-heading">
+        Administration
+      </div>
+
+      <!-- Nav Item - Exams Collapse Menu -->
+
+      <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo" aria-expanded="true" aria-controls="collapseTwo">
+          <i class="fas fa-wrench"></i>
+          <span>Administration</span>
+        </a>
+        <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
+          <div class="bg-white py-2 collapse-inner rounded">
+            <h6 class="collapse-header">Admin:</h6>
+            <a class="collapse-item" href="/admin">Admin Portals</a>
+          </div>
+        </div>
+      </li>
+    {% endif %}
       <!-- Nav Item - Utilities Collapse Menu -->
 
     </ul>
