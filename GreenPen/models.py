@@ -605,15 +605,19 @@ class CalendaredPeriod(models.Model):
     order = models.IntegerField(null=False)
     tt_slot = models.ForeignKey(TTSlot, null=False, on_delete=models.CASCADE)
     week = models.ForeignKey(Week, null=False, on_delete=models.CASCADE)
+    date = models.DateField(null=True)
 
     class Meta:
         ordering = ['order']
 
-    @property
-    def date(self):
+    def set_date(self, automatic=True):
         start_date = self.year.first_monday
-        return start_date + datetime.timedelta(weeks=self.week.number,
+        self.date = start_date + datetime.timedelta(weeks=self.week.number,
                                                days=self.tt_slot.day.order)
+        if automatic:
+            self.save()
+        else:
+            return self.date
 
     @property
     def day(self):
@@ -625,6 +629,10 @@ class CalendaredPeriod(models.Model):
 
     def __str__(self):
         return str(self.date) + " P" + self.tt_slot.period.name
+
+    def save(self, *args, **kwargs):
+        self.set_date(automatic=False)
+        super(CalendaredPeriod, self).save(*args, **kwargs)
 
 
 def set_up_slots(academic_year=AcademicYear.objects.none()):
@@ -652,12 +660,49 @@ def set_up_slots(academic_year=AcademicYear.objects.none()):
             i +=1
 
 
+class Suspension(models.Model):
+    date = models.DateField(null=False)
+    period = models.ForeignKey(Period, null=False, on_delete=models.CASCADE)
+    teachinggroups = models.ManyToManyField(TeachingGroup)
+    whole_school = models.BooleanField()
+    slot = models.ForeignKey(CalendaredPeriod, null=True, on_delete=models.CASCADE)
+
+    def set_slot(self, automatic=True):
+        self.slot = CalendaredPeriod.objects.get(date=self.date, tt_slot__period=self.period)
+        if automatic:
+            self.save(automatic=False)
+        return self.slot
+
+    def save(self, *args, **kwargs):
+        self.set_slot()
+        super(Suspension, self).save(*args, **kwargs)
+
+
 class Lesson(models.Model):
     teachinggroup = models.ForeignKey(TeachingGroup, null=False, on_delete=models.CASCADE)
     title = models.CharField(max_length=256, blank=True, null=True)
     order = models.FloatField(null=False)
     description = models.TextField(null=True, blank=True)
     requirements = models.TextField(null=True, blank=True)
+    slot = models.ForeignKey(CalendaredPeriod, blank=True, null=True, on_delete=models.SET_NULL)
 
     class Meta:
         unique_together = ['teachinggroup', 'order']
+        ordering = ['order']
+
+    def set_slot(self, automatic=True):
+        tt_slots = TTSlot.objects.filter(teachinggroup=self.teachinggroup)
+        candidates = CalendaredPeriod.objects.filter(tt_slot__in=tt_slots).\
+            exclude(suspension__teachinggroups=self.teachinggroup)\
+            .exclude(suspension__whole_school=True)
+        self.slot = candidates[self.order]
+
+        if automatic:
+            self.save()
+
+        else:
+            return self.slot
+
+    def save(self, *args, **kwargs):
+        self.set_slot(automatic=False)
+        super(Lesson, self).save(*args, **kwargs)

@@ -1,5 +1,5 @@
 from django.test import TestCase
-from GreenPen.models import Student, Teacher, Subject, TeachingGroup, Syllabus, Exam, Question, Mark, Sitting, StudentSyllabusAssessmentRecord
+from GreenPen.models import *
 from django.contrib.auth.models import User
 import datetime
 
@@ -1071,3 +1071,83 @@ class SyllabusReportingTestCase(TestCase):
         self.assertEqual(stats['children_3_4'], 0)
         self.assertEqual(stats['children_4_5'], 1)
 
+### Timetable
+
+class TimetableTestCase(TestCase):
+    """
+    Create the following timetable:
+
+          P1     P2
+    Day1  tg1    tg2
+    Day2  tg2    FREE
+    """
+
+
+    def setUp(self):
+
+        year1 = AcademicYear.objects.create(name='test year',
+                                           order=0,
+                                           current=False,
+                                           first_monday=datetime.date.today(),
+                                           total_weeks=10)
+        year2 = AcademicYear.objects.create(name='test year 2',
+                                           order=1,
+                                           current=True,
+                                           first_monday=datetime.date.today()+datetime.timedelta(weeks=11),
+                                           total_weeks=10)
+
+        day1 = Day.objects.create(order=0,
+                                  name='day1',
+                                  year=year2)
+
+        day2 = Day.objects.create(order=1,
+                                  name='day2',
+                                  year=year2)
+
+        p1 = Period.objects.create(order=0,
+                                   name='1',
+                                   year=year2)
+
+        p2 = Period.objects.create(order=1,
+                                   name='2',
+                                   year=year2)
+
+        set_up_slots(year2)
+
+        tg1 = TeachingGroup.objects.create(name='tg1')
+        tg2 = TeachingGroup.objects.create(name='tg2')
+
+        d1p1 = TTSlot.objects.get(day=day1,
+                                  period=p1)
+        tg1.lessons.add(d1p1)
+
+        d1p2 = TTSlot.objects.get(day=day1,
+                                  period=p2)
+        tg2.lessons.add(d1p2)
+
+        d2p1 = TTSlot.objects.get(day=day2,
+                                  period=p2)
+        tg2.lessons.add(d2p1)
+
+    def test_calendared_slots_correct(self):
+        self.assertEqual(CalendaredPeriod.objects.count(), 40)
+
+    def test_dates_correct(self):
+        self.assertEqual(datetime.date.today()+datetime.timedelta(weeks=11), CalendaredPeriod.objects.get(order=0).date)
+
+    def test_add_lesson(self):
+        tg1 = TeachingGroup.objects.get(name='tg1')
+        l1 = Lesson.objects.create(teachinggroup=tg1,
+                                   title='Lesson1',
+                                   order=0)
+        correct_slot = CalendaredPeriod.objects.get(date=datetime.date.today()+datetime.timedelta(weeks=11),
+                                                    tt_slot__period=Period.objects.get(name='1'))
+        self.assertEqual(l1.slot, correct_slot)
+
+        l2 = Lesson.objects.create(teachinggroup=tg1,
+                                   title='Lesson2',
+                                   order=1)
+        correct_slot = CalendaredPeriod.objects.get(date=datetime.date.today()+datetime.timedelta(weeks=12),
+                                                    tt_slot__period=Period.objects.get(name='1'))
+
+        self.assertEqual(l1.slot, correct_slot)
