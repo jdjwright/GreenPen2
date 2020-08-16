@@ -702,15 +702,17 @@ class Lesson(models.Model):
         unique_together = ['teachinggroup', 'order']
         ordering = ['order']
 
-    def set_slot(self, save=False):
+    def set_slot(self, save=False, candidates=False):
 
         # Find lesson slots for this class
         tt_slots = TTSlot.objects.filter(teachinggroup=self.teachinggroup)
 
-        # Get a list of all possible lesson slots
-        candidates = CalendaredPeriod.objects.filter(tt_slot__in=tt_slots).\
-            exclude(suspension__teachinggroups=self.teachinggroup)\
-            .exclude(suspension__whole_school=True)
+        # Include the candidates in the recursion to prevent mutliple db hits.
+        if not candidates:
+            # Get a list of all possible lesson slots
+            candidates = CalendaredPeriod.objects.filter(tt_slot__in=tt_slots).\
+                exclude(suspension__teachinggroups=self.teachinggroup)\
+                .exclude(suspension__whole_school=True)
         # Place this lesson in the [order-th] slot
         self.slot = candidates[int(self.order)]
         # Check if this will now clash with another lesson:
@@ -720,9 +722,9 @@ class Lesson(models.Model):
                                             slot=self.slot)
 
         if competitors.count():
-            # Recursion baby!
+            # Recursion goes BRRRRRR
             for competitor in competitors:
-                competitor.set_slot(save=True)
+                competitor.set_slot(save=True, candidates=candidates)
 
         if save:
             self.save()
