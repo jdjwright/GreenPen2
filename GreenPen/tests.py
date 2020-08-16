@@ -1251,9 +1251,9 @@ class TimetableTestCase(TestCase):
         # Week  Day     P1   P2
         # 11     1      SUS(1)  SUS(3)
         # 11     2      tg2(1)  free
-        # 12     1      SUS(2)  tg2
-        # 12     2      tg2(2)  free
-        # 13     1      tg1(2)  tg2(3)
+        # 12     1      SUS(2)  tg2(2)
+        # 12     2      tg2(3)  free
+        # 13     1      tg1(2)  tg2(4)
         # 14     2      tg2  free
         # 14     1      SUS  tg2(3)
         # 14     2      tg2  free
@@ -1265,6 +1265,11 @@ class TimetableTestCase(TestCase):
         s3, created = Suspension.objects.get_or_create(date=datetime.date.today() + datetime.timedelta(weeks=11),
                                                        whole_school=True,
                                                        period=Period.objects.get(name='2'))
+        # Need to refresh the others from the DB:
+
+        for l in [l1, l2, l3]:
+            l.refresh_from_db()
+
         self.assertEqual(l1.slot,
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
                                                       tt_slot__period=Period.objects.get(name='1')))
@@ -1273,5 +1278,5 @@ class TimetableTestCase(TestCase):
                                                       tt_slot__period=Period.objects.get(name='2')))
 
         self.assertEqual(l3.slot,
-                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=15),
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12, days=1),
                                                       tt_slot__period=Period.objects.get(name='1')))
