@@ -193,7 +193,6 @@ class SyllabusTestCase(TestCase):
         self.assertEqual(str(root_1_2), '1.1.2: second grandchild')
 
 
-
 def setUpSyllabus():
     root, created = Syllabus.objects.get_or_create(text='root',
                                                    identifier='1')
@@ -307,7 +306,8 @@ class StudentSyllabusPercentTestCase(TestCase):
                                                          score=3)  # 100 %
 
         self.assertEqual(StudentSyllabusAssessmentRecord.objects.filter(student=skinner_student,
-                         syllabus_point=q1.syllabus_points.all()[0]).count(), 1)
+                                                                        syllabus_point=q1.syllabus_points.all()[
+                                                                            0]).count(), 1)
 
         # And ensure that the parents are recorded, too
 
@@ -319,7 +319,7 @@ class StudentSyllabusPercentTestCase(TestCase):
         bloggs_teacher, tubbs_teacher, skinner_student, chalke_student, potions, herbology, hb1 = set_up_class()
         q1, q2 = setUpQuestion()
         sitting, created = Sitting.objects.get_or_create(exam=q1.exam,
-                                                         date=datetime.date.today()-datetime.timedelta(days=1))
+                                                         date=datetime.date.today() - datetime.timedelta(days=1))
 
         # needed to set with a date before today so that the refresh test will be later.
 
@@ -329,7 +329,8 @@ class StudentSyllabusPercentTestCase(TestCase):
                                                          score=3)  # 100 %
 
         self.assertEqual(StudentSyllabusAssessmentRecord.objects.get(student=skinner_student,
-                                                                     syllabus_point=Syllabus.objects.get(text='first child'),
+                                                                     syllabus_point=Syllabus.objects.get(
+                                                                         text='first child'),
                                                                      most_recent=True).percentage,
                          100)
 
@@ -377,9 +378,9 @@ class StudentSyllabusPercentTestCase(TestCase):
         sitting.students.add(Student.objects.get(pk=skinner_student.pk))
 
         q3, created = Question.objects.get_or_create(exam=exam2,
-                                           number='1',
-                                           order=1,
-                                           max_score=4)
+                                                     number='1',
+                                                     order=1,
+                                                     max_score=4)
         q3.syllabus_points.add(Syllabus.objects.get(text='first child'))
 
         m3_skinner, created = Mark.objects.get_or_create(student=skinner_student,
@@ -396,7 +397,6 @@ class StudentSyllabusPercentTestCase(TestCase):
                          get(text='first child').
                          percent_correct(students=Student.objects.filter(user__email__contains='school.com')),
                          71)  # skinner is 4/4 from q3 ONLY, chalke is 1/3 from q2 ONLY, so avg = 5/7 = 83%
-
 
         # Test that it works for sub-points:
 
@@ -415,7 +415,7 @@ class StudentSyllabusPercentTestCase(TestCase):
 
         self.assertEqual(Syllabus.objects.get(text='first grandchild').
                          percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
-                         40) # 2/5 = 40%
+                         40)  # 2/5 = 40%
 
         # Check that this has included the parent too
         self.assertEqual(Syllabus.objects.get(text='first child').
@@ -426,7 +426,7 @@ class StudentSyllabusPercentTestCase(TestCase):
 
         exam3 = Exam.objects.create(name='exam3')
         sitting3 = Sitting.objects.create(exam=exam3,
-                                          date=datetime.date.today()+datetime.timedelta(days=1),
+                                          date=datetime.date.today() + datetime.timedelta(days=1),
                                           resets_ratings=True)
         # This exam is one day ahead, so should become the only source of truth
 
@@ -445,7 +445,7 @@ class StudentSyllabusPercentTestCase(TestCase):
 
         self.assertEqual(Syllabus.objects.get(text='first grandchild').
                          percent_correct(students=Student.objects.filter(pk=skinner_student.pk)),
-                         30) # 3/10 = 30%
+                         30)  # 3/10 = 30%
 
         # Should not have re-set the parent, so we should get:
         self.assertEqual(Syllabus.objects.get(text='first child').
@@ -493,8 +493,9 @@ class StudentSyllabusAssessmentRecordTestCase(TestCase):
 
         # Old record shuld no longer be most recent:
         old_record = StudentSyllabusAssessmentRecord.objects.get(student=student,
-                                                             sitting=sitting,
-                                                             syllabus_point=Syllabus.objects.get(text='first child'))
+                                                                 sitting=sitting,
+                                                                 syllabus_point=Syllabus.objects.get(
+                                                                     text='first child'))
         self.assertEqual(old_record.most_recent, False)
 
         # Sitting of most recent should be s2:
@@ -516,9 +517,9 @@ class StudentSyllabusAssessmentRecordTestCase(TestCase):
 
         # Check the old two are  no longer most recent
         oldest_record = StudentSyllabusAssessmentRecord.objects.get(student=student,
-                                                                 sitting=sitting,
-                                                                 syllabus_point=Syllabus.objects.get(
-                                                                     text='first child'))
+                                                                    sitting=sitting,
+                                                                    syllabus_point=Syllabus.objects.get(
+                                                                        text='first child'))
         self.assertEqual(oldest_record.most_recent, False)
 
         old_record = StudentSyllabusAssessmentRecord.objects.get(student=student,
@@ -528,10 +529,11 @@ class StudentSyllabusAssessmentRecordTestCase(TestCase):
         self.assertEqual(old_record.most_recent, False)
 
         newest = StudentSyllabusAssessmentRecord.objects.get(student=student,
-                                                                 sitting=s3,
-                                                                 syllabus_point=Syllabus.objects.get(
-                                                                     text='first child'))
+                                                             sitting=s3,
+                                                             syllabus_point=Syllabus.objects.get(
+                                                                 text='first child'))
         self.assertEqual(newest.most_recent, True)
+
     def test_order_integrity(self):
         # Ran into a problem with integrity errors when we set up a new sitting
         # after other sittings, so that when the ordering was set it tried to save one with
@@ -550,7 +552,7 @@ class StudentSyllabusAssessmentRecordTestCase(TestCase):
         m1 = Mark.objects.create(student=st, question=q1, sitting=s1, score=1)
         s2 = Sitting.objects.create(exam=e1, date=datetime.date.today() + datetime.timedelta(days=1))
         m2 = Mark.objects.create(student=st, question=q1, sitting=s2, score=1)
-        s3= Sitting.objects.create(exam=e1, date=datetime.date.today() + datetime.timedelta(days=2))
+        s3 = Sitting.objects.create(exam=e1, date=datetime.date.today() + datetime.timedelta(days=2))
         m3 = Mark.objects.create(student=st, question=q1, sitting=s3, score=1)
         self.assertEqual(StudentSyllabusAssessmentRecord.objects.get(order=3,
                                                                      student=st,
@@ -561,17 +563,14 @@ class StudentSyllabusAssessmentRecordTestCase(TestCase):
         s5 = Sitting.objects.create(exam=e1, date=datetime.date.today() + datetime.timedelta(days=4))
         m5 = Mark.objects.create(student=st, question=q1, sitting=s5, score=1)
 
-
         # Add a new one at order number 3:
 
         s6 = Sitting.objects.create(exam=e1, date=datetime.date.today() + datetime.timedelta(days=2.1))
         m6 = Mark.objects.create(student=st, question=q1, sitting=s6, score=1)
         records = StudentSyllabusAssessmentRecord.objects.filter(student=st,
-                                                                syllabus_point=pt)
+                                                                 syllabus_point=pt)
         self.assertEqual(records.count(), 6)
         self.assertEqual(records.get(order=3).sitting.date, s6.date)
-
-
 
     def test_add_sitting_when_newer_exist(self):
         """ This is necessary to check behaviour when importing exams or if students
@@ -640,7 +639,6 @@ class StudentSyllabusAssessmentRecordTestCase(TestCase):
                                                             student=student,
                                                             order=1)
         self.assertEqual(older.rating, 0)
-
 
 
 class CollectRatingsTestCase(TestCase):
@@ -725,9 +723,9 @@ class CollectRatingsTestCase(TestCase):
         self.assertEqual(parent.attempted_plus_children, 5)
 
         self.assertEqual(parent.children_3_4, 0)
-        self.assertEqual(parent.children_0_1, 0) # g2, c2, g3, g4
+        self.assertEqual(parent.children_0_1, 0)  # g2, c2, g3, g4
         self.assertEqual(parent.children_1_2, 0)
-        self.assertEqual(parent.children_2_3, 3) # Parent and child
+        self.assertEqual(parent.children_2_3, 3)  # Parent and child
         self.assertEqual(parent.children_4_5, 0)
 
         # Add a second to the same:
@@ -784,7 +782,7 @@ class CollectRatingsTestCase(TestCase):
         parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
                                                              syllabus_point=r,
                                                              sitting=sitting1)
-        self.assertEqual(parent.children_3_4, 3) # Parent and child
+        self.assertEqual(parent.children_3_4, 3)  # Parent and child
         self.assertEqual(parent.children_0_1, 0)
         self.assertEqual(parent.children_1_2, 0)
         self.assertEqual(parent.children_2_3, 0)
@@ -805,7 +803,7 @@ class CollectRatingsTestCase(TestCase):
         m3 = Mark.objects.create(student=student,
                                  sitting=sitting1,
                                  question=q3,
-                                 score=1) # Rating = 1
+                                 score=1)  # Rating = 1
 
         #                              Attempted    Scored rtin   0-1 1-2 2-3  3-4  4-5
         # - Root                         15            8    2.7   1    1   2   1    0
@@ -820,8 +818,6 @@ class CollectRatingsTestCase(TestCase):
 
         self.assertEqual(record.rating, 1)
 
-
-
         # Check rating for parent is correct:
 
         parent = StudentSyllabusAssessmentRecord.objects.get(student=student,
@@ -835,7 +831,7 @@ class CollectRatingsTestCase(TestCase):
         self.assertEqual(parent.children_4_5, 0)
 
         # Parent rating should now be 1/5 + 3/5 + 4/5 = 8/15 = 2.66666666
-        self.assertEqual(round(parent.rating,1), 2.7)
+        self.assertEqual(round(parent.rating, 1), 2.7)
 
         # And check rating for grandparent is correct:
 
@@ -862,7 +858,6 @@ class CollectRatingsTestCase(TestCase):
                                  score=3,
                                  sitting=sitting1)
 
-
         #  Child records should be unchanged:
         record = StudentSyllabusAssessmentRecord.objects.get(student=student,
                                                              syllabus_point=g2,
@@ -875,11 +870,10 @@ class CollectRatingsTestCase(TestCase):
                                                              syllabus_point=c1,
                                                              most_recent=True)
 
-
         # Percentage should be ating should now be 1/5 + 3/5 + 4/5 + 3/12= 11/27 = 41.%, rating 2.04
         # Rating should be calculated using self and children:
 
-        self.assertEqual(round(record.rating, 1), 2.1) # Weird python rounding problems somewhere!
+        self.assertEqual(round(record.rating, 1), 2.1)  # Weird python rounding problems somewhere!
         self.assertEqual(record.percentage, 41.0)
 
 
@@ -916,13 +910,13 @@ class SyllabusReportingTestCase(TestCase):
         sitting1 = Sitting.objects.create(exam=exam1)
 
         m1_s1 = Mark.objects.create(student=s1,
-                                 sitting=sitting1,
-                                 question=q1,
-                                 score=3)
+                                    sitting=sitting1,
+                                    question=q1,
+                                    score=3)
         m1_s2 = Mark.objects.create(student=s2,
-                                 sitting=sitting1,
-                                 question=q1,
-                                 score=5)
+                                    sitting=sitting1,
+                                    question=q1,
+                                    score=5)
 
         #                              Att   Corr    Rtg     0-1  1-2  2-3  3-4  4-5
         # - Root                       10     8       4      0    0    3    0    3
@@ -944,7 +938,7 @@ class SyllabusReportingTestCase(TestCase):
         self.assertEqual(g1.cohort_stats(Student.objects.all())['children_3_4'], 0)
         self.assertEqual(g1.cohort_stats(Student.objects.all())['children_4_5'], 1)
 
-        #Check that parents are reported correctly:
+        # Check that parents are reported correctly:
         stats = c1.cohort_stats(Student.objects.all())
         self.assertEqual(c1.cohort_stats(Student.objects.all())['percentage'], 80)
         self.assertEqual(c1.cohort_stats(Student.objects.all())['rating'], 4.0)
@@ -970,17 +964,17 @@ class SyllabusReportingTestCase(TestCase):
         q2 = Question.objects.create(exam=exam1,
                                      max_score=9,
                                      order=2,
-                                     number='2') #
+                                     number='2')  #
         q2.syllabus_points.add(g3)
 
         m2_s1 = Mark.objects.create(student=s1,
                                     sitting=sitting1,
                                     question=q2,
-                                    score=4) # 44%, 2.2 rating
+                                    score=4)  # 44%, 2.2 rating
         m2_s2 = Mark.objects.create(student=s2,
                                     sitting=sitting1,
                                     question=q2,
-                                    score=1) # 11%, 0.6 rating
+                                    score=1)  # 11%, 0.6 rating
 
         #                              Att   Corr    Rtg     0-1  1-2  2-3  3-4  4-5
         # - Root                       28     13     2.31    3    0    5    0    3
@@ -1013,7 +1007,7 @@ class SyllabusReportingTestCase(TestCase):
         # And for root:
 
         stats = r.cohort_stats(Student.objects.all())
-        self.assertEqual(stats['percentage'], 46.5) #13/28
+        self.assertEqual(stats['percentage'], 46.5)  # 13/28
         self.assertEqual(stats['rating'], 2.325)
         self.assertEqual(stats['children_0_1'], 2)
         self.assertEqual(stats['children_1_2'], 0)
@@ -1035,7 +1029,7 @@ class SyllabusReportingTestCase(TestCase):
         m3_s1 = Mark.objects.create(question=q3,
                                     student=s1,
                                     score=3,
-                                    sitting=sitting) # 75% 3.5 rating
+                                    sitting=sitting)  # 75% 3.5 rating
 
         stats = g4.cohort_stats(Student.objects.all())
         self.assertEqual(stats['percentage'], 75)
@@ -1071,6 +1065,7 @@ class SyllabusReportingTestCase(TestCase):
         self.assertEqual(stats['children_3_4'], 0)
         self.assertEqual(stats['children_4_5'], 1)
 
+
 ### Timetable
 
 class TimetableTestCase(TestCase):
@@ -1082,19 +1077,17 @@ class TimetableTestCase(TestCase):
     Day2  tg2    FREE
     """
 
-
     def setUp(self):
-
         year1 = AcademicYear.objects.create(name='test year',
-                                           order=0,
-                                           current=False,
-                                           first_monday=datetime.date.today(),
-                                           total_weeks=10)
+                                            order=0,
+                                            current=False,
+                                            first_monday=datetime.date.today(),
+                                            total_weeks=10)
         year2 = AcademicYear.objects.create(name='test year 2',
-                                           order=1,
-                                           current=True,
-                                           first_monday=datetime.date.today()+datetime.timedelta(weeks=11),
-                                           total_weeks=10)
+                                            order=1,
+                                            current=True,
+                                            first_monday=datetime.date.today() + datetime.timedelta(weeks=11),
+                                            total_weeks=10)
 
         day1 = Day.objects.create(order=0,
                                   name='day1',
@@ -1126,28 +1119,159 @@ class TimetableTestCase(TestCase):
         tg2.lessons.add(d1p2)
 
         d2p1 = TTSlot.objects.get(day=day2,
-                                  period=p2)
+                                  period=p1)
         tg2.lessons.add(d2p1)
 
     def test_calendared_slots_correct(self):
         self.assertEqual(CalendaredPeriod.objects.count(), 40)
 
     def test_dates_correct(self):
-        self.assertEqual(datetime.date.today()+datetime.timedelta(weeks=11), CalendaredPeriod.objects.get(order=0).date)
+        self.assertEqual(datetime.date.today() + datetime.timedelta(weeks=11),
+                         CalendaredPeriod.objects.get(order=0).date)
 
     def test_add_lesson(self):
         tg1 = TeachingGroup.objects.get(name='tg1')
         l1 = Lesson.objects.create(teachinggroup=tg1,
                                    title='Lesson1',
                                    order=0)
-        correct_slot = CalendaredPeriod.objects.get(date=datetime.date.today()+datetime.timedelta(weeks=11),
+        correct_slot = CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
                                                     tt_slot__period=Period.objects.get(name='1'))
         self.assertEqual(l1.slot, correct_slot)
 
         l2 = Lesson.objects.create(teachinggroup=tg1,
                                    title='Lesson2',
                                    order=1)
-        correct_slot = CalendaredPeriod.objects.get(date=datetime.date.today()+datetime.timedelta(weeks=12),
+        correct_slot = CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12),
                                                     tt_slot__period=Period.objects.get(name='1'))
 
-        self.assertEqual(l1.slot, correct_slot)
+        self.assertEqual(l2.slot, correct_slot)
+
+    def test_add_suspension(self):
+
+        # Here's what we're creating:
+
+        # Week  Day     P1   P2
+        # 11     1      tg1(1)  tg2
+        # 11     2      tg2  free
+        # 12     1      tg1(2)  tg2
+        # 12     2      tg2  free
+        # 13     1      SUS(1)  tg2
+        # 13     2      tg2  free
+        # 14     1      tg1  tg2
+        # 14     2      tg2  free
+        # 15     1      tg1  tg2
+        # 15     2      tg2  free
+        tg1, created = TeachingGroup.objects.get_or_create(name='tg1')
+        s1, created = Suspension.objects.get_or_create(date=datetime.date.today() + datetime.timedelta(weeks=13),
+                                                       whole_school=True,
+                                                       period=Period.objects.get(name='1'))
+        l1, created = Lesson.objects.get_or_create(teachinggroup=tg1,
+                                                   title='Lesson1',
+                                                   order=0)
+        l2, created = Lesson.objects.get_or_create(teachinggroup=tg1,
+                                                   title='Lesson2',
+                                                   order=1)
+
+        l3, created = Lesson.objects.get_or_create(teachinggroup=tg1,
+                                                   title='Lesson3',
+                                                   order=2)
+
+        # Should skip a week due to the suspension
+        self.assertEqual(s1.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        correct_slot = CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=14),
+                                                    tt_slot__period=Period.objects.get(name='1'))
+        self.assertEqual(l3.slot, correct_slot)
+
+        # Now add one in the middle of a run of lessons:
+
+        # Here's what we're creating:
+
+        # Week  Day     P1   P2
+        # 11     1      SUS(2)  tg2
+        # 11     2      tg2  free
+        # 12     1      tg1  tg2
+        # 12     2      tg2  free
+        # 13     1      SUS(1)  tg2
+        # 13     2      tg2  free
+        # 14     1      SUS  tg2
+        # 14     2      tg2  free
+        # 15     1      tg1(3)  tg2
+        # 15     2      tg2  free
+        # 16     1      tg1  tg2
+        # 16     2      tg2  free
+
+        s2, created = Suspension.objects.get_or_create(date=datetime.date.today()+datetime.timedelta(weeks=11),
+                                                       whole_school=True,
+                                                       period=Period.objects.get(name='1'))
+
+        correct_slot = CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=14),
+                                                    tt_slot__period=Period.objects.get(name='1'))
+        l2.refresh_from_db()
+        self.assertEqual(l3.slot, correct_slot)
+
+        # Check again for tg2:
+        tg2, created = TeachingGroup.objects.get_or_create(name='tg2')
+        l1, created = Lesson.objects.get_or_create(teachinggroup=tg2,
+                                                   title='Lesson1',
+                                                   order=0)
+        l2, created = Lesson.objects.get_or_create(teachinggroup=tg2,
+                                                   title='Lesson2',
+                                                   order=1)
+
+        l3, created = Lesson.objects.get_or_create(teachinggroup=tg2,
+                                                   title='Lesson3',
+                                                   order=2)
+        # Sanity checl
+        # Week  Day     P1   P2
+        # 11     1      SUS(2)  tg2(1)
+        # 11     2      tg2(2)  free
+        # 12     1      SUS  tg2
+        # 12     2      SUS(2)  free
+        # 13     1      tg1(2)  tg2
+        # 14     2      tg2  free
+        # 14     1      SUS  tg2
+        # 14     2      tg2  free
+        # 15     1      tg1(3)  tg2
+        # 15     2      tg2  free
+        # 16     1      tg1  tg2
+        # 16     2      tg2  free
+        self.assertEqual(l1.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+        self.assertEqual(l2.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(l3.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+
+        # ADd a suspension:
+        # Week  Day     P1   P2
+        # 11     1      SUS(1)  SUS(3)
+        # 11     2      tg2(1)  free
+        # 12     1      SUS(2)  tg2
+        # 12     2      tg2(2)  free
+        # 13     1      tg1(2)  tg2(3)
+        # 14     2      tg2  free
+        # 14     1      SUS  tg2(3)
+        # 14     2      tg2  free
+        # 15     1      tg1(3)  tg2
+        # 15     2      tg2  free
+        # 16     1      tg1  tg2
+        # 16     2      tg2  free
+
+        s3, created = Suspension.objects.get_or_create(date=datetime.date.today() + datetime.timedelta(weeks=11),
+                                                       whole_school=True,
+                                                       period=Period.objects.get(name='2'))
+        self.assertEqual(l1.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(l2.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+
+        self.assertEqual(l3.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=15),
+                                                      tt_slot__period=Period.objects.get(name='1')))

@@ -670,12 +670,24 @@ class Suspension(models.Model):
     def set_slot(self, automatic=True):
         self.slot = CalendaredPeriod.objects.get(date=self.date, tt_slot__period=self.period)
         if automatic:
-            self.save(automatic=False)
+            self.save()
         return self.slot
 
     def save(self, *args, **kwargs):
-        self.set_slot()
+
+        # Assign self to a correct slot
+        self.set_slot(automatic=False)
         super(Suspension, self).save(*args, **kwargs)
+
+        # Re-organise lessons affected by this suspension:
+
+        affected_lessons = Lesson.objects.filter(slot=self.slot)
+
+        # We'll need to re-slot these lessons. The recuersion that checks
+        # for clashing peers should magically make all the other lessons in the series
+        # re-time too.:
+        for lesson in affected_lessons:
+            lesson.set_slot(save=True)
 
 
 class Lesson(models.Model):
@@ -690,19 +702,34 @@ class Lesson(models.Model):
         unique_together = ['teachinggroup', 'order']
         ordering = ['order']
 
-    def set_slot(self, automatic=True):
+    def set_slot(self, save=False):
+
+        # Find lesson slots for this class
         tt_slots = TTSlot.objects.filter(teachinggroup=self.teachinggroup)
+
+        # Get a list of all possible lesson slots
         candidates = CalendaredPeriod.objects.filter(tt_slot__in=tt_slots).\
             exclude(suspension__teachinggroups=self.teachinggroup)\
             .exclude(suspension__whole_school=True)
-        self.slot = candidates[self.order]
+        # Place this lesson in the [order-th] slot
+        self.slot = candidates[int(self.order)]
+        # Check if this will now clash with another lesson:
+        # NB this works because we've not saved yet, so the DB will return only
+        # the saved compeitior lesson.
+        competitors = Lesson.objects.filter(teachinggroup=self.teachinggroup,
+                                            slot=self.slot)
 
-        if automatic:
+        if competitors.count():
+            # Recursion baby!
+            for competitor in competitors:
+                competitor.set_slot(save=True)
+
+        if save:
             self.save()
 
         else:
             return self.slot
 
     def save(self, *args, **kwargs):
-        self.set_slot(automatic=False)
+        self.set_slot(save=False)
         super(Lesson, self).save(*args, **kwargs)
