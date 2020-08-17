@@ -11,6 +11,7 @@ from django.db import IntegrityError, transaction
 from django.urls import reverse
 from GreenPen.settings import CALENDAR_START_DATE, CALENDAR_END_DATE, ACADEMIC_YEARS
 from django.db.models import Max
+from django.db.models.signals import m2m_changed
 
 
 class Person(models.Model):
@@ -664,7 +665,7 @@ class Suspension(models.Model):
     date = models.DateField(null=False)
     period = models.ForeignKey(Period, null=False, on_delete=models.CASCADE)
     teachinggroups = models.ManyToManyField(TeachingGroup)
-    whole_school = models.BooleanField()
+    whole_school = models.BooleanField(null=True)
     slot = models.ForeignKey(CalendaredPeriod, null=True, on_delete=models.CASCADE)
 
     def set_slot(self, automatic=True):
@@ -674,20 +675,38 @@ class Suspension(models.Model):
         return self.slot
 
     def save(self, *args, **kwargs):
-
-        # Assign self to a correct slot
         self.set_slot(automatic=False)
-        super(Suspension, self).save(*args, **kwargs)
+        if self.whole_school:
+            # Assign self to a correct slot
+            self.set_slot(automatic=False)
+            super(Suspension, self).save(*args, **kwargs)
 
-        # Re-organise lessons affected by this suspension:
+            # Re-organise lessons affected by this suspension:
 
-        affected_lessons = Lesson.objects.filter(slot=self.slot)
+            affected_lessons = Lesson.objects.filter(slot=self.slot)
 
-        # We'll need to re-slot these lessons. The recuersion that checks
-        # for clashing peers should magically make all the other lessons in the series
-        # re-time too.:
-        for lesson in affected_lessons:
-            lesson.set_slot(save=True)
+            # We'll need to re-slot these lessons. The recuersion that checks
+            # for clashing peers should magically make all the other lessons in the series
+            # re-time too.:
+            for lesson in affected_lessons:
+                lesson.save()  # Save automatically calls 'set_slot'.
+
+        else:
+            super(Suspension, self).save(*args, **kwargs)
+
+
+def class_suspended(sender, **kwargs):
+    suspension = kwargs['instance']
+    classgroups = suspension.teachinggroups.all()
+    affected_lessons = Lesson.objects.filter(teachinggroup__in=classgroups,
+                                             slot__date=suspension.date,
+                                             slot__tt_slot__period=suspension.period)
+
+    for lesson in affected_lessons:
+        lesson.save()
+
+
+#m2m_changed.connect(class_suspended, sender=Suspension.teachinggroups.through)
 
 
 class Lesson(models.Model):
@@ -702,7 +721,7 @@ class Lesson(models.Model):
         unique_together = ['teachinggroup', 'order']
         ordering = ['order']
 
-    def set_slot(self, save=False, candidates=False):
+    def __set_slot(self, save=False, candidates=False):
 
         # Find lesson slots for this class
         tt_slots = TTSlot.objects.filter(teachinggroup=self.teachinggroup)
@@ -719,12 +738,12 @@ class Lesson(models.Model):
         # NB this works because we've not saved yet, so the DB will return only
         # the saved compeitior lesson.
         competitors = Lesson.objects.filter(teachinggroup=self.teachinggroup,
-                                            slot=self.slot)
+                                            slot=self.slot).exclude(pk=self.pk)
 
         if competitors.count():
             # Recursion goes BRRRRRR
             for competitor in competitors:
-                competitor.set_slot(save=True, candidates=candidates)
+                competitor.__set_slot(save=True, candidates=candidates)
 
         if save:
             self.save()
@@ -733,5 +752,5 @@ class Lesson(models.Model):
             return self.slot
 
     def save(self, *args, **kwargs):
-        self.set_slot(save=False)
+        self.__set_slot(save=False)
         super(Lesson, self).save(*args, **kwargs)
