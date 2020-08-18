@@ -696,17 +696,22 @@ class Suspension(models.Model):
 
 
 def class_suspended(sender, **kwargs):
+    # debug:
+    if not kwargs['action'] == 'post_add':
+        return
+    debug = kwargs
     suspension = kwargs['instance']
     classgroups = suspension.teachinggroups.all()
-    affected_lessons = Lesson.objects.filter(teachinggroup__in=classgroups,
+    if classgroups.count():
+        affected_lessons = Lesson.objects.filter(teachinggroup__in=classgroups,
                                              slot__date=suspension.date,
                                              slot__tt_slot__period=suspension.period)
 
-    for lesson in affected_lessons:
-        lesson.save()
+        for lesson in affected_lessons:
+            lesson.save()
 
 
-#m2m_changed.connect(class_suspended, sender=Suspension.teachinggroups.through)
+m2m_changed.connect(class_suspended, sender=Suspension.teachinggroups.through)
 
 
 class Lesson(models.Model):
@@ -729,28 +734,28 @@ class Lesson(models.Model):
         # Include the candidates in the recursion to prevent mutliple db hits.
         if not candidates:
             # Get a list of all possible lesson slots
-            candidates = CalendaredPeriod.objects.filter(tt_slot__in=tt_slots).\
+            candidates = list(CalendaredPeriod.objects.filter(tt_slot__in=tt_slots).\
                 exclude(suspension__teachinggroups=self.teachinggroup)\
-                .exclude(suspension__whole_school=True)
+                .exclude(suspension__whole_school=True))
         # Place this lesson in the [order-th] slot
         self.slot = candidates[int(self.order)]
         # Check if this will now clash with another lesson:
         # NB this works because we've not saved yet, so the DB will return only
         # the saved compeitior lesson.
-        competitors = Lesson.objects.filter(teachinggroup=self.teachinggroup,
-                                            slot=self.slot).exclude(pk=self.pk)
+        competitor = list(Lesson.objects.exclude(pk=self.pk).filter(teachinggroup=self.teachinggroup,
+                                            slot=self.slot))
 
-        if competitors.count():
+        if competitor:
             # Recursion goes BRRRRRR
-            for competitor in competitors:
-                competitor.__set_slot(save=True, candidates=candidates)
+            competitor[0].__set_slot(save=True, candidates=candidates)
 
         if save:
-            self.save()
+            self.save(bypass_set_slot=True)
 
         else:
             return self.slot
 
-    def save(self, *args, **kwargs):
-        self.__set_slot(save=False)
+    def save(self, bypass_set_slot=False, *args, **kwargs):
+        if not bypass_set_slot:
+            self.__set_slot(save=False)
         super(Lesson, self).save(*args, **kwargs)

@@ -1368,13 +1368,20 @@ class TimetableTestCase(TestCase):
         # 13     1    tg3(4), tg4(5)      FREE
         # 13     2    tg3(5)              tg4(6)
 
-        s5 = Suspension.objects.create(date=datetime.date.today()+datetime.timedelta(weeks=12),
+        s5, created = Suspension.objects.get_or_create(date=datetime.date.today()+datetime.timedelta(weeks=12),
                                        period=Period.objects.get(name='1'))
         s5.teachinggroups.add(tg3)
-        groups = s5.teachinggroups.all()
-        
-        # Check added properly.
-        self.assertQuerysetEqual(s5.teachinggroups.all(), TeachingGroup.objects.filter(name='tg3'))
+        s5.save()
+
+        all_groups = list(TeachingGroup.objects.all())
+        ## Check added properly.
+
+        # start by refreshing from db:
+
+        for l in [tg3_l1, tg3_l2, tg3_l3, tg3_l4, tg3_l5, tg3_l6,
+                  tg4_l1, tg4_l2, tg4_l3, tg4_l4, tg4_l5, tg4_l6]:
+            l.refresh_from_db()
+
         self.assertEqual(tg3_l1.slot,
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
                                                       tt_slot__period=Period.objects.get(name='1')))
@@ -1382,18 +1389,18 @@ class TimetableTestCase(TestCase):
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
                                                       tt_slot__period=Period.objects.get(name='1')))
         self.assertEqual(tg3_l3.slot,
-                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12),
-                                                      tt_slot__period=Period.objects.get(name='1')))
-
-        self.assertEqual(tg3_l4.slot,
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12, days=1),
                                                       tt_slot__period=Period.objects.get(name='1')))
 
+        self.assertEqual(tg3_l4.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=0),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
         self.assertEqual(tg3_l5.slot,
-                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13),
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=1),
                                                       tt_slot__period=Period.objects.get(name='1')))
         self.assertEqual(tg3_l6.slot,
-                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=1),
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=14, days=0),
                                                       tt_slot__period=Period.objects.get(name='1')))
 
         self.assertEqual(tg4_l1.slot,
@@ -1416,3 +1423,4 @@ class TimetableTestCase(TestCase):
         self.assertEqual(tg4_l6.slot,
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=1),
                                                       tt_slot__period=Period.objects.get(name='2')))
+
