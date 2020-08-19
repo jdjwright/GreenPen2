@@ -614,7 +614,7 @@ class CalendaredPeriod(models.Model):
     def set_date(self, automatic=True):
         start_date = self.year.first_monday
         self.date = start_date + datetime.timedelta(weeks=self.week.number,
-                                               days=self.tt_slot.day.order)
+                                                    days=self.tt_slot.day.order)
         if automatic:
             self.save()
         else:
@@ -658,7 +658,7 @@ def set_up_slots(academic_year=AcademicYear.objects.none()):
                                                    order=i,
                                                    tt_slot=slot,
                                                    week=week)
-            i +=1
+            i += 1
 
 
 class Suspension(models.Model):
@@ -694,6 +694,22 @@ class Suspension(models.Model):
         else:
             super(Suspension, self).save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        # find the classes affected by this:
+        # todo: remove debug filter
+        tgs = list(TeachingGroup.objects.filter(lessons=self.slot.tt_slot))
+        # Find lessons affected by this suspension:
+        tt_lessons = Lesson.objects.filter(slot__date__gte=self.date,
+                                           teachinggroup__in=tgs)
+        removeme = list(self.teachinggroups.all())
+        removeme2 = list(tt_lessons)
+        if not self.whole_school:
+            tt_lessons = tt_lessons.filter(teachinggroup__in=self.teachinggroups.all())
+        remoteme3 = list(tt_lessons) # I have no idea why this works!
+        super(Suspension, self).delete(*args, **kwargs)
+        for lesson in tt_lessons:
+            lesson.save()
+
 
 def class_suspended(sender, **kwargs):
     # debug:
@@ -704,8 +720,8 @@ def class_suspended(sender, **kwargs):
     classgroups = suspension.teachinggroups.all()
     if classgroups.count():
         affected_lessons = Lesson.objects.filter(teachinggroup__in=classgroups,
-                                             slot__date=suspension.date,
-                                             slot__tt_slot__period=suspension.period)
+                                                 slot__date=suspension.date,
+                                                 slot__tt_slot__period=suspension.period)
 
         for lesson in affected_lessons:
             lesson.save()
@@ -734,16 +750,16 @@ class Lesson(models.Model):
         # Include the candidates in the recursion to prevent mutliple db hits.
         if not candidates:
             # Get a list of all possible lesson slots
-            candidates = list(CalendaredPeriod.objects.filter(tt_slot__in=tt_slots).\
-                exclude(suspension__teachinggroups=self.teachinggroup)\
-                .exclude(suspension__whole_school=True))
+            candidates = list(CalendaredPeriod.objects.filter(tt_slot__in=tt_slots). \
+                              exclude(suspension__teachinggroups=self.teachinggroup) \
+                              .exclude(suspension__whole_school=True))
         # Place this lesson in the [order-th] slot
         self.slot = candidates[int(self.order)]
         # Check if this will now clash with another lesson:
         # NB this works because we've not saved yet, so the DB will return only
         # the saved compeitior lesson.
         competitor = list(Lesson.objects.exclude(pk=self.pk).filter(teachinggroup=self.teachinggroup,
-                                            slot=self.slot))
+                                                                    slot=self.slot))
 
         if competitor:
             # Recursion goes BRRRRRR
@@ -759,3 +775,12 @@ class Lesson(models.Model):
         if not bypass_set_slot:
             self.__set_slot(save=False)
         super(Lesson, self).save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        super(Lesson, self).delete(*args, **kwargs)
+        # Find the lessons that previously came after this:
+        following = Lesson.objects.filter(teachinggroup=self.teachinggroup,
+                                          order__gt=self.order)
+        for lesson in following:
+            lesson.order = lesson.order - 1
+            lesson.save()  # will re-apply the ordering
