@@ -17,7 +17,7 @@
 
                     {% if item.lessons.count %}
                             {% for lesson in item.lessons %}
-                                {{ lesson.title }}
+                                <h5 class="card-title"><a href="/admin/GreenPen/lesson/{{ lesson.pk }}/change/">{{ lesson.title }}</a></h5>
                                 {{ lesson.teachinggroup }}
 
 
