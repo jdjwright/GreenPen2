@@ -532,6 +532,14 @@ def student_exam_entry(request):
         raise Http404
 
 
+@user_passes_test(check_teacher)
+def timetable_splash(request):
+    teacher = Teacher.objects.get(user=request.user)
+    current_week = CalendaredPeriod.objects.get(order=0)
+
+    return redirect(reverse(timetable_overview, args=[current_week.pk, teacher.pk]))
+
+@user_passes_test(check_teacher)
 def timetable_overview(request, start_slot_pk, teacher_pk):
     """
     Dispaly the week grid for a given teacher, starting at the calendar slot corresponding to
