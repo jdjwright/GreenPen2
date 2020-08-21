@@ -53,5 +53,6 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('auth/', include('social_django.urls', namespace='social')),
     path('rollover/1', year_rollover_part1, name='rollover1'),
-    path('rollover/2', year_rollover_part2, name='rollover2')
+    path('rollover/2', year_rollover_part2, name='rollover2'),
+    path('timetable/<int:start_slot_pk>/<int:teacher_pk>', timetable_overview, name='tt_overview')
 ]

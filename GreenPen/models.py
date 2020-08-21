@@ -657,7 +657,9 @@ def set_up_slots(academic_year=AcademicYear.objects.none()):
             CalendaredPeriod.objects.get_or_create(year=academic_year,
                                                    order=i,
                                                    tt_slot=slot,
-                                                   week=week)
+                                                   week=week,
+                                                   date=academic_year.first_monday+datetime.timedelta(weeks=week.number,
+                                                                                                      days=day.order))
             i += 1
 
 
@@ -701,31 +703,61 @@ class Suspension(models.Model):
         # Find lessons affected by this suspension:
         tt_lessons = Lesson.objects.filter(slot__date__gte=self.date,
                                            teachinggroup__in=tgs)
-        removeme = list(self.teachinggroups.all())
-        removeme2 = list(tt_lessons)
+
         if not self.whole_school:
             tt_lessons = tt_lessons.filter(teachinggroup__in=self.teachinggroups.all())
-        remoteme3 = list(tt_lessons) # I have no idea why this works!
+        list(tt_lessons) # This shouldn't be required, but for some reason
+                         # either PyCharm or docker refuses to evaluate the qs without it.
         super(Suspension, self).delete(*args, **kwargs)
         for lesson in tt_lessons:
             lesson.save()
 
 
 def class_suspended(sender, **kwargs):
-    # debug:
-    if not kwargs['action'] == 'post_add':
-        return
-    debug = kwargs
     suspension = kwargs['instance']
-    classgroups = suspension.teachinggroups.all()
-    if classgroups.count():
-        affected_lessons = Lesson.objects.filter(teachinggroup__in=classgroups,
-                                                 slot__date=suspension.date,
-                                                 slot__tt_slot__period=suspension.period)
+    if 'post_add' in kwargs['action']:
+        classgroups = suspension.teachinggroups.all()
+        if classgroups.count():
+            affected_lessons = Lesson.objects.filter(teachinggroup__in=classgroups,
+                                                     slot__date=suspension.date,
+                                                     slot__tt_slot__period=suspension.period)
 
-        for lesson in affected_lessons:
+            for lesson in affected_lessons:
+                lesson.save()
+
+    elif 'post_remove' in kwargs['action']:
+        print('1')
+        # find the classes affected by this:
+        # todo: remove debug filter
+        tgs = list(TeachingGroup.objects.filter(lessons=suspension.slot.tt_slot))
+        # Find lessons affected by this suspension:
+        tt_lessons = Lesson.objects.filter(slot__date__gte=suspension.date,
+                                           teachinggroup__in=tgs)
+
+        # Exclude any that are still suspended.
+        tt_lessons = tt_lessons.exclude(teachinggroup__in=suspension.teachinggroups.all())
+        #list(tt_lessons) # This shouldn't be required, but for some reason
+                         # either PyCharm or docker refuses to evaluate the qs without it.
+
+        for lesson in tt_lessons:
             lesson.save()
 
+    elif 'post_clear' in kwargs['action']:
+        print('2')
+        # find the classes affected by this:
+        # todo: remove debug filter
+        tgs = list(TeachingGroup.objects.filter(lessons=suspension.slot.tt_slot))
+        # Find lessons affected by this suspension:
+        tt_lessons = Lesson.objects.filter(slot__date__gte=suspension.date,
+                                           teachinggroup__in=tgs)
+
+        # Exclude any that are still suspended.
+        tt_lessons = tt_lessons.exclude(teachinggroup=suspension.teachinggroups.all())
+        list(tt_lessons) # This shouldn't be required, but for some reason
+                         # either PyCharm or docker refuses to evaluate the qs without it.
+
+        for lesson in tt_lessons:
+            lesson.save()
 
 m2m_changed.connect(class_suspended, sender=Suspension.teachinggroups.through)
 
@@ -784,3 +816,14 @@ class Lesson(models.Model):
         for lesson in following:
             lesson.order = lesson.order - 1
             lesson.save()  # will re-apply the ordering
+
+
+def setup_lessons():
+    current_year = AcademicYear.objects.get(current=True)
+    for group in TeachingGroup.objects.all():
+        max_lessons = group.lessons.count() * current_year.total_weeks
+        i=0
+        for lesson in range(max_lessons):
+            Lesson.objects.get_or_create(teachinggroup=group,
+                                  order=i)
+            i += 1

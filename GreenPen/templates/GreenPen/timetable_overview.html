@@ -1,0 +1,33 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% block content %}
+    <h1>Timetable for {{ teacher }} on week commencing {{ calendar_items.0.slot.date }}</h1>
+
+    {% for row in calendar_items %}
+        <div class="row">
+            {% for item in row %}
+                <div class="col">
+                    <div class="card">
+                    {% if not forloop.parentloop.counter0 and  forloop.counter0%}
+                    {{ item.name }}
+                    {% endif %}
+                        {% if not forloop.counter0 %}
+                            {{ item.slot.day }}</div></div><div class="col"><div class="card">
+                       {% endif %}
+
+                    {% if item.lessons.count %}
+                            {% for lesson in item.lessons %}
+                                {{ lesson.title }}
+                                {{ lesson.teachinggroup }}
+
+
+                            {% endfor %}
+                        {% else %}
+                    {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+
+{% endblock content %}

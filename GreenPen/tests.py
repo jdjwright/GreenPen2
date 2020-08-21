@@ -1154,6 +1154,13 @@ class TimetableTestCase(TestCase):
         self.assertEqual(l2.slot, correct_slot)
 
     def test_delete_lesson(self):
+        """
+        Note that this test sometimes fails if run in the full
+        test suite. This seems to be a problem with transaction
+        isolation in the development environment. Running this test
+        by itself seems to pass. Fun job for the future to fix!
+        :return:
+        """
 
         # Week  Day     P1          P2
         # 11    1        tg1(1)
@@ -1516,3 +1523,183 @@ class TimetableTestCase(TestCase):
         self.assertEqual(tg4_l6.slot,
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=1),
                                                       tt_slot__period=Period.objects.get(name='2')))
+
+    def test_removing_classgroup(self):
+        """
+        Check that when we remove a teaching group from suspension list of
+        TGs, lessons for the removed group are returned to their original
+        positions.
+        :return:
+        """
+        tg3 = TeachingGroup.objects.get(name='tg3')
+        tg4 = TeachingGroup.objects.get(name='tg4')
+        Suspension.objects.all().delete()
+
+        tg3_l1 = Lesson.objects.create(teachinggroup=tg3, order=0)
+        tg3_l2 = Lesson.objects.create(teachinggroup=tg3, order=1)
+        tg3_l3 = Lesson.objects.create(teachinggroup=tg3, order=2)
+        tg3_l4 = Lesson.objects.create(teachinggroup=tg3, order=3)
+        tg3_l5 = Lesson.objects.create(teachinggroup=tg3, order=4)
+        tg3_l6 = Lesson.objects.create(teachinggroup=tg3, order=5)
+
+        tg4_l1 = Lesson.objects.create(teachinggroup=tg4, order=0)
+        tg4_l2 = Lesson.objects.create(teachinggroup=tg4, order=1)
+        tg4_l3 = Lesson.objects.create(teachinggroup=tg4, order=2)
+        tg4_l4 = Lesson.objects.create(teachinggroup=tg4, order=3)
+        tg4_l5 = Lesson.objects.create(teachinggroup=tg4, order=4)
+        tg4_l6 = Lesson.objects.create(teachinggroup=tg4, order=5)
+        # Sanity check
+        self.assertEqual(tg3_l1.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg3_l2.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg3_l3.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg3_l4.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12, days=1),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg3_l5.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg3_l6.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=1),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg4_l1.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg4_l2.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+        self.assertEqual(tg4_l3.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg4_l4.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12, days=1),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+
+        self.assertEqual(tg4_l5.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg4_l6.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=1),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+        # Suspend just TG3 and TG4:
+        # Week structure:
+        # week  Day   1                   2
+        # 11     1    tg3(1), tg4(1)      FREE
+        # 11     2    tg3(2)              tg4(2)
+        # 12     1    tg3(SUS), tg4(SUS)      FREE
+        # 12     2    tg3(3)              tg4(3)
+        # 13     1    tg3(4), tg4(4)      FREE
+        # 13     2    tg3(5)              tg4(5)
+
+        s6, created = Suspension.objects.get_or_create(date=datetime.date.today() + datetime.timedelta(weeks=12),
+                                                       period=Period.objects.get(name='1'))
+        s6.teachinggroups.add(tg3, tg4)
+        s6.save()
+
+        ## Check added properly.
+
+        # start by refreshing from db:
+
+        for l in [tg3_l1, tg3_l2, tg3_l3, tg3_l4, tg3_l5, tg3_l6,
+                  tg4_l1, tg4_l2, tg4_l3, tg4_l4, tg4_l5, tg4_l6]:
+            l.refresh_from_db()
+
+        self.assertEqual(tg3_l1.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg3_l2.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg3_l3.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12, days=1),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg3_l4.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=0),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg3_l5.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=1),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg3_l6.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=14, days=0),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg4_l1.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg4_l2.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+        self.assertEqual(tg4_l3.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12, days=1),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+
+        self.assertEqual(tg4_l4.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg4_l5.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=1),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+        self.assertEqual(tg4_l6.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=14),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        # Now remove tg4 only:
+        s6.teachinggroups.remove(tg4)
+        for l in [tg3_l1, tg3_l2, tg3_l3, tg3_l4, tg3_l5, tg3_l6,
+                  tg4_l1, tg4_l2, tg4_l3, tg4_l4, tg4_l5, tg4_l6]:
+            l.refresh_from_db()
+
+        self.assertEqual(tg3_l1.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg3_l2.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg3_l3.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12, days=1),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg3_l4.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=0),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg3_l5.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=1),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg3_l6.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=14, days=0),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg4_l1.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg4_l2.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+        self.assertEqual(tg4_l3.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+
+        self.assertEqual(tg4_l4.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12, days=1),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+
+        self.assertEqual(tg4_l5.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13),
+                                                      tt_slot__period=Period.objects.get(name='1')))
+        self.assertEqual(tg4_l6.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=1),
+                                                      tt_slot__period=Period.objects.get(name='2')))
+        # Suspend just TG3 and TG4:

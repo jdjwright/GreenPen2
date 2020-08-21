@@ -530,3 +530,50 @@ def student_exam_entry(request):
         return redirect(reverse('student-exam-list', args=[student.student_id,]))
     else:
         raise Http404
+
+
+def timetable_overview(request, start_slot_pk, teacher_pk):
+    """
+    Dispaly the week grid for a given teacher, starting at the calendar slot corresponding to
+    start_slot
+    :param request:
+    :param start_slot_pk: The PK for the calendar slot to begin the week grid with
+    :param teacher_pk: the PK for the teacher who's timetalbe you'd like to see
+    :return:
+    """
+    teacher = Teacher.objects.get(pk=teacher_pk)
+    starting_slot = CalendaredPeriod.objects.get(pk=start_slot_pk)
+
+    slots = CalendaredPeriod.objects.filter(date__gte=starting_slot.date,
+                                            date__lt=starting_slot.date+datetime.timedelta(weeks=1))
+    calendar_items = build_week_grid(starting_slot, teacher)
+
+    next_week_pk = CalendaredPeriod.objects.get(date=starting_slot.date+datetime.timedelta(weeks=1),
+                                                tt_slot__period=starting_slot.tt_slot.period).pk
+
+    return render(request, 'GreenPen/timetable_overview.html', {'teacher': teacher,
+                                                                'calendar_items': calendar_items,
+                                                                'next_week_pk': next_week_pk,
+                                                                })
+
+
+def build_week_grid(start_period=CalendaredPeriod.objects.none(),
+                    teacher=Teacher.objects.none()):
+    days = Day.objects.filter(year=AcademicYear.objects.get(current=True))
+    periods = Period.objects.filter(year=AcademicYear.objects.get(current=True))
+
+    slots = CalendaredPeriod.objects.filter(date__gte=start_period.date,
+                                            date__lt=start_period.date+datetime.timedelta(weeks=1))
+    row = [period for period in periods]
+#    row = [''] + row
+    rows = [row]
+    for day in days:
+        row = []
+        for period in periods:
+            slot = slots.get(tt_slot__day=day, tt_slot__period=period)
+            lessons = Lesson.objects.filter(slot=slot, teachinggroup__teachers=teacher)
+            row.append({'lessons': lessons,
+                        'slot': slot})
+        rows.append(row)
+
+    return rows
