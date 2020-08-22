@@ -840,7 +840,7 @@ def setup_lessons(teachinggrousp=TeachingGroup.objects.all()):
         max_lessons = group.lessons.count() * current_year.total_weeks
         i=0
         for lesson in range(max_lessons):
-            lesson_created = Lesson.objects.get_or_create(teachinggroup=group,
+            lesson_created, created = Lesson.objects.get_or_create(teachinggroup=group,
                                   order=i)
             lesson.save() # Required to force a re-slot.
             i += 1
