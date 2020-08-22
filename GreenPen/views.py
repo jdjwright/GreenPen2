@@ -562,7 +562,7 @@ def timetable_overview(request, start_slot_pk, teacher_pk):
     return render(request, 'GreenPen/timetable_overview.html', {'teacher': teacher,
                                                                 'calendar_items': calendar_items,
                                                                 'next_week_pk': next_week_pk,
-                                                                })
+                                                                'return_pk': start_slot_pk})
 
 
 def build_week_grid(start_period=CalendaredPeriod.objects.none(),
@@ -576,12 +576,38 @@ def build_week_grid(start_period=CalendaredPeriod.objects.none(),
 #    row = [''] + row
     rows = [row]
     for day in days:
-        row = []
+        row = [day]
         for period in periods:
             slot = slots.get(tt_slot__day=day, tt_slot__period=period)
+
+            # Either add all lessons (might double book teachers!) or make false
             lessons = Lesson.objects.filter(slot=slot, teachinggroup__teachers=teacher)
+            if not lessons.count():
+                lessons = False
+
+            # Add suspensions or make false.
+            suspensions = Suspension.objects.filter(slot=slot).filter(Q(teachinggroups__teachers=teacher)
+                                                                      | Q(whole_school=True))
+            if not suspensions.count():
+                suspensions = False
             row.append({'lessons': lessons,
+                        'suspensions': suspensions,
                         'slot': slot})
         rows.append(row)
 
     return rows
+
+
+@user_passes_test(check_teacher)
+def change_lesson(request, lesson_pk, return_pk):
+    teacher = Teacher.objects.get(user=request.user)
+    lesson = Lesson.objects.get(pk=lesson_pk)
+    form = LessonChangeForm(instance=lesson)
+
+    if request.method == 'POST':
+        form = LessonChangeForm(request.POST, instance=lesson)
+        if form.is_valid():
+            form.save()
+            return redirect('tt_overview', start_slot_pk=return_pk, teacher_pk=teacher.pk)
+    return render(request, 'GreenPen/lesson_change.html', {'lesson': lesson,
+                                                           'form': form})

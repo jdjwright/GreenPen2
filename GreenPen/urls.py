@@ -55,5 +55,6 @@ urlpatterns = [
     path('rollover/1', year_rollover_part1, name='rollover1'),
     path('rollover/2', year_rollover_part2, name='rollover2'),
     path('timetable', timetable_splash, name='tt_splash'),
-    path('timetable/<int:start_slot_pk>/<int:teacher_pk>', timetable_overview, name='tt_overview')
+    path('timetable/<int:start_slot_pk>/<int:teacher_pk>', timetable_overview, name='tt_overview'),
+    path('lesson/<int:lesson_pk>/<int:return_pk>', change_lesson, name='edit_lesson')
 ]

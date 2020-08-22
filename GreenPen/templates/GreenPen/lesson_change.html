@@ -1,0 +1,12 @@
+{% extends 'GreenPen/bs_base.html' %}
+{% load crispy_forms_tags %}
+{% block content %}
+    <h1>Change lesson number {{ lesson.order }} for {{ lesson.teachinggroup }} on {{ lesson.slot.date }}</h1>
+<div class="container">
+<form method="post">
+{% csrf_token %}
+    {{ form|crispy }}
+    <button type="submit">Save</button>
+</form>
+</div>
+{% endblock %}
