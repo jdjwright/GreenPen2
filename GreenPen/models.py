@@ -106,6 +106,22 @@ class TeachingGroup(models.Model):
         return round(relevant_records / total * 100, 0)
 
 
+def post_tg_lesson_add(sender, **kwargs):
+    """
+    This function is tiggered after adding a lesson to a teaching group.
+    It creates lessons (class Lesson) so that timetables can be populated
+    propertly.
+    :param lesson: the instance of the TTSlot assigned to this group
+    :return:
+    """
+    tg = kwargs['instance']
+    if 'post_add' in kwargs['action']:
+        setup_lessons(teachinggrousp=TeachingGroup.objects.filter(pk=tg.pk))
+
+
+m2m_changed.connect(post_tg_lesson_add, sender=TeachingGroup.lessons.through)
+
+
 class Syllabus(MPTTModel):
     text = models.TextField(blank=False, null=False)
     parent = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.CASCADE)
@@ -818,9 +834,9 @@ class Lesson(models.Model):
             lesson.save()  # will re-apply the ordering
 
 
-def setup_lessons():
+def setup_lessons(teachinggrousp=TeachingGroup.objects.all()):
     current_year = AcademicYear.objects.get(current=True)
-    for group in TeachingGroup.objects.all():
+    for group in teachinggrousp:
         max_lessons = group.lessons.count() * current_year.total_weeks
         i=0
         for lesson in range(max_lessons):
