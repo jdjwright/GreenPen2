@@ -824,7 +824,10 @@ class Lesson(models.Model):
                                                                                       period=period))
 
             # Try again with newly created days:
-            self.__set_slot(save=save, candidates=candidates)
+            candidates = list(CalendaredPeriod.objects.filter(tt_slot__in=tt_slots). \
+                              exclude(suspension__teachinggroups=self.teachinggroup) \
+                              .exclude(suspension__whole_school=True))
+            self.slot = candidates[int(self.order)]
         # Check if this will now clash with another lesson:
         # NB this works because we've not saved yet, so the DB will return only
         # the saved compeitior lesson.
