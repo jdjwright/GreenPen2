@@ -1137,8 +1137,9 @@ class TimetableTestCase(TestCase):
                          CalendaredPeriod.objects.get(order=0).date)
 
     def test_add_lesson(self):
+        Lesson.objects.all().delete()
         tg1 = TeachingGroup.objects.get(name='tg1')
-        l1 = Lesson.objects.create(teachinggroup=tg1,
+        l1, created = Lesson.objects.get_or_create(teachinggroup=tg1,
                                    title='Lesson1',
                                    order=0)
         correct_slot = CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
@@ -1169,7 +1170,7 @@ class TimetableTestCase(TestCase):
         # 12    2
         # 13    1       tg1(3)
         # 13    2
-
+        Lesson.objects.all().delete()
 
         l1 = Lesson.objects.create(teachinggroup=TeachingGroup.objects.get(name='tg1'),
                                    order=0)
@@ -1221,6 +1222,8 @@ class TimetableTestCase(TestCase):
         # 14     2      tg2  free
         # 15     1      tg1  tg2
         # 15     2      tg2  free
+
+        Lesson.objects.all().delete()
         tg1, created = TeachingGroup.objects.get_or_create(name='tg1')
         s1, created = Suspension.objects.get_or_create(date=datetime.date.today() + datetime.timedelta(weeks=13),
                                                        whole_school=True,
@@ -1354,7 +1357,7 @@ class TimetableTestCase(TestCase):
         tg3 = TeachingGroup.objects.get(name='tg3')
         tg4 = TeachingGroup.objects.get(name='tg4')
         Suspension.objects.all().delete()
-
+        Lesson.objects.all().delete()
         tg3_l1 = Lesson.objects.create(teachinggroup=tg3, order=0)
         tg3_l2 = Lesson.objects.create(teachinggroup=tg3, order=1)
         tg3_l3 = Lesson.objects.create(teachinggroup=tg3, order=2)
@@ -1534,6 +1537,7 @@ class TimetableTestCase(TestCase):
         tg3 = TeachingGroup.objects.get(name='tg3')
         tg4 = TeachingGroup.objects.get(name='tg4')
         Suspension.objects.all().delete()
+        Lesson.objects.all().delete()
 
         tg3_l1 = Lesson.objects.create(teachinggroup=tg3, order=0)
         tg3_l2 = Lesson.objects.create(teachinggroup=tg3, order=1)

@@ -807,7 +807,7 @@ class Lesson(models.Model):
             self.slot = candidates[int(self.order)]
         except IndexError:
             # Todo: Add warning message that lessons go past last day of year.
-            self.slot = None
+            self.delete()
         # Check if this will now clash with another lesson:
         # NB this works because we've not saved yet, so the DB will return only
         # the saved compeitior lesson.
