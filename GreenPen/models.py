@@ -810,7 +810,7 @@ class Lesson(models.Model):
             # Get last item:
             last_slot = CalendaredPeriod.objects.latest('order')
             year = AcademicYear.objects.get(current=True)
-            week = Week.objects.latest('order')
+            week = Week.objects.latest('number')
             next_week, created = Week.objects.get_or_create(year=year,
                                                             number=week.number+1)
             # Add an extra week
