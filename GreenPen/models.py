@@ -807,7 +807,7 @@ class Lesson(models.Model):
             self.slot = candidates[int(self.order)]
         except IndexError:
             # Todo: Add warning message that lessons go past last day of year.
-            if self.pk:
+            if self.id is not None:
                 self.delete()
             else:
                 return
