@@ -807,10 +807,24 @@ class Lesson(models.Model):
             self.slot = candidates[int(self.order)]
         except IndexError:
             # Todo: Add warning message that lessons go past last day of year.
-            if self.id is not None:
-                self.delete()
-            else:
-                return
+            # Get last item:
+            last_slot = CalendaredPeriod.objects.latest('order')
+            year = AcademicYear.objects.get(current=True)
+            week = Week.objects.latest('order')
+            next_week, created = Week.objects.get_or_create(year=year,
+                                                            number=week.number+1)
+            # Add an extra week
+            for day in Day.objects.filter(year=year):
+                for period in Period.objects.filter(year=year):
+                    CalendaredPeriod.objects.get_or_create(year=year,
+                                                           order=last_slot.order+1,
+                                                           week=next_week,
+                                                           tt_slot=TTSlot.objects.get(year=year,
+                                                                                      day=day,
+                                                                                      period=period))
+
+            # Try again with newly created days:
+            self.__set_slot(save=save, candidates=candidates)
         # Check if this will now clash with another lesson:
         # NB this works because we've not saved yet, so the DB will return only
         # the saved compeitior lesson.
