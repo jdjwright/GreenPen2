@@ -24,7 +24,7 @@
                         <td>
                         {% for lesson in item.lessons %}
                             <h5>{{ lesson.teachinggroup }}</h5>
-                            <h6><a href="{% url 'edit_lesson' lesson.pk return_pk%}" target="_blank">{{ lesson.title }}</a></h6>
+                            <h6><a href="{% url 'edit_lesson' lesson.pk return_pk%}">{{ lesson.title }}</a></h6>
                             <p>{{ lesson.description }}</p>
                             <p>{% if lesson.requirements %}Requirements: {{ lesson.requirements }}{% endif %}</p>
                         {% endfor %}
