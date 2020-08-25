@@ -535,9 +535,15 @@ def student_exam_entry(request):
 @user_passes_test(check_teacher)
 def timetable_splash(request):
     teacher = Teacher.objects.get(user=request.user)
-    current_week = CalendaredPeriod.objects.get(order=0)
+
+    # Calculate the first day of the week
+    today = datetime.date.today()
+    week_commencing = today + datetime.timedelta(days=-today.weekday())
+    first_period = Period.objects.get(order=1, year=AcademicYear.objects.get(current=True))
+    current_week = CalendaredPeriod.objects.get(date=week_commencing, tt_slot__period=first_period)
 
     return redirect(reverse(timetable_overview, args=[current_week.pk, teacher.pk]))
+
 
 @user_passes_test(check_teacher)
 def timetable_overview(request, start_slot_pk, teacher_pk):
