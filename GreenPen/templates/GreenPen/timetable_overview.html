@@ -2,7 +2,7 @@
 
 {% block content %}
    <h1>Tiemtable for {{ teacher.full_name }} on week commencing {{ calendar_items.1.1.slot.date }}</h1>
-    <div class="container">
+    <div class="row">
         <table class="table table-striped table-bordered">
         {% for row in calendar_items %}
             {% if not forloop.counter0 %}
@@ -19,16 +19,28 @@
                     {% if not forloop.counter0 %}
                         <th scope="row">{{ item.name }}</th>
                     {% else %}
-                    <td>
+
                     {% if item.lessons %}
+                        <td>
                         {% for lesson in item.lessons %}
                             <h5>{{ lesson.teachinggroup }}</h5>
                             <h6><a href="{% url 'edit_lesson' lesson.pk return_pk%}" target="_blank">{{ lesson.title }}</a></h6>
                             <p>{{ lesson.description }}</p>
                             <p>{% if lesson.requirements %}Requirements: {{ lesson.requirements }}{% endif %}</p>
                         {% endfor %}
+                        </td>
+
+                    {% elif item.suspensions %}
+                        <td class="table-warning">
+                         {% for suspension in item.suspensions %}
+                            <h5>{{ suspension.reason }}</h5>
+                         {% endfor %}
+                         </td>
+
+                    {% else %}
+                        <td class="table-success">Free</td>
                     {% endif %}
-                    </td>
+
                     {% endif %}
                 {% endfor %}
                 </tr>
@@ -38,5 +50,13 @@
         </tbody>
         </table>
     </div>
+    <div class="row">
+    {% if last_week_pk %}
+    <a class="btn btn-primary" href="{% url 'tt_overview' last_week_pk teacher.pk %}">Previous week</a>
+    {% endif %}
+    {% if next_week_pk %}
 <a class="btn btn-primary" href="{% url 'tt_overview' next_week_pk teacher.pk %}">Next week</a>
+    {% endif %}
+
+    </div>
 {% endblock content %}

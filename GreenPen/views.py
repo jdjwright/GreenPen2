@@ -556,12 +556,22 @@ def timetable_overview(request, start_slot_pk, teacher_pk):
                                             date__lt=starting_slot.date+datetime.timedelta(weeks=1))
     calendar_items = build_week_grid(starting_slot, teacher)
 
-    next_week_pk = CalendaredPeriod.objects.get(date=starting_slot.date+datetime.timedelta(weeks=1),
+    try:
+        next_week_pk = CalendaredPeriod.objects.get(date=starting_slot.date+datetime.timedelta(weeks=1),
                                                 tt_slot__period=starting_slot.tt_slot.period).pk
+    except ObjectDoesNotExist:
+        next_week_pk = False
+
+    try:
+        last_week_pk = CalendaredPeriod.objects.get(date=starting_slot.date-datetime.timedelta(weeks=1),
+                                                tt_slot__period=starting_slot.tt_slot.period).pk
+    except ObjectDoesNotExist:
+        last_week_pk = False
 
     return render(request, 'GreenPen/timetable_overview.html', {'teacher': teacher,
                                                                 'calendar_items': calendar_items,
                                                                 'next_week_pk': next_week_pk,
+                                                                'last_week_pk': last_week_pk,
                                                                 'return_pk': start_slot_pk})
 
 
@@ -611,3 +621,8 @@ def change_lesson(request, lesson_pk, return_pk):
             return redirect('tt_overview', start_slot_pk=return_pk, teacher_pk=teacher.pk)
     return render(request, 'GreenPen/lesson_change.html', {'lesson': lesson,
                                                            'form': form})
+
+@user_passes_test(check_superuser)
+def suspend_days(request):
+    form = SuspendDaysForm()
+    return render(request, 'GreenPen/suspend_days.html', {'form': form})

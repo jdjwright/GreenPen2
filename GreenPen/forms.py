@@ -3,6 +3,7 @@ from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, Tea
 from django import forms
 from mptt.forms import TreeNodeChoiceField
 from .widgets import TreeSelect, TreeSelectMultiple
+import datetime
 
 
 class MarkRecordForm(forms.ModelForm):
@@ -85,3 +86,10 @@ class LessonChangeForm(forms.ModelForm):
     class Meta:
         model = Lesson
         fields = ['title', 'description', 'requirements']
+
+
+class SuspendDaysForm(forms.Form):
+    start_date = forms.DateField(widget=forms.SelectDateWidget, initial=datetime.date.today)
+    end_date = forms.DateField(widget=forms.SelectDateWidget, initial=datetime.date.today)
+    whole_school = forms.BooleanField()
+    teaching_groups = forms.ModelMultipleChoiceField(queryset=TeachingGroup.objects.filter(archived=False))

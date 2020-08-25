@@ -682,7 +682,8 @@ def set_up_slots(academic_year=AcademicYear.objects.none()):
 class Suspension(models.Model):
     date = models.DateField(null=False)
     period = models.ForeignKey(Period, null=False, on_delete=models.CASCADE)
-    teachinggroups = models.ManyToManyField(TeachingGroup)
+    reason = models.CharField(blank=True, null=True, max_length=256)
+    teachinggroups = models.ManyToManyField(TeachingGroup, blank=True)
     whole_school = models.BooleanField(null=True)
     slot = models.ForeignKey(CalendaredPeriod, null=True, on_delete=models.CASCADE)
 
@@ -802,7 +803,11 @@ class Lesson(models.Model):
                               exclude(suspension__teachinggroups=self.teachinggroup) \
                               .exclude(suspension__whole_school=True))
         # Place this lesson in the [order-th] slot
-        self.slot = candidates[int(self.order)]
+        try:
+            self.slot = candidates[int(self.order)]
+        except IndexError:
+            # Todo: Add warning message that lessons go past last day of year.
+            self.slot = None
         # Check if this will now clash with another lesson:
         # NB this works because we've not saved yet, so the DB will return only
         # the saved compeitior lesson.
