@@ -160,6 +160,10 @@ class Syllabus(MPTTModel):
         records = StudentSyllabusAssessmentRecord.objects.filter(student__in=students,
                                                                  syllabus_point=self,
                                                                  most_recent=True)
+        # TODO: Remove in production
+        from .settings import DEBUG
+        if DEBUG:
+            records_check = list(records)
         data = records.aggregate(percentage=Avg('percentage'),
                                  rating=Avg('rating'),
                                  children_0_1=Sum('children_0_1'),

@@ -25,6 +25,7 @@ def get_groups_from_graph(callback):
     current_selected = Syllabus.objects.get(pk=get_root_pk(callback))
     # Groups to return
     groups = TeachingGroup.objects.filter(year_taught=CURRENT_ACADEMIC_YEAR,
+                                          archived=False,
                                           syllabus__in=current_selected.get_ancestors(include_self=True))
     ## Easy filter; If we've clicked a teaching group.
 
@@ -45,22 +46,22 @@ def get_groups_from_graph(callback):
     return groups
 
 
-def get_students_from_graph(callback):
+def get_students_from_graph(callback, groups=TeachingGroup.objects.filter(archived=False)):
     """
     Returns a queryset of students filtered by other chart callback.
     :param callback: the plotyl dash callback
     :return: A queryset of students
     """
-
+    students = Student.objects.filter(teachinggroup__in=groups)
     if 'group-chart.clickData' not in callback.inputs:
-        return Student.objects.all()
+        return students
     elif not callback.inputs['group-chart.clickData']:
-        return Student.objects.all()
+        return students
     else:
         name = callback.inputs['group-chart.clickData']['points'][0]['customdata']
         if name.startswith('group_'):
             group_pk = name.split('_')[1]
-            return Student.objects.filter(teachinggroup__pk=group_pk)
+            return students.filter(teachinggroup__pk=group_pk)
 
 
 external_stylesheets=[dbc.themes.BOOTSTRAP]
@@ -205,7 +206,7 @@ def update_rating_time_graph(*args, **kwargs):
     groups = get_groups_from_graph(callback)
     students = get_students_from_graph(callback)
     records = Sitting.objects.filter(exam__question__syllabus_points__in=parent_point.get_descendants(),
-                                     group__in=groups
+                                     group__in=groups,
                                      ).order_by('date').distinct()
     # text = [sitting.exam.name for sitting in records]
     # x = [sitting.date for sitting in records]
