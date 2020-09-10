@@ -1,0 +1,21 @@
+{% extends 'GreenPen/bs_base.html' %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css" />
+
+{% endblock head %}
+{% block content %}
+<form method="post">
+{% csrf_token %}
+    <div id="jstree_mistake">
+{{ form.points }}
+    </div>
+<button type="submit" class="btn btn-primary">Submit</button>
+</form>
+{% endblock content %}
+
+{% block script %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
+   <script>
+    $(function () { $('#jstree_mistake').jstree(); });
+
+{% endblock script %}

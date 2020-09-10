@@ -632,3 +632,14 @@ def change_lesson(request, lesson_pk, return_pk):
 def suspend_days(request):
     form = SuspendDaysForm()
     return render(request, 'GreenPen/suspend_days.html', {'form': form})
+
+
+
+
+@login_required()
+def load_mistake_children(request):
+    parent_id = request.GET.get('parent')
+    parent = Mistake.objects.get(pk=parent_id)
+    children = Mistake.objects.filter(parent=parent)
+    return render(request, 'GreenPen/ajax_mistake_children.html', {'children': children,
+                                                                   'level': parent.level+1})

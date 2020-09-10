@@ -1,8 +1,8 @@
 from dal import autocomplete
-from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, TeachingGroup, Lesson
+from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, TeachingGroup, Lesson, Mistake
 from django import forms
 from mptt.forms import TreeNodeChoiceField
-from .widgets import TreeSelect, TreeSelectMultiple
+from .widgets import TreeSelect
 import datetime
 
 
@@ -47,7 +47,10 @@ class SetQuestions(forms.ModelForm):
 class EditMark(forms.ModelForm):
     class Meta:
         model = Mark
-        fields = ['score', 'student_notes']
+        fields = ['score', 'mistakes', 'student_notes']
+        widgets = {
+            'mistakes': forms.CheckboxSelectMultiple()
+        }
 
 
 class SyllabusChoiceForm(forms.Form):
@@ -58,7 +61,6 @@ class SyllabusChoiceForm(forms.Form):
 
     def _get_level_indicator(self, obj):
         return ''
-
 
 
 class AddExamForm(forms.ModelForm):

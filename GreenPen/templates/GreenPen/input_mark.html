@@ -1,5 +1,10 @@
 {% extends 'GreenPen/bs_base.html' %}
 {% load crispy_forms_tags %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css" />
+
+{% endblock head %}
 {% block content %}
     <div class="row">
 <h1>Input Mark</h1>
@@ -16,13 +21,28 @@
                         <div class="col">{{form.score|as_crispy_field}}</div><div class="col">/ {{ mark.question.max_score }}</div>
                     </div>
                     <div class="row">
+                        <div class="col" id="mistake-tree">{{ form.mistakes }}</div>
+                    </div>
+                    <div class="row">
                         <div class="col">
                     {{ form.student_notes|as_crispy_field }}
                         </div>
                     </div>
-                    <button type="submit" class="btn-primary">Next</button>
+                    <button type="submit" class="btn btn-primary">Next</button>
                 </form>
             </div>
         </div>
     </div>
 {% endblock content %}
+{% block script %}
+{{ form.media }}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
+   <script>
+    $(function () { $('#mistake-tree').jstree({
+    "checkbox" : {
+      "keep_selected_style" : false
+    },
+    "plugins" : [ "checkbox" ]
+  }); });
+</script>
+{% endblock script %}

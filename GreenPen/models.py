@@ -282,11 +282,20 @@ def sync_marks_with_sittings(sitting):
 m2m_changed.connect(student_added_to_sitting, sender=Sitting.students.through)
 
 
+class Mistake(MPTTModel):
+    mistake_type = models.CharField(blank=False, null=False, max_length=256)
+    parent = TreeForeignKey('Mistake', blank=True, null=True, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.mistake_type
+
+
 class Mark(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
     question = models.ForeignKey(Question, on_delete=models.CASCADE, blank=False, null=False)
     score = models.FloatField(blank=True, null=True)
     sitting = models.ForeignKey(Sitting, blank=False, null=True, on_delete=models.CASCADE)
+    mistakes = TreeManyToManyField(Mistake, blank=True)
     student_notes = models.TextField(blank=True, null=True)
 
     class Meta:

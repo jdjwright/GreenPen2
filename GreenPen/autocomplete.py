@@ -1,6 +1,6 @@
 from dal import autocomplete
 
-from GreenPen.models import Student, Syllabus
+from GreenPen.models import Student, Syllabus, Mistake
 
 
 class StudentComplete(autocomplete.Select2QuerySetView):
@@ -30,4 +30,15 @@ class SyllabusComplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(text__icontains=self.q)
 
+        return qs
+
+
+class MistakeAutoComplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Mistake.objects.none()
+
+        qs = Mistake.objects.all()
+        if self.q:
+            qs = qs.filter(mistake__type__icontains=self.q)
         return qs

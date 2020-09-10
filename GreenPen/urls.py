@@ -35,6 +35,7 @@ urlpatterns = [
     path('updateassignments', update_assignments),
     path('student-autocomplete', StudentComplete.as_view(), name='student-autocomplete'),
     path('syllabus-autocomplete', SyllabusComplete.as_view(), name='syllabus-autocomplete'),
+    path('mistake-autocomplete', MistakeAutoComplete.as_view(), name='mistake-autocomplete'),
     path('rating-records/<int:syllabus_pk>/<int:student_pk>', StudentAssessmentForPoint.as_view(), name='student-assessment-record'),
     path('exam', ExamListView.as_view(), name='exam-list'),
     path('exam/add', AddExam.as_view(), name='add-exam'),
@@ -57,5 +58,6 @@ urlpatterns = [
     path('timetable', timetable_splash, name='tt_splash'),
     path('timetable/<int:start_slot_pk>/<int:teacher_pk>', timetable_overview, name='tt_overview'),
     path('lesson/<int:lesson_pk>/<int:return_pk>', change_lesson, name='edit_lesson'),
-    path('timetable/suspend', suspend_days, name='suspend_days')
+    path('timetable/suspend', suspend_days, name='suspend_days'),
+    path('load_mistake_children', load_mistake_children, name='load_mistake_children')
 ]

@@ -1,4 +1,5 @@
 from django import forms
+from django.forms import widgets
 
 
 class TreeSelectMultiple(forms.CheckboxSelectMultiple):
@@ -78,5 +79,4 @@ class TreeSelect(forms.RadioSelect):
             initial_dict['tags_to_close'] = tags_to_close
 
         return initial_dict
-
 
