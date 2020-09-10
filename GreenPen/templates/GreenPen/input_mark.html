@@ -21,7 +21,7 @@
                         <div class="col">{{form.score|as_crispy_field}}</div><div class="col">/ {{ mark.question.max_score }}</div>
                     </div>
                     <div class="row">
-                        <div class="col" id="mistake-tree">{{ form.mistakes }}</div>
+                        <div class="col">{{ form.mistakes | as_crispy_field }}</div>
                     </div>
                     <div class="row">
                         <div class="col">
