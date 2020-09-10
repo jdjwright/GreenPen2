@@ -289,6 +289,11 @@ class Mistake(MPTTModel):
     def __str__(self):
         return self.mistake_type
 
+    def cohort_totals(self, cohort=Student.objects.all(), syllabus=Syllabus.objects.all()):
+        return Mark.objects.filter(mistakes=self,
+                                   student__in=cohort,
+                                   question__syllabus_points__in=syllabus).count()
+
 
 class Mark(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
@@ -687,8 +692,9 @@ def set_up_slots(academic_year=AcademicYear.objects.none()):
                                                    order=i,
                                                    tt_slot=slot,
                                                    week=week,
-                                                   date=academic_year.first_monday+datetime.timedelta(weeks=week.number,
-                                                                                                      days=day.order))
+                                                   date=academic_year.first_monday + datetime.timedelta(
+                                                       weeks=week.number,
+                                                       days=day.order))
             i += 1
 
 
@@ -736,8 +742,8 @@ class Suspension(models.Model):
 
         if not self.whole_school:
             tt_lessons = tt_lessons.filter(teachinggroup__in=self.teachinggroups.all())
-        list(tt_lessons) # This shouldn't be required, but for some reason
-                         # either PyCharm or docker refuses to evaluate the qs without it.
+        list(tt_lessons)  # This shouldn't be required, but for some reason
+        # either PyCharm or docker refuses to evaluate the qs without it.
         super(Suspension, self).delete(*args, **kwargs)
         for lesson in tt_lessons:
             lesson.save()
@@ -766,8 +772,8 @@ def class_suspended(sender, **kwargs):
 
         # Exclude any that are still suspended.
         tt_lessons = tt_lessons.exclude(teachinggroup__in=suspension.teachinggroups.all())
-        #list(tt_lessons) # This shouldn't be required, but for some reason
-                         # either PyCharm or docker refuses to evaluate the qs without it.
+        # list(tt_lessons) # This shouldn't be required, but for some reason
+        # either PyCharm or docker refuses to evaluate the qs without it.
 
         for lesson in tt_lessons:
             lesson.save()
@@ -783,11 +789,12 @@ def class_suspended(sender, **kwargs):
 
         # Exclude any that are still suspended.
         tt_lessons = tt_lessons.exclude(teachinggroup=suspension.teachinggroups.all())
-        list(tt_lessons) # This shouldn't be required, but for some reason
-                         # either PyCharm or docker refuses to evaluate the qs without it.
+        list(tt_lessons)  # This shouldn't be required, but for some reason
+        # either PyCharm or docker refuses to evaluate the qs without it.
 
         for lesson in tt_lessons:
             lesson.save()
+
 
 m2m_changed.connect(class_suspended, sender=Suspension.teachinggroups.through)
 
@@ -825,12 +832,12 @@ class Lesson(models.Model):
             year = AcademicYear.objects.get(current=True)
             week = Week.objects.latest('number')
             next_week, created = Week.objects.get_or_create(year=year,
-                                                            number=week.number+1)
+                                                            number=week.number + 1)
             # Add an extra week
             for day in Day.objects.filter(year=year):
                 for period in Period.objects.filter(year=year):
                     CalendaredPeriod.objects.get_or_create(year=year,
-                                                           order=last_slot.order+1,
+                                                           order=last_slot.order + 1,
                                                            week=next_week,
                                                            tt_slot=TTSlot.objects.get(year=year,
                                                                                       day=day,
@@ -876,9 +883,9 @@ def setup_lessons(teachinggrousp=TeachingGroup.objects.all()):
     current_year = AcademicYear.objects.get(current=True)
     for group in teachinggrousp:
         max_lessons = group.lessons.count() * current_year.total_weeks
-        i=0
+        i = 0
         for lesson in range(max_lessons):
             lesson, created = Lesson.objects.get_or_create(teachinggroup=group,
-                                  order=i)
-            lesson.save() # Required to force a re-slot.
+                                                           order=i)
+            lesson.save()  # Required to force a re-slot.
             i += 1
