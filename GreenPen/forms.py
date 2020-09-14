@@ -4,6 +4,7 @@ from django import forms
 from mptt.forms import TreeNodeChoiceField
 from .widgets import TreeSelect
 import datetime
+from treewidget.fields import TreeSelectMultiple
 
 
 class MarkRecordForm(forms.ModelForm):
@@ -49,18 +50,14 @@ class EditMark(forms.ModelForm):
         model = Mark
         fields = ['score', 'mistakes', 'student_notes']
         widgets = {
-            'mistakes': forms.CheckboxSelectMultiple()
+            'mistakes': TreeSelectMultiple()
         }
 
 
 class SyllabusChoiceForm(forms.Form):
-    qs = Syllabus.objects.all()
+    qs = Syllabus.objects.filter(level=0)
     points = TreeNodeChoiceField(queryset=qs,
-                                 widget=TreeSelect(attrs={'class': 'syllabus-checkbox'}),
-                                 level_indicator='')
-
-    def _get_level_indicator(self, obj):
-        return ''
+                                 widget=TreeSelectMultiple(attrs={'class': 'syllabus-checkbox'}))
 
 
 class AddExamForm(forms.ModelForm):

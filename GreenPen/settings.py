@@ -45,7 +45,8 @@ INSTALLED_APPS = [
     'crispy_forms',
     'django_plotly_dash.apps.DjangoPlotlyDashConfig',
     'channels',
-    'social_django'
+    'social_django',
+    'treewidget'
 ]
 
 MIDDLEWARE = [
@@ -247,3 +248,15 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET=os.getenv('SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET')
 
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/login'
+
+
+TREEWIDGET_TREEOPTIONS = {
+    'plugins': ['wholerow', 'checkbox'],
+    'core': {
+        'themes': {'icons': False, 'dots': False},
+        'check_callback': True,
+        'multiple': True,
+        'animation': False
+    },
+    'search': {'show_only_matches': True}
+}
