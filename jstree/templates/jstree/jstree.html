@@ -4,7 +4,7 @@
     {% include 'django/forms/widgets/text.html' %}
 {% endif %}
 
-<div id="{{ widget.attrs.id }}-tree" style="overflow:hidden; border:1px solid silver;">
+<div id="{{ widget.attrs.id }}-tree" style="overflow:scroll; border:1px solid silver; min-height: 150px; max-height: 600px; position: fixed">
 </div>
 
 <script type="text/javascript">

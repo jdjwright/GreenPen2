@@ -238,7 +238,7 @@ class EditExamQsView(TeacherOnlyMixin, View):
                                                                  )
     setquestionsformset = inlineformset_factory(Exam, Question,
                                                 form=SetQuestions,
-                                                extra=50,
+                                                extra=10,
                                                 can_order=False,
                                                 can_delete=True)
 
