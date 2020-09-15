@@ -57,7 +57,7 @@ def splash(request):
 
     elif request.user.groups.filter(name='Students').count():
         student = Student.objects.get(user=request.user)
-        return redirect(reverse('student-dashboard', args=[student.pk]))
+        return redirect(reverse('student-dashboard'))
 
 
 @user_passes_test(check_superuser)
@@ -352,17 +352,12 @@ def teacher_dashboard(request):
     return render(request, 'GreenPen/teacher_dashboard.html')
 
 
-def student_dashboard(request, student_pk):
-    student = get_object_or_404(Student, pk=student_pk)
+@login_required()
+def student_dashboard(request):
 
     # Check use is allowed to see this data:
-    if request.user.is_superuser or request.user.groups.filter(name='Teachers').count():
-        pass
-    elif request.user.groups.filter(name='Students'):
-        if student.user != request.user:
-            return HttpResponseForbidden
 
-    return render(request, 'GreenPen/student_dashboard.html', {'student': student})
+    return render(request, 'GreenPen/student_dashboard.html')
 
 
 def input_mark(request, mark_pk):

@@ -14,7 +14,7 @@
 
       <!-- Nav Item - Dashboard -->
       <li class="nav-item active">
-        <a class="nav-link" href="{% url 'bs-sample' %}">
+        <a class="nav-link" href="{% if request.user|has_group:"Teachers" %}{% url 'bs-sample' %}{% elif request.user|has_group:"Students" %}{% url 'student-dashboard' %}{% endif %}">
           <i class="fas fa-fw fa-tachometer-alt"></i>
           <span>Dashboard</span></a>
       </li>
