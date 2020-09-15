@@ -3,7 +3,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css" />
-
+ <script src="/staticfiles/vendor/jquery/jquery.min.js"></script>
 {% endblock head %}
 {% block content %}
     <div class="row">
@@ -36,13 +36,5 @@
 {% endblock content %}
 {% block script %}
 {{ form.media }}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
-   <script>
-    $(function () { $('#mistake-tree').jstree({
-    "checkbox" : {
-      "keep_selected_style" : false
-    },
-    "plugins" : [ "checkbox" ]
-  }); });
-</script>
+
 {% endblock script %}

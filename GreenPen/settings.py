@@ -45,7 +45,8 @@ INSTALLED_APPS = [
     'crispy_forms',
     'django_plotly_dash.apps.DjangoPlotlyDashConfig',
     'channels',
-    'social_django'
+    'social_django',
+    'jstree'
 ]
 
 MIDDLEWARE = [

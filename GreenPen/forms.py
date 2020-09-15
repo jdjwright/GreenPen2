@@ -3,7 +3,10 @@ from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, Tea
 from django import forms
 from mptt.forms import TreeNodeChoiceField
 from .widgets import TreeSelect
+from jstree.widgets import JsTreeWidget
+from django.urls import reverse
 import datetime
+import json
 
 
 class MarkRecordForm(forms.ModelForm):
@@ -45,11 +48,12 @@ class SetQuestions(forms.ModelForm):
 
 
 class EditMark(forms.ModelForm):
+
     class Meta:
         model = Mark
         fields = ['score', 'mistakes', 'student_notes']
         widgets = {
-            'mistakes': forms.CheckboxSelectMultiple()
+            'mistakes': JsTreeWidget(url=False, result_hidden=True)
         }
 
 

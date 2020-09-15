@@ -378,9 +378,11 @@ def input_mark(request, mark_pk):
         raise HttpResponseForbidden
 
     form = EditMark(instance=mark)
-
+    form.fields['mistakes'].widget.set_url(reverse('mistake_json_mark', args=[mark_pk]))
     if request.method == 'POST':
         form = EditMark(request.POST, instance=mark)
+        form.fields['mistakes'].widget.set_url(reverse('mistake_json_mark', args=[mark_pk]))
+
         if form.is_valid():
             if form.cleaned_data['score'] > mark.question.max_score:
                 form.add_error('score', 'Score is higher than max for that question!')
@@ -637,9 +639,44 @@ def suspend_days(request):
 
 
 @login_required()
-def load_mistake_children(request):
-    parent_id = request.GET.get('parent')
-    parent = Mistake.objects.get(pk=parent_id)
-    children = Mistake.objects.filter(parent=parent)
-    return render(request, 'GreenPen/ajax_mistake_children.html', {'children': children,
-                                                                   'level': parent.level+1})
+def load_mistake_children(request, mark_pk=False):
+    parent_id = request.GET.get('id')
+    try:
+        parent_id = int(parent_id)
+        parent = Mistake.objects.get(pk=parent_id)
+        children = Mistake.objects.filter(parent=parent)
+    except ValueError:
+        children = Mistake.objects.filter(level=0)
+
+    if mark_pk:
+        mark = Mark.objects.get(pk=mark_pk)
+        mark_mistakes = mark.mistakes.all()
+        mistake_ancestors = mark.mistakes.all().get_ancestors(include_self=False)
+
+    data = []
+    for child in children:
+        if child.parent:
+            parent_pk = child.parent.pk
+        else:
+            parent_pk = '#'
+        undetermined = False
+        selected = False
+        if mark_pk:
+            if child in mistake_ancestors:
+                undetermined = True
+            if child in mark_mistakes:
+                selected = True
+        data.append({
+            'id': child.pk,
+            'parent': parent_pk,
+            'text': child.mistake_type,
+            'children': not child.is_leaf_node(),
+            'state': {'selected': selected,
+                      'undetermined': undetermined}
+        })
+    return JsonResponse(data, safe=False)
+
+
+@user_passes_test(check_superuser)
+def jtree_test(request):
+    return render(request, 'GreenPen/mistake_test_form.html')

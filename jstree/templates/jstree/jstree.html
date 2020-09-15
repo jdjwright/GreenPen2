@@ -1,0 +1,59 @@
+{% if widget.type == 'hidden' %}
+    {% include 'django/forms/widgets/hidden.html' %}
+{% else %}
+    {% include 'django/forms/widgets/text.html' %}
+{% endif %}
+
+<div id="{{ widget.attrs.id }}-tree" style="overflow:auto; border:1px solid silver; min-height: 150px; max-height: 500px;">
+</div>
+
+<script type="text/javascript">
+    function removeItemAll(arr, value) {
+        var i = 0;
+        while (i < arr.length) {
+            if (arr[i] === value) {
+                arr.splice(i, 1);
+            } else {
+                 ++i;
+                }
+            }
+        return arr;
+    }
+
+    function add_or_remove(action, node_id){
+        let input = $("#{{ widget.attrs.id }}");
+        let array = JSON.parse(input.val());
+
+        if (action === 'add') {
+            array.push(parseInt(node_id));
+        }
+
+        if (action === 'remove') {
+            array = removeItemAll(array, parseInt(node_id))
+        }
+        input.val("[" + array + "]");
+    }
+    $(document).ready(function() {
+        $("#{{ widget.attrs.id }}-tree").jstree({
+            'plugins' : [ 'checkbox' ],
+            'core' : {
+                'data' : {
+                    'url' : "{{ url }}",
+                    'data' : function (node) {
+                      return { 'id' : node.id };
+                    }
+                }
+            }
+        }).on(
+            "select_node.jstree",
+            function (e, data) {
+                add_or_remove('add', data.node.id)
+            }
+        ).on(
+            "deselect_node.jstree",
+            function (e, data) {
+                add_or_remove('remove', data.node.id)
+    }
+        );
+    });
+</script>

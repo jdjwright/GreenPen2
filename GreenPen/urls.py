@@ -59,5 +59,7 @@ urlpatterns = [
     path('timetable/<int:start_slot_pk>/<int:teacher_pk>', timetable_overview, name='tt_overview'),
     path('lesson/<int:lesson_pk>/<int:return_pk>', change_lesson, name='edit_lesson'),
     path('timetable/suspend', suspend_days, name='suspend_days'),
-    path('load_mistake_children', load_mistake_children, name='load_mistake_children')
+    path('mistake_json', load_mistake_children, name='mistake_json'),
+    path('mistkae_test', jtree_test, name='mistake_test'),
+    path('mistake_json/<int:mark_pk>', load_mistake_children, name='mistake_json_mark')
 ]
