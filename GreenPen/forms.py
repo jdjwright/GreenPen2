@@ -60,7 +60,7 @@ class EditMark(forms.ModelForm):
 class SyllabusChoiceForm(forms.Form):
     qs = Syllabus.objects.all()
     points = TreeNodeChoiceField(queryset=qs,
-                                 widget=TreeSelect(attrs={'class': 'syllabus-checkbox'}),
+                                 widget=JsTreeWidget(url=False, result_hidden=True),
                                  level_indicator='')
 
     def _get_level_indicator(self, obj):

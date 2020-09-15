@@ -243,7 +243,7 @@ class EditExamQsView(TeacherOnlyMixin, View):
                                                 can_delete=True)
 
     parent_form = SyllabusChoiceForm()
-
+    parent_form.fields['points'].widget.set_url('/syllabus/json/')
 
     def get(self, request, *args, **kwargs):
 
@@ -379,6 +379,11 @@ def input_mark(request, mark_pk):
 
     form = EditMark(instance=mark)
     form.fields['mistakes'].widget.set_url(reverse('mistake_json_mark', args=[mark_pk]))
+    prev_q = mark.get_previous()
+    if prev_q:
+        back_url = reverse('input_mark', args=[mark.get_previous().pk])
+    else:
+        back_url = False
     if request.method == 'POST':
         form = EditMark(request.POST, instance=mark)
         form.fields['mistakes'].widget.set_url(reverse('mistake_json_mark', args=[mark_pk]))
@@ -403,7 +408,8 @@ def input_mark(request, mark_pk):
                     return redirect('student-dashboard', student_pk=mark.student.pk)
 
     return render(request, 'GreenPen/input_mark.html', {'mark': mark,
-                                                        'form': form})
+                                                        'form': form,
+                                                        'back_url': back_url})
 
 
 @user_passes_test(check_superuser)
@@ -677,6 +683,30 @@ def load_mistake_children(request, mark_pk=False):
     return JsonResponse(data, safe=False)
 
 
-@user_passes_test(check_superuser)
-def jtree_test(request):
-    return render(request, 'GreenPen/mistake_test_form.html')
+@login_required()
+def load_syllabus_points(request):
+    parent_id = request.GET.get('id')
+    try:
+        parent_id = int(parent_id)
+        parent = Syllabus.objects.get(pk=parent_id)
+        children = Syllabus.objects.filter(parent=parent)
+    except ValueError:
+        children = Syllabus.objects.filter(level=0)
+
+    data = []
+    for child in children:
+        if child.parent:
+            parent_pk = child.parent.pk
+        else:
+            parent_pk = '#'
+        undetermined = False
+        selected = False
+
+        data.append({
+            'id': child.pk,
+            'parent': parent_pk,
+            'text': child.text,
+            'children': not child.is_leaf_node(),
+
+        })
+    return JsonResponse(data, safe=False)

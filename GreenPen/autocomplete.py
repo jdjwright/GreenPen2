@@ -1,4 +1,5 @@
 from dal import autocomplete
+import json
 
 from GreenPen.models import Student, Syllabus, Mistake
 
@@ -25,7 +26,8 @@ class SyllabusComplete(autocomplete.Select2QuerySetView):
         qs = Syllabus.objects.all()
 
         if self.forwarded.get('points', None):
-            qs = qs.get(pk=self.forwarded.get('points')).get_descendants()
+            pks = json.loads(self.forwarded.get('points', None))
+            qs = qs.filter(pk__in=pks).get_descendants().distinct()
 
         if self.q:
             qs = qs.filter(text__icontains=self.q)

@@ -4,7 +4,7 @@
     {% include 'django/forms/widgets/text.html' %}
 {% endif %}
 
-<div id="{{ widget.attrs.id }}-tree" style="overflow:auto; border:1px solid silver; min-height: 150px; max-height: 500px;">
+<div id="{{ widget.attrs.id }}-tree" style="overflow:hidden; border:1px solid silver;">
 </div>
 
 <script type="text/javascript">
@@ -22,7 +22,13 @@
 
     function add_or_remove(action, node_id){
         let input = $("#{{ widget.attrs.id }}");
-        let array = JSON.parse(input.val());
+        let array = [];
+        if (input.val()) {
+            array = JSON.parse(input.val());
+        }
+        else {
+            array = []
+        }
 
         if (action === 'add') {
             array.push(parseInt(node_id));

@@ -330,6 +330,16 @@ class Mark(models.Model):
     def get_absolute_url(self):
         return reverse('edit-mark', kwargs={'pk': self.pk})
 
+    def get_previous(self):
+        if self.question.order > 1:
+            previous_q = Question.objects.get(exam=self.sitting.exam,
+                                          order=self.question.order-1)
+            return Mark.objects.get(student=self.student,
+                                    sitting=self.sitting,
+                                    question=previous_q)
+        else:
+            return False
+
 
 class StudentSyllabusAssessmentRecord(models.Model):
     syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)

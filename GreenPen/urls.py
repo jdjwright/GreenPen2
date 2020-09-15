@@ -24,6 +24,7 @@ urlpatterns = [
     path('', splash, name='splash'),
     path('admin/', admin.site.urls),
     path('syllabus/json/<int:syllabus_pk>', send_syllabus_children, name='ajax-syllabus-children'),
+    path('syllabus/json/', load_syllabus_points, name='json_syllabus_points'),
     path('students/', StudentList.as_view(), name='student_list'),
     path('uploadstudents', import_students, name='import_students'),
     path('uploadclasses', import_classes, name='import_classes'),
@@ -60,6 +61,5 @@ urlpatterns = [
     path('lesson/<int:lesson_pk>/<int:return_pk>', change_lesson, name='edit_lesson'),
     path('timetable/suspend', suspend_days, name='suspend_days'),
     path('mistake_json', load_mistake_children, name='mistake_json'),
-    path('mistkae_test', jtree_test, name='mistake_test'),
     path('mistake_json/<int:mark_pk>', load_mistake_children, name='mistake_json_mark')
 ]
