@@ -400,7 +400,7 @@ def input_mark(request, mark_pk):
                                                            question=next_q)
                     return redirect('input_mark', mark_pk=next_mark.pk)
                 else:
-                    return redirect('student-dashboard', student_pk=mark.student.pk)
+                    return redirect('student-dashboard')
 
     return render(request, 'GreenPen/input_mark.html', {'mark': mark,
                                                         'form': form,

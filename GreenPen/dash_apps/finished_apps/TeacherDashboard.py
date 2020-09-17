@@ -277,7 +277,7 @@ def update_mistake_starburst(*args, **kwargs):
      Input('time-chart', 'clickData')])
 def update_rating_time_graph(*args, **kwargs):
     callback = kwargs['callback_context']
-    parent_pk = get_root_pk(kwargs)
+    parent_pk = get_root_pk(callback)
     parent_point = Syllabus.objects.get(pk=parent_pk)
     groups = get_groups_from_graph(callback)
     students = get_students_from_graph(callback)

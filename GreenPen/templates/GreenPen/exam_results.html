@@ -7,7 +7,7 @@
     <thead>
     <tr>
         <td></td>
-        {% for student in students %}<td><a href="{% url 'student-dashboard' student.pk %}">{{ student.full_name }}</a></td>{% endfor %}
+        {% for student in students %}<td><a href="{% url 'student-dashboard'%}">{{ student.full_name }}</a></td>{% endfor %}
     </tr>
     </thead>
 
