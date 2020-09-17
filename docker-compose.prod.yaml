@@ -8,8 +8,8 @@ services:
       dockerfile: Dockerfile.prod
     command: daphne -b 0.0.0.0 -p 8000 GreenPen.asgi:application
     volumes:
-      - static_volume:/home/app/web/staticfiles
-      - media_volume:/home/app/web/mediafiles
+      - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/mediafiles
     expose:
       - 8000
     env_file:
