@@ -156,10 +156,15 @@ class Syllabus(MPTTModel):
         else:
             return 0
 
-    def cohort_stats(self, students=Student.objects.none()):
+    def cohort_stats(self, students=Student.objects.none(), sittings=False):
         records = StudentSyllabusAssessmentRecord.objects.filter(student__in=students,
-                                                                 syllabus_point=self,
-                                                                 most_recent=True)
+                                                                 syllabus_point=self)
+        if sittings:
+            records = records.filter(sitting__in=sittings)
+
+        else:
+            records = records.filter(most_recent=True)
+
         # TODO: Remove in production
         from .settings import DEBUG
         if DEBUG:
@@ -289,9 +294,10 @@ class Mistake(MPTTModel):
     def __str__(self):
         return self.mistake_type
 
-    def cohort_totals(self, cohort=Student.objects.all(), syllabus=Syllabus.objects.all()):
+    def cohort_totals(self, cohort=Student.objects.all(), syllabus=Syllabus.objects.all(), sittings=Sitting.objects.all()):
         return Mark.objects.filter(mistakes=self,
                                    student__in=cohort,
+                                   sitting__in=sittings,
                                    question__syllabus_points__in=syllabus).count()
 
 

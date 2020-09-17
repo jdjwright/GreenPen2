@@ -21,6 +21,9 @@ def get_groups_from_graph(callback):
     :returns: A queryset of all groups from any click events on the graph
     """
 
+    # If we're a student, only output themselves.
+
+
     # Start by finding our syllabus so we only get groups taught that syllabus:
     current_selected = Syllabus.objects.get(pk=get_root_pk(callback))
     # Groups to return
@@ -35,7 +38,10 @@ def get_groups_from_graph(callback):
             group_pk = name.split('_')[1]
             groups = TeachingGroup.objects.filter(pk=group_pk)
         else:
-            raise NotImplemented('No code designed for drilling into no-group objects')
+            # We're dealing with a student:
+            student_pk = name.split('_')[1]
+            student = Student.objects.get(pk=student_pk)
+            groups = TeachingGroup.objects.filter(students=student)
 
     ## Now we filter for groups within our syllabus
     if callback.inputs['time-chart.clickData']:
@@ -62,6 +68,22 @@ def get_students_from_graph(callback, groups=TeachingGroup.objects.filter(archiv
         if name.startswith('group_'):
             group_pk = name.split('_')[1]
             return students.filter(teachinggroup__pk=group_pk)
+        else:
+            student_pk = name.split('_')[1]
+            return Student.objects.filter(pk=student_pk)
+
+
+def set_sittings(callback):
+    sittings = Sitting.objects.all()
+    if 'time-chart.clickData' not in callback.inputs:
+        return sittings
+    elif not callback.inputs['time-chart.clickData']:
+        return sittings
+
+    else:
+        sitting_pk = callback.inputs['time-chart.clickData']['points'][0]['customdata']
+        sittings = Sitting.objects.filter(pk=sitting_pk)
+    return sittings
 
 
 external_stylesheets=[dbc.themes.BOOTSTRAP]
@@ -150,16 +172,17 @@ def get_root_pk(callback):
 @app.expanded_callback(
     Output('syllabus-graph', 'figure'),
     [Input('subject-dropdown', 'value'),
-     Input('group-chart', 'clickData')
+     Input('group-chart', 'clickData'),
+     Input('time-chart', 'clickData')
      ])
 def update_syllabus_sunburst(*args, **kwargs):
     callback = kwargs['callback_context']
 
     subject_pk = callback.inputs['subject-dropdown.value']
-    if 'group-chart.clickData' in callback.inputs:
-        students = get_students_from_graph(callback)
-    else:
-        students = Student.objects.all()
+    students = get_students_from_graph(callback)
+
+    sittings = set_sittings(callback)
+
     parent_point = Syllabus.objects.get(pk=subject_pk)
     points = parent_point.get_descendants(include_self=True)
     labels = [point.text for point in points]
@@ -167,7 +190,7 @@ def update_syllabus_sunburst(*args, **kwargs):
     parents = [point.parent.text for point in points]
     parents[0] = ""
     values = [1 for point in points]
-    colors = [point.cohort_stats(students)['rating'] for point in points]
+    colors = [point.cohort_stats(students, sittings)['rating'] for point in points]
 
     graph = go.Sunburst(
         labels=labels,
@@ -204,12 +227,10 @@ def update_mistake_starburst(*args, **kwargs):
     callback = kwargs['callback_context']
 
     subject_pk = callback.inputs['subject-dropdown.value']
-    if 'group-chart.clickData' in callback.inputs:
-        students = get_students_from_graph(callback)
-    else:
-        students = Student.objects.all()
+    students = get_students_from_graph(callback)
     parent_point = Syllabus.objects.get(pk=get_root_pk(callback))
     mistakes = Mistake.objects.all()
+    sittings = set_sittings(callback)
     labels = [mistake.mistake_type for mistake in mistakes]
     ids = [mistake.pk for mistake in mistakes]
     parents = []
@@ -221,7 +242,7 @@ def update_mistake_starburst(*args, **kwargs):
 
     parents[0] = ""
     values = [1 for mistake in mistakes]
-    colors = [mistake.cohort_totals(students, parent_point.get_descendants()) for mistake in mistakes]
+    colors = [mistake.cohort_totals(students, parent_point.get_descendants(), sittings) for mistake in mistakes]
 
     graph = go.Sunburst(
         labels=labels,
@@ -256,7 +277,7 @@ def update_mistake_starburst(*args, **kwargs):
      Input('time-chart', 'clickData')])
 def update_rating_time_graph(*args, **kwargs):
     callback = kwargs['callback_context']
-    parent_pk = get_root_pk(callback)
+    parent_pk = get_root_pk(kwargs)
     parent_point = Syllabus.objects.get(pk=parent_pk)
     groups = get_groups_from_graph(callback)
     students = get_students_from_graph(callback)
