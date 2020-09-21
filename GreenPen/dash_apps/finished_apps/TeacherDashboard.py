@@ -141,7 +141,7 @@ app.layout = html.Div([
 
 
 app.css.append_css({
-    'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'
+    'external_url': '/staticfiles/css/dash.css'
 })
 
 
