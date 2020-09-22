@@ -48,6 +48,7 @@ urlpatterns = [
     path('bs', teacher_dashboard, name='bs-sample'),
     path('django_plotly_dash/', include('django_plotly_dash.urls')),
     path('sitting/<int:sitting_pk>/results', exam_result_view, name='exam-results'),
+    path('sitting/<int:sitting_pk>/alpresults', alp_result_view, name='alp-exam-results'),
     path('sitting/<int:sitting_pk>/delete', confirm_delete_sitting, name='delete-sitting1'),
     path('sitting/<int:sitting_pk>/confirm_delete', delete_sitting, name='delete-sitting2'),
     path('marks/<int:mark_pk>', input_mark, name='input_mark'),

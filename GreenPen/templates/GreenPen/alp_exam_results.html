@@ -1,0 +1,32 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% block content %}
+<h1>Exam results for {{ sitting.group }} taking {{ sitting.exam }} on {{ sitting.date }}</h1>
+<a href="{% url 'delete-sitting1' sitting.pk %}" class="btn btn-danger">Delete exam</a>
+<table class="table table-responsive">
+    <thead>
+    <tr>
+        <td></td>
+        <td></td>
+        {% for question in questions %}<td>{{ question.number }}</td>{% endfor %}
+    </tr>
+    <tr>
+        <td>Respondant</td>
+        <td>Total Marks</td>
+        {% for question in questions %}<td>{{ question.max_score }}</td>{% endfor %}
+    </tr>
+    </thead>
+
+    <tbody>
+    {% for row in marks %}
+        <tr>
+        {% for item in row %}
+            <td>{% if item.question %}{{ item.score }}{% else %}{{ item }}{% endif %}</td>
+        {% endfor %}
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock content %}
+
+<a href="{% url 'student-dashboard'%}">{{ student.full_name }}</a>

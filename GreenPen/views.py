@@ -304,7 +304,7 @@ def send_syllabus_children(request, syllabus_pk):
 
 
 
-@user_passes_test(check_superuser)
+@user_passes_test(check_teacher)
 def exam_result_view(request, sitting_pk):
     context = {}
     sitting = Sitting.objects.get(pk=sitting_pk)
@@ -344,6 +344,48 @@ def exam_result_view(request, sitting_pk):
     context['marks'] = marks
 
     return render(request, 'GreenPen/exam_results.html', context)
+
+
+@user_passes_test(check_teacher)
+def alp_result_view(request, sitting_pk):
+    context = {}
+    sitting = Sitting.objects.get(pk=sitting_pk)
+    context['sitting'] = sitting
+    students = sitting.group.students.all().order_by('user__last_name')
+    context['students'] = students
+    questions = sitting.exam.question_set.all()
+    context['questions'] = questions
+    marks = []
+
+    # Build 2D array in the stucture:
+    #          |           |  Q1 num   | Q2
+    # stu name | stu total |  Q1 score | Q2 score
+    #
+    for student in sitting.group.students.all():
+        row = []
+        row.append(student)
+        row.append(sitting.student_total(student))
+        for question in questions:
+            try:
+                row.append(Mark.objects.get(sitting=sitting,
+                                                student=student,
+                                                question=question,
+                                                  ))
+            except ObjectDoesNotExist:
+                # creating lots of marks can overload the server,
+                # so we will only create the first mark for each student.
+                if question.order == 1:
+                    row.append(Mark.objects.create(sitting=sitting,
+                                                   student=student,
+                                                   question=question))
+
+
+        marks.append(row)
+
+
+    context['marks'] = marks
+
+    return render(request, 'GreenPen/alp_exam_results.html', context)
 
 
 @user_passes_test(check_teacher)

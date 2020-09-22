@@ -10,6 +10,7 @@ from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup, Mistake
 from GreenPen.settings import CURRENT_ACADEMIC_YEAR
 
 
+
 # Helper functions:
 
 def get_groups_from_graph(callback):
