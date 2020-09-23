@@ -357,7 +357,7 @@ def student_dashboard(request):
 
     # Check use is allowed to see this data:
 
-    return render(request, 'GreenPen/student_dashboard.html')
+    return render(request, 'GreenPen/teacher_dashboard.html')
 
 
 def input_mark(request, mark_pk):

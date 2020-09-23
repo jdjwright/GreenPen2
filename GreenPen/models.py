@@ -82,7 +82,7 @@ class TeachingGroup(models.Model):
     archived = models.BooleanField(blank=True, null=True, default=False)
     year_taught = models.IntegerField(null=True, blank=True)
     rollover_name = models.CharField(max_length=256, blank=True, null=True)
-    lessons = models.ManyToManyField('TTSlot', required=False)
+    lessons = models.ManyToManyField('TTSlot', blank=False)
 
     def __str__(self):
         return self.name
@@ -248,14 +248,15 @@ class Sitting(models.Model):
         else:
             return "badge-secondary"
 
-    def avg_syllabus_rating(self, syllabus=Syllabus.objects.none()):
+    def avg_syllabus_rating(self, syllabus=Syllabus.objects.none(), students=Student.objects.all()):
         """
         Calculate the average rating for the cohort taking this exam.
         Optionally, restrict it to just a single syllabus point.
         """
         ratings = StudentSyllabusAssessmentRecord.objects.filter(sitting=self,
                                                                  syllabus_point=syllabus,
-                                                                 rating__isnull=False)
+                                                                 rating__isnull=False,
+                                                                 student__in=students)
         if ratings.count():
             return round(ratings.aggregate(avg=Avg('rating'))['avg'], 1)
         else:
