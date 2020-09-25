@@ -307,8 +307,6 @@ def update_mistake_starburst(*args, **kwargs):
         customdata=ids,
         marker=dict(colors=colors,
                     colorscale='gnbu',
-                    cmid=2.5,
-                    cmax=5,
                     cmin=0),
         hovertemplate='<b>%{label}</b><br>Total Mistakes: %{color}',
         name='',
