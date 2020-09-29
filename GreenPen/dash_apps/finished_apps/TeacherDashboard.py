@@ -1,12 +1,15 @@
 import dash_core_components as dcc
 import dash_daq as daq
+import dash_table
 import dash_html_components as html
+
+from django_pandas.io import read_frame
 
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
 from django_plotly_dash import DjangoDash
-from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup, Mistake
+from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup, Mistake, Mark
 from django.contrib.auth.models import User
 from GreenPen.settings import CURRENT_ACADEMIC_YEAR
 
@@ -27,14 +30,12 @@ def get_groups_from_graph(callback, user=User.objects.none()):
         groups = TeachingGroup.objects.filter(students=Student.objects.get(user=user))
 
     if user.groups.filter(name='Teachers').count():
-        # Start by finding our syllabus so we only get groups taught that syllabus:
-        if not get_root_pk(callback):
-            return False
-        current_selected = Syllabus.objects.get(pk=get_root_pk(callback))
+
+        current_selected = get_syllabus_point_from_graph(callback)
         # Groups to return
         groups = TeachingGroup.objects.filter(year_taught=CURRENT_ACADEMIC_YEAR,
                                               archived=False,
-                                              syllabus__in=current_selected.get_ancestors(include_self=True))
+                                              syllabus__in=current_selected.get_ancestors(include_self=True).distinct())
     ## Easy filter; If we've clicked a teaching group.
 
     if callback.inputs['group-chart.clickData']:
@@ -97,6 +98,7 @@ def get_students_from_graph(callback, user=User.objects.none(), groups=TeachingG
     else:
         raise NotImplementedError('User must be in teacher or studnet group')
 
+
 def set_sittings(callback, user=User.objects.none()):
     if user.groups.filter(name='Teachers').count():
         sittings = Sitting.objects.all()
@@ -113,7 +115,45 @@ def set_sittings(callback, user=User.objects.none()):
     return sittings
 
 
+def get_mistakes_from_graph(callback):
+    mistakes = Mistake.objects.all()
+    if 'mistakes-chart.clickData' in callback.inputs:
+        if callback.inputs['mistakes-chart.clickData']:
+            mistakes_pk = callback.inputs['mistake-chart.clickData']['points'][0]['customdata']
+            mistakes = Mistake.objects.get(pk=mistakes_pk).get_descendants(include_self=True)
+
+    return mistakes
+
+def get_syllabus_point_from_graph(callback):
+    root_pk = get_root_pk(callback)
+    if not root_pk:
+        return Syllabus.objects.filter(level=2)
+    else:
+        return Syllabus.objects.get(pk=root_pk)
+
+
+def drop_mistake_columns(df, user):
+    """
+    Take a data frame of individual marks, and drop the apropriate columns depending
+    on whether the use is a teacher or student.
+
+    Teachers should retain the student names so they can be connected to individuals.
+    Studnets will be logged into their own view, so don't need student names.
+    :param df: dataframe from Mark queryset
+    :param user: User instance from dash
+    :return: dataframe with appropriate columsn removed.
+    """
+    df = df.drop(columns=['id', 'question', 'score', 'sitting'])
+
+    if user.groups.filter(name='Students').count():
+        df = df.drop(columns='student')
+
+    return df
+
 external_stylesheets=[dbc.themes.BOOTSTRAP]
+
+# Get column headers for mistake table:
+init_df = read_frame(Mark.objects.filter(pk=Mark.objects.first().pk))
 
 app = DjangoDash('TeacherDashboard', external_stylesheets=external_stylesheets)
 subject_options = [dict(label=subject.text, value=subject.pk) for subject in Syllabus.objects.filter(level=2)]
@@ -178,6 +218,23 @@ app.layout = html.Div([
         html.Button('Reset filter on this graph', id='group-performance-reset')
         ], className="six columns")
     ], className="row"),
+
+    html.Div([
+        html.H3('Mistakes list'),
+        dcc.Loading(
+            id="mistakes-table-loading",
+            type="default",
+            children=dash_table.DataTable(
+                style_cell={
+                        'whiteSpace': 'normal',
+                        'height': 'auto',
+                        'textAlign': 'left',
+                        'font-family': 'sans-serif',
+                    },
+                id='mistakes-table'
+            )
+        )
+    ])
 ])
 
 
@@ -299,7 +356,6 @@ def update_mistake_starburst(*args, **kwargs):
     parents[0] = ""
     values = [1 for mistake in mistakes]
     colors = [mistake.cohort_totals(students, parent_point.get_descendants(), sittings) for mistake in mistakes]
-
     graph = go.Sunburst(
         labels=labels,
         parents=parents,
@@ -355,12 +411,14 @@ def update_rating_time_graph(*args, **kwargs):
     ids = []
 
     for sitting in records:
-        if sitting.avg_syllabus_rating(parent_point) != 'none':
-            string = str(sitting.group.name) + "<br>" + str(sitting.exam.name)
-            text.append(string)
-            x.append(sitting.date)
-            y.append(sitting.avg_syllabus_rating(parent_point, students))
-            ids.append(sitting.pk)
+        avg_score = sitting.avg_syllabus_rating(parent_point, students)
+        if avg_score:
+            if avg_score != 'none':
+                string = str(sitting.group.name) + "<br>" + str(sitting.exam.name)
+                text.append(string)
+                x.append(sitting.date)
+                y.append(avg_score)
+                ids.append(sitting.pk)
 
     graph = go.Scatter(
         x=x,
@@ -587,3 +645,59 @@ def set_default_subject(*args, **kwargs):
     else:
         return kwargs['callback_context'].inputs['subject-dropdown.options'][0]['value']
 
+
+@app.expanded_callback(
+    Output('mistakes-table', 'data'),
+    [Input('subject-dropdown', 'value'),
+     Input('teachinggroup-dropdown', 'value'),
+     Input('student-dropdown', 'value'),
+     Input('syllabus-graph', 'clickData'),
+     Input('group-chart', 'clickData'),
+     Input('time-chart', 'clickData'),
+     Input('mistake-chart', 'clickData')]
+    )
+def update_mistakes_table(*args, **kwargs):
+    callback = kwargs['callback_context']
+    user = kwargs['user']
+    parent_pk = get_root_pk(callback)
+
+    # Before subject is chosen this will be blank.
+
+    sittings = set_sittings(callback, user)
+    students = get_students_from_graph(callback, user)
+    mistakes = get_mistakes_from_graph(callback)
+    syllabus = get_syllabus_point_from_graph(callback)
+
+    notes_qs = Mark.objects.filter(student__in=students,
+                                   mistakes__in=mistakes,
+                                   sitting__in=sittings,
+                                   question__syllabus_points__in=syllabus.get_descendants(include_self=True),
+                                   student_notes__isnull=False).exclude(student_notes='').distinct()
+
+    df = read_frame(notes_qs)
+    df = drop_mistake_columns(df, user)
+    data = df.to_dict('records')
+
+    return data
+
+
+@app.expanded_callback(
+    Output('mistakes-table', 'columns'),
+    [Input('url', 'pathname')]
+    )
+def update_mistakes_table_headings(*args, **kwargs):
+    """
+    This runs on first load, to dynamically set column headings depending
+    on whether we have teacher or student.
+    Teachers need to see student names; students only need to see the
+    mistakes themselves.
+    :param args:
+    :param kwargs:
+    :return: column dict as required by pandas
+    """
+    user = kwargs['user']
+
+    init_df = read_frame(Mark.objects.filter(pk=Mark.objects.first().pk))
+    init_df = drop_mistake_columns(init_df, user)
+    columns = [{"name": i, "id": i} for i in init_df.columns]
+    return columns
