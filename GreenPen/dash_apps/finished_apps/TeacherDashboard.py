@@ -1,19 +1,23 @@
 import dash_core_components as dcc
 import dash_daq as daq
+import dash_table
 import dash_html_components as html
+
+from django_pandas.io import read_frame
 
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
 from django_plotly_dash import DjangoDash
-from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup, Mistake
+from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup, Mistake, Mark
+from django.contrib.auth.models import User
 from GreenPen.settings import CURRENT_ACADEMIC_YEAR
 
 
 
 # Helper functions:
 
-def get_groups_from_graph(callback):
+def get_groups_from_graph(callback, user=User.objects.none()):
     """
     Returns a queryset of groups from the callback.
 
@@ -23,14 +27,16 @@ def get_groups_from_graph(callback):
     """
 
     # If we're a student, only output themselves.
+    if user.groups.filter(name='Students').count():
+        groups = TeachingGroup.objects.filter(students=Student.objects.get(user=user))
 
+    if user.groups.filter(name='Teachers').count():
 
-    # Start by finding our syllabus so we only get groups taught that syllabus:
-    current_selected = Syllabus.objects.get(pk=get_root_pk(callback))
-    # Groups to return
-    groups = TeachingGroup.objects.filter(year_taught=CURRENT_ACADEMIC_YEAR,
-                                          archived=False,
-                                          syllabus__in=current_selected.get_ancestors(include_self=True))
+        current_selected = get_syllabus_point_from_graph(callback)
+        # Groups to return
+        groups = TeachingGroup.objects.filter(year_taught=CURRENT_ACADEMIC_YEAR,
+                                              archived=False,
+                                              syllabus__in=current_selected.get_ancestors(include_self=True).distinct())
     ## Easy filter; If we've clicked a teaching group.
 
     if callback.inputs['group-chart.clickData']:
@@ -50,55 +56,128 @@ def get_groups_from_graph(callback):
         sitting = Sitting.objects.get(pk=sitting_pk)
         groups = TeachingGroup.objects.filter(sitting=sitting)
 
+    ## Now we filter out for groups removed via teachinggroup dropdown
+    if 'teachinggroup-dropdown.value' in callback.inputs:
+        if callback.inputs['teachinggroup-dropdown.value']:
+            groups = groups.filter(pk=callback.inputs['teachinggroup-dropdown.value'])
+
     return groups
 
 
-def get_students_from_graph(callback, groups=TeachingGroup.objects.filter(archived=False)):
+def get_students_from_graph(callback, user=User.objects.none(), groups=TeachingGroup.objects.filter(archived=False)):
     """
     Returns a queryset of students filtered by other chart callback.
     :param callback: the plotyl dash callback
     :return: A queryset of students
     """
     students = Student.objects.filter(teachinggroup__in=groups)
-    if 'group-chart.clickData' not in callback.inputs:
-        return students
-    elif not callback.inputs['group-chart.clickData']:
-        return students
+    inputs = callback.inputs
+
+    if user.groups.filter(name='Students').count():
+        return Student.objects.filter(user=user)
+    elif user.groups.filter(name='Teachers').count():
+        if 'group-chart.clickData'  in callback.inputs:
+            if callback.inputs['group-chart.clickData']:
+                name = callback.inputs['group-chart.clickData']['points'][0]['customdata']
+                if name.startswith('group_'):
+                    group_pk = name.split('_')[1]
+                    students = students.filter(teachinggroup__pk=group_pk)
+                else:
+                    student_pk = name.split('_')[1]
+                    students = students.filter(pk=student_pk)
+
+        if inputs['subject-dropdown.value']:
+            students = students.filter(
+                teachinggroup__syllabus=Syllabus.objects.get(pk=inputs['subject-dropdown.value']))
+        if 'teachinggroup-dropdown.value' in inputs:
+            if inputs['teachinggroup-dropdown.value']:
+                students = students.filter(teachinggroup__pk=inputs['teachinggroup-dropdown.value'])
+        if 'student-dropdown.value' in inputs:
+            if inputs['student-dropdown.value']:
+                students = students.filter(pk=inputs['student-dropdown.value'])
+        return students.distinct()
     else:
-        name = callback.inputs['group-chart.clickData']['points'][0]['customdata']
-        if name.startswith('group_'):
-            group_pk = name.split('_')[1]
-            return students.filter(teachinggroup__pk=group_pk)
-        else:
-            student_pk = name.split('_')[1]
-            return Student.objects.filter(pk=student_pk)
+        raise NotImplementedError('User must be in teacher or studnet group')
 
 
-def set_sittings(callback):
-    sittings = Sitting.objects.all()
-    if 'time-chart.clickData' not in callback.inputs:
-        return sittings
-    elif not callback.inputs['time-chart.clickData']:
-        return sittings
-
+def set_sittings(callback, user=User.objects.none()):
+    if user.groups.filter(name='Teachers').count():
+        sittings = Sitting.objects.all()
+    elif user.groups.filter(name='Students').count():
+        sittings = Sitting.objects.filter(group__students__user=user)
     else:
-        sitting_pk = callback.inputs['time-chart.clickData']['points'][0]['customdata']
-        sittings = Sitting.objects.filter(pk=sitting_pk)
+        raise NotImplementedError('User must be in teacher or studnet group')
+
+    if 'time-chart.clickData' in callback.inputs:
+        if  callback.inputs['time-chart.clickData']:
+            sitting_pk = callback.inputs['time-chart.clickData']['points'][0]['customdata']
+            sittings = sittings.filter(pk=sitting_pk)
+
     return sittings
 
 
+def get_mistakes_from_graph(callback):
+    mistakes = Mistake.objects.all()
+    if 'mistakes-chart.clickData' in callback.inputs:
+        if callback.inputs['mistakes-chart.clickData']:
+            mistakes_pk = callback.inputs['mistake-chart.clickData']['points'][0]['customdata']
+            mistakes = Mistake.objects.get(pk=mistakes_pk).get_descendants(include_self=True)
+
+    return mistakes
+
+def get_syllabus_point_from_graph(callback):
+    root_pk = get_root_pk(callback)
+    if not root_pk:
+        return Syllabus.objects.filter(level=2)
+    else:
+        return Syllabus.objects.get(pk=root_pk)
+
+
+def drop_mistake_columns(df, user):
+    """
+    Take a data frame of individual marks, and drop the apropriate columns depending
+    on whether the use is a teacher or student.
+
+    Teachers should retain the student names so they can be connected to individuals.
+    Studnets will be logged into their own view, so don't need student names.
+    :param df: dataframe from Mark queryset
+    :param user: User instance from dash
+    :return: dataframe with appropriate columsn removed.
+    """
+    df = df.drop(columns=['id', 'question', 'score', 'sitting'])
+
+    if user.groups.filter(name='Students').count():
+        df = df.drop(columns='student')
+
+    return df
+
 external_stylesheets=[dbc.themes.BOOTSTRAP]
+
+# Get column headers for mistake table:
+init_df = read_frame(Mark.objects.filter(pk=Mark.objects.first().pk))
 
 app = DjangoDash('TeacherDashboard', external_stylesheets=external_stylesheets)
 subject_options = [dict(label=subject.text, value=subject.pk) for subject in Syllabus.objects.filter(level=2)]
 
 app.layout = html.Div([
     html.Div([
-        dcc.Dropdown(
-            id='subject-dropdown',
-            options=subject_options,
-            value=2
-        ), ]),
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    dcc.Location(id='url', refresh=True),
+                    html.Label(["Subject",
+                                dcc.Dropdown(id='subject-dropdown')]
+                               ),
+                    html.Label(["Teaching Group",
+                                dcc.Dropdown(id='teachinggroup-dropdown', )
+                                ]),
+                    html.Label(["Student",
+                                dcc.Dropdown(id='student-dropdown', )
+                                ])
+
+                ]),
+            ]),
+        ]), ]),
     html.Div([
         html.Div([
             html.H3('Syllabus Performance'),
@@ -119,14 +198,16 @@ app.layout = html.Div([
         ], className="six columns"),
     ], className='Row'),
     html.Div([
-        html.H3('Over Time'),
-        dcc.Loading(
-            id="time-chart-loading",
-            type="default",
-            children=dcc.Graph(id='time-chart')
-        ),
-        html.Button('Reset filter on this graph', id='time-chart-reset')
+        html.Div([
+            html.H3('Over Time'),
+            dcc.Loading(
+                id="time-chart-loading",
+                type="default",
+                children=dcc.Graph(id='time-chart')
+            ),
+            html.Button('Reset filter on this graph', id='time-chart-reset')
     ], className="six columns"),
+
 
     html.Div([
         html.H3('Group Performance'),
@@ -136,9 +217,26 @@ app.layout = html.Div([
             children=dcc.Graph(id='group-chart')
         ),
         html.Button('Reset filter on this graph', id='group-performance-reset')
-    ], className="six columns")
+        ], className="six columns")
+    ], className="row"),
 
+    html.Div([
+        html.H3('Mistakes list'),
+        dcc.Loading(
+            id="mistakes-table-loading",
+            type="default",
+            children=dash_table.DataTable(
+                style_cell={
+                        'whiteSpace': 'normal',
+                        'height': 'auto',
+                        'textAlign': 'left',
+                        'font-family': 'sans-serif',
+                    },
+                id='mistakes-table'
+            )
+        )
     ])
+])
 
 
 app.css.append_css({
@@ -161,7 +259,8 @@ def get_root_pk(callback):
     """
     # This will be over-ridden if we have clicked on a value.
     subject_pk = callback.inputs['subject-dropdown.value']
-
+    if not subject_pk:
+        return False
     # Check if the user has at some point filtered on the sunburst:
     if 'syllabus-graph.clickData' in callback.inputs:
         if callback.inputs['syllabus-graph.clickData']:
@@ -173,18 +272,22 @@ def get_root_pk(callback):
 @app.expanded_callback(
     Output('syllabus-graph', 'figure'),
     [Input('subject-dropdown', 'value'),
+     Input('teachinggroup-dropdown', 'value'),
+     Input('student-dropdown', 'value'),
      Input('group-chart', 'clickData'),
-     Input('time-chart', 'clickData')
+     Input('time-chart', 'clickData'),
      ])
 def update_syllabus_sunburst(*args, **kwargs):
     callback = kwargs['callback_context']
+    user = kwargs['user']
+    students = get_students_from_graph(callback, user)
 
-    subject_pk = callback.inputs['subject-dropdown.value']
-    students = get_students_from_graph(callback)
+    sittings = set_sittings(callback, user)
 
-    sittings = set_sittings(callback)
-
-    parent_point = Syllabus.objects.get(pk=subject_pk)
+    parent_point_pk = get_root_pk(callback)
+    if not parent_point_pk:
+        return False
+    parent_point = Syllabus.objects.get(pk=parent_point_pk)
     points = parent_point.get_descendants(include_self=True)
     labels = [point.text for point in points]
     ids = [point.pk for point in points]
@@ -221,17 +324,27 @@ def update_syllabus_sunburst(*args, **kwargs):
 @app.expanded_callback(
     Output('mistake-chart', 'figure'),
     [Input('subject-dropdown', 'value'),
+     Input('teachinggroup-dropdown', 'value'),
+     Input('student-dropdown', 'value'),
      Input('syllabus-graph', 'clickData'),
      Input('group-chart', 'clickData'),
      Input('time-chart', 'clickData')])
 def update_mistake_starburst(*args, **kwargs):
     callback = kwargs['callback_context']
-
+    user = kwargs['user']
     subject_pk = callback.inputs['subject-dropdown.value']
-    students = get_students_from_graph(callback)
-    parent_point = Syllabus.objects.get(pk=get_root_pk(callback))
+    students = get_students_from_graph(callback, user)
+
+    # Keep blank if we haven't loaded all charts yet.
+    if not students:
+        return False
+    root_pk = get_root_pk(callback)
+    if not root_pk:
+        return False
+    parent_point = Syllabus.objects.get(pk=root_pk)
+
     mistakes = Mistake.objects.all()
-    sittings = set_sittings(callback)
+    sittings = set_sittings(callback, user)
     labels = [mistake.mistake_type for mistake in mistakes]
     ids = [mistake.pk for mistake in mistakes]
     parents = []
@@ -244,7 +357,6 @@ def update_mistake_starburst(*args, **kwargs):
     parents[0] = ""
     values = [1 for mistake in mistakes]
     colors = [mistake.cohort_totals(students, parent_point.get_descendants(), sittings) for mistake in mistakes]
-
     graph = go.Sunburst(
         labels=labels,
         parents=parents,
@@ -252,8 +364,6 @@ def update_mistake_starburst(*args, **kwargs):
         customdata=ids,
         marker=dict(colors=colors,
                     colorscale='gnbu',
-                    cmid=2.5,
-                    cmax=5,
                     cmin=0),
         hovertemplate='<b>%{label}</b><br>Total Mistakes: %{color}',
         name='',
@@ -273,15 +383,22 @@ def update_mistake_starburst(*args, **kwargs):
 @app.expanded_callback(
     Output('time-chart', 'figure'),
     [Input('subject-dropdown', 'value'),
+     Input('teachinggroup-dropdown', 'value'),
+     Input('student-dropdown', 'value'),
      Input('syllabus-graph', 'clickData'),
      Input('group-chart', 'clickData'),
      Input('time-chart', 'clickData')])
 def update_rating_time_graph(*args, **kwargs):
     callback = kwargs['callback_context']
+    user = kwargs['user']
     parent_pk = get_root_pk(callback)
+
+    # Before subject is chosen this will be blank.
+    if not parent_pk:
+        return False
     parent_point = Syllabus.objects.get(pk=parent_pk)
-    groups = get_groups_from_graph(callback)
-    students = get_students_from_graph(callback)
+    groups = get_groups_from_graph(callback, user)
+    students = get_students_from_graph(callback, user)
     records = Sitting.objects.filter(exam__question__syllabus_points__in=parent_point.get_descendants(),
                                      group__in=groups,
                                      ).order_by('date').distinct()
@@ -295,12 +412,14 @@ def update_rating_time_graph(*args, **kwargs):
     ids = []
 
     for sitting in records:
-        if sitting.avg_syllabus_rating(parent_point) != 'none':
-            string = str(sitting.group.name) + "<br>" + str(sitting.exam.name)
-            text.append(string)
-            x.append(sitting.date)
-            y.append(sitting.avg_syllabus_rating(parent_point))
-            ids.append(sitting.pk)
+        avg_score = sitting.avg_syllabus_rating(parent_point, students)
+        if avg_score:
+            if avg_score != 'none':
+                string = str(sitting.group.name) + "<br>" + str(sitting.exam.name)
+                text.append(string)
+                x.append(sitting.date)
+                y.append(avg_score)
+                ids.append(sitting.pk)
 
     graph = go.Scatter(
         x=x,
@@ -331,6 +450,8 @@ def update_rating_time_graph(*args, **kwargs):
 @app.expanded_callback(
     Output('group-chart', 'figure'),
     [Input('subject-dropdown', 'value'),
+     Input('teachinggroup-dropdown', 'value'),
+     Input('student-dropdown', 'value'),
      Input('syllabus-graph', 'clickData'),
      Input('time-chart', 'clickData'),
      Input('group-chart', 'clickData')])
@@ -340,17 +461,16 @@ def update_group_graph(*args, **kwargs):
 
     # Filter out syllabus points
     callback = kwargs['callback_context']
-
-    # If we've clicked the reset, remove the clickData input for this:
-    if callback:
-        pass
+    user = kwargs['user']
+    if not get_root_pk(callback):
+        return False
     parent_point = Syllabus.objects.get(pk=get_root_pk(callback))
     points = parent_point.get_descendants()
 
     ## Filter students
     # Check if we've filtered anything:
-    groups = get_groups_from_graph(callback)
-    students = Student.objects.filter(teachinggroup__in=groups)
+    groups = get_groups_from_graph(callback, user)
+    students = get_students_from_graph(callback, user, groups)
 
     # Filter out sittings
     sittings = Sitting.objects.filter(exam__question__syllabus_points__in=parent_point.get_descendants()). \
@@ -376,7 +496,6 @@ def update_group_graph(*args, **kwargs):
 
     # If we only have one group, it's better to output individual students.
     if groups.count() == 1:
-        students = groups[0].students.all()
         group = groups[0]
         for student in students:
             student_qs = Student.objects.filter(pk=student.pk)
@@ -430,3 +549,156 @@ def reset_group_graph(*args, **kwargs):
 )
 def reset_time_graph(*args, **kwargs):
     return False
+
+@app.expanded_callback(
+    Output('subject-dropdown', 'options'),
+    [Input('url', 'pathname')]
+)
+def update_subject_options(*args, **kwargs):
+    """
+    Update the list of options for subjects based on the students TeachingGroup enrolements.
+    :param args:
+    :param kwargs:
+    :return:
+    """
+    user = kwargs['user']
+
+    # Teachers can see everyone:
+    if user.groups.filter(name='Teachers').count():
+        subjects = Syllabus.objects.filter(level=2)
+
+    elif user.groups.filter(name='Students').count():
+        student = Student.objects.get(user=user)
+        teachinggroups = TeachingGroup.objects.filter(students=student)
+        subjects = Syllabus.objects.filter(teachinggroup__in=teachinggroups)
+    else:
+        raise NotImplementedError('User must belong to either Teachers or Students groups')
+
+    # Build a list of subjects taken by the student.
+    subject_options = [dict(label=subject.text, value=subject.pk) for subject in subjects.distinct()]
+
+    return subject_options
+
+@app.expanded_callback(
+    Output('teachinggroup-dropdown', 'options'),
+    [Input('subject-dropdown', 'value')]
+)
+def update_classgroup_dropdowns(*args, **kwargs):
+    syllabus_pk = kwargs['callback_context'].inputs['subject-dropdown.value']
+    if not syllabus_pk:
+        return False
+    syllabus = Syllabus.objects.get(pk=syllabus_pk)
+    user = kwargs['user']
+    # Teachers can see everyone:
+    if user.groups.filter(name='Teachers').count():
+        classgroups = TeachingGroup.objects.filter(syllabus=syllabus)
+
+    elif user.groups.filter(name='Students').count():
+        student = Student.objects.get(user=user)
+        classgroups = TeachingGroup.objects.filter(students=student,
+                                                   syllabus=syllabus)
+    else:
+        raise NotImplementedError('User must belong to either Teachers or Students groups')
+
+
+    return [dict(label=group.name, value=group.pk) for group in classgroups]
+
+
+@app.expanded_callback(
+    Output('student-dropdown', 'options'),
+    [Input('teachinggroup-dropdown', 'value')]
+)
+def update_student_dropdown(*args, **kwargs):
+    teachingroup_pk = kwargs['callback_context'].inputs['teachinggroup-dropdown.value']
+    if not teachingroup_pk:
+        return False
+    teachinggroup = TeachingGroup.objects.get(pk=teachingroup_pk)
+    user = kwargs['user']
+    # Teachers can see everyone:
+    if user.groups.filter(name='Teachers').count():
+        students = Student.objects.filter(teachinggroup=teachinggroup)
+
+    elif user.groups.filter(name='Students').count():
+        student = Student.objects.get(user=user)
+        students = Student.objects.filter(pk=student.pk)
+    else:
+        raise NotImplementedError('User must belong to either Teachers or Students groups')
+
+
+    return [dict(label=student.full_name(), value=student.pk) for student in students]
+
+
+def set_default_student(*args, **kwargs):
+    # Only need to do this if we're a student, otherwise it's confusing!
+    if kwargs['user'].groups.filter(name='Teachers').count():
+        return False
+    else:
+        return kwargs['callback_context'].inputs['student-dropdown.options'][0]['value']
+
+@app.expanded_callback(
+    Output('subject-dropdown', 'value'),
+    [Input('subject-dropdown', 'options')]
+)
+def set_default_subject(*args, **kwargs):
+    # Only need to do this if we're a student, otherwise it's confusing!
+    if kwargs['user'].groups.filter(name='Teachers').count():
+        return False
+    else:
+        return kwargs['callback_context'].inputs['subject-dropdown.options'][0]['value']
+
+
+@app.expanded_callback(
+    Output('mistakes-table', 'data'),
+    [Input('subject-dropdown', 'value'),
+     Input('teachinggroup-dropdown', 'value'),
+     Input('student-dropdown', 'value'),
+     Input('syllabus-graph', 'clickData'),
+     Input('group-chart', 'clickData'),
+     Input('time-chart', 'clickData'),
+     Input('mistake-chart', 'clickData')]
+    )
+def update_mistakes_table(*args, **kwargs):
+    callback = kwargs['callback_context']
+    user = kwargs['user']
+    parent_pk = get_root_pk(callback)
+
+    # Before subject is chosen this will be blank.
+
+    sittings = set_sittings(callback, user)
+    students = get_students_from_graph(callback, user)
+    mistakes = get_mistakes_from_graph(callback)
+    syllabus = get_syllabus_point_from_graph(callback)
+
+    notes_qs = Mark.objects.filter(student__in=students,
+                                   mistakes__in=mistakes,
+                                   sitting__in=sittings,
+                                   question__syllabus_points__in=syllabus.get_descendants(include_self=True),
+                                   student_notes__isnull=False).exclude(student_notes='').distinct()
+
+    df = read_frame(notes_qs)
+    df = drop_mistake_columns(df, user)
+    data = df.to_dict('records')
+
+    return data
+
+
+@app.expanded_callback(
+    Output('mistakes-table', 'columns'),
+    [Input('url', 'pathname')]
+    )
+def update_mistakes_table_headings(*args, **kwargs):
+    """
+    This runs on first load, to dynamically set column headings depending
+    on whether we have teacher or student.
+    Teachers need to see student names; students only need to see the
+    mistakes themselves.
+    :param args:
+    :param kwargs:
+    :return: column dict as required by pandas
+    """
+    user = kwargs['user']
+
+    init_df = read_frame(Mark.objects.filter(pk=Mark.objects.first().pk))
+    init_df = drop_mistake_columns(init_df, user)
+    columns = [{"name": i, "id": i} for i in init_df.columns]
+    return columns

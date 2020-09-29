@@ -1,37 +1,23 @@
-from GreenPen.models import *
+from GreenPen.models import Student,  Syllabus, StudentSyllabusAssessmentRecord
 
-
-def detect_potential_exam_errors():
+def fix_student_assessment_record_order(students=Student.objects.all(), points=Syllabus.objects.all()):
     """
-    Used to detect exams which have questions that cover multiple
-    exam syllabi.
-    :return: queryset of exams
+    Used to repair orders if they become corrupt
+    :return:
     """
 
-    # Start with all our exams:
-    exams = Exam.objects.all()
-
-    # Get the subject levels
-    subjects = Syllabus.objects.filter(level=2)
-
-    # Iterate over each question, and each exam:
-
-    problem_exams = []
-    for exam in exams:
-        all_top_levels_ids = []
-        problem_questions = []
-        for question in exam.question_set.all():
-
-            # Find its syllabus points
-            points = question.syllabus_points.all()
-            for point in points:
-                subject = point.get_ancestors().get(level=2)
-                all_top_levels_ids.append(subject.pk)
-        # Check for multiple subjects:
-        parents = Syllabus.objects.filter(pk__in=all_top_levels_ids).distinct()
-
-        if parents.count() > 1:
-            problem_exams.append(exam)
-
-    return problem_exams
-
+    i = 0
+    total = students.count()
+    for student in students:
+        for point in points:
+            competitors = StudentSyllabusAssessmentRecord.objects.filter(student=student,
+                                                                         syllabus_point=point).\
+                order_by('-order').distinct()
+            i = competitors.count() + 1
+            for competitor in competitors:
+                competitor.order = i
+                i = i - 1
+                competitor.save()
+        complete = round(i/total * 100,0)
+        i += 1
+        print(str(complete) + "% complete")

@@ -13,7 +13,6 @@ from GreenPen.settings import CALENDAR_START_DATE, CALENDAR_END_DATE, ACADEMIC_Y
 from django.db.models import Max
 from django.db.models.signals import m2m_changed
 
-
 class Person(models.Model):
     user = models.ForeignKey(User, blank=True, null=True, on_delete=models.CASCADE)
 
@@ -248,18 +247,19 @@ class Sitting(models.Model):
         else:
             return "badge-secondary"
 
-    def avg_syllabus_rating(self, syllabus=Syllabus.objects.none()):
+    def avg_syllabus_rating(self, syllabus=Syllabus.objects.none(), students=Student.objects.all()):
         """
         Calculate the average rating for the cohort taking this exam.
         Optionally, restrict it to just a single syllabus point.
         """
         ratings = StudentSyllabusAssessmentRecord.objects.filter(sitting=self,
                                                                  syllabus_point=syllabus,
-                                                                 rating__isnull=False)
+                                                                 rating__isnull=False,
+                                                                 student__in=students)
         if ratings.count():
             return round(ratings.aggregate(avg=Avg('rating'))['avg'], 1)
         else:
-            return 'none'
+            return False
 
     def student_total(self, student=Student.objects.none()):
         marks = Mark.objects.filter(sitting=self,
@@ -411,6 +411,39 @@ class StudentSyllabusAssessmentRecord(models.Model):
         self.save()
 
 
+
+def fix_student_assessment_record_order(students=Student.objects.all(), points=Syllabus.objects.all()):
+    """
+    Used to repair orders if they become corrupt
+    :return:
+    """
+
+    i = 0
+    total = students.count()
+    for student in students:
+        for point in points:
+            rerun = False
+            competitors = StudentSyllabusAssessmentRecord.objects.filter(student=student,
+                                                                         syllabus_point=point).\
+                order_by('-order').distinct()
+
+            # Firstly, set orders to something that cannot clash:
+            for competitor in competitors:
+                competitor.order = competitors[0].order + competitor.order + 1
+                competitor.save()
+            # Refresh from db:
+            competitors = StudentSyllabusAssessmentRecord.objects.filter(student=student,
+                                                                         syllabus_point=point). \
+                order_by('-order').distinct()
+
+            # Re-do order correctly:
+            i = competitors.count() + 1
+            for competitor in competitors:
+                competitor.order = i
+                competitor.save()
+                i = i -1
+
+
 def syllabus_record_created(sender, instance, created, **kwargs):
     """ Ensure that there's only ever one 'most recent' record, and that is set by the date of assessment. """
     if created:
@@ -435,13 +468,30 @@ def syllabus_record_created(sender, instance, created, **kwargs):
                 other = competitors.get(order=competitor.order)
                 other.order = (total_comps + j)
                 j += 1
-                other.save()
-                competitor.save()
+                try:
+                    with transaction.atomic():
+                        other.save()
+                        competitor.save()
+                except IntegrityError:
+                    # This occurs if our ordering has somehow become corrupted.
+                        fix_student_assessment_record_order(students=Student.objects.filter(pk=other.student.pk),
+                                                                         points=Syllabus.objects.filter(pk=other.syllabus_point.pk))
+
+
+        # Refresh from db to check correct competitors:
+        competitors = StudentSyllabusAssessmentRecord.objects.filter(syllabus_point=instance.syllabus_point,
+                                                                     student=instance.student).order_by(
+            '-sitting__date')
         most_recent_competitor = competitors[0]
         if instance.pk == most_recent_competitor.pk:  # Don't use just == as might have changed flags
             newer_reset_reqd = False
         else:
             newer_reset_reqd = True
+        # Make sure none are most recent:
+        most_recents = competitors.filter(most_recent=True)
+        for competitor in most_recents:
+            competitor.most_recent = False
+            competitor.save()
         most_recent_competitor.most_recent = True
         most_recent_competitor.save()
 
