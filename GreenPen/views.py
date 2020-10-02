@@ -304,7 +304,7 @@ def send_syllabus_children(request, syllabus_pk):
 
 
 
-@user_passes_test(check_superuser)
+@user_passes_test(check_teacher)
 def exam_result_view(request, sitting_pk):
     context = {}
     sitting = Sitting.objects.get(pk=sitting_pk)
