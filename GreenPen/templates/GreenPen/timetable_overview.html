@@ -1,7 +1,7 @@
 {% extends 'GreenPen/bs_base.html' %}
 
 {% block content %}
-   <h1>Tiemtable for {{ teacher.full_name }} on week commencing {{ calendar_items.1.1.slot.date }}</h1>
+   <h1>Timetable for {{ teacher.full_name }} on week commencing {{ calendar_items.1.1.slot.date }}</h1>
     <div class="row">
         <table class="table table-striped table-bordered">
         {% for row in calendar_items %}
