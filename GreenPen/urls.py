@@ -21,6 +21,7 @@ from GreenPen.views import *
 from GreenPen.dash_apps.finished_apps import TeacherDashboard, StudentDashboard
 
 urlpatterns = [
+    path('ckeditor/', include('ckeditor_uploader.urls')),
     path('', splash, name='splash'),
     path('admin/', admin.site.urls),
     path('syllabus/json/<int:syllabus_pk>', send_syllabus_children, name='ajax-syllabus-children'),

@@ -13,6 +13,7 @@ from GreenPen.settings import CALENDAR_START_DATE, CALENDAR_END_DATE, ACADEMIC_Y
 from django.db.models import Max
 from django.db.models.signals import m2m_changed
 
+
 class Person(models.Model):
     user = models.ForeignKey(User, blank=True, null=True, on_delete=models.CASCADE)
 
@@ -951,3 +952,4 @@ def setup_lessons(teachinggrousp=TeachingGroup.objects.all()):
                                                            order=i)
             lesson.save()  # Required to force a re-slot.
             i += 1
+

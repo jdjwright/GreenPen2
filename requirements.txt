@@ -23,3 +23,5 @@ dash-bootstrap-components==0.10.3
 social-auth-app-django==4.0.0
 django-pandas==0.6.2
 django-treewidget
+django-ckeditor==6.0.0
+coverage==5.3

@@ -46,7 +46,9 @@ INSTALLED_APPS = [
     'django_plotly_dash.apps.DjangoPlotlyDashConfig',
     'channels',
     'social_django',
-    'jstree'
+    'jstree',
+    'ckeditor',
+    'ckeditor_uploader'
 ]
 
 MIDDLEWARE = [
@@ -248,3 +250,7 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET=os.getenv('SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET')
 
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/login'
+
+
+CKEDITOR_UPLOAD_PATH = MEDIA_ROOT
+CKEDITOR_ALLOW_NONIMAGE_FILES = False
