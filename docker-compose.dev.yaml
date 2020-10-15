@@ -1,0 +1,35 @@
+version: '3'
+    
+services:
+  db:
+    image: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+       - ./.env.dev
+
+  web:
+    build:
+      context: ./
+      dockerfile: Dockerfile.dev
+    env_file:
+      - ./.env.dev
+    command: python /usr/src/app/manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  pgadmin4:
+    image: dpage/pgadmin4
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    env_file:
+      - ./.env.dev
+
+volumes:
+  postgres_data:

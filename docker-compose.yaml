@@ -1,33 +1,55 @@
 version: '3'
-    
+
 services:
+  web:
+
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    command: daphne -b 0.0.0.0 -p 8000 GreenPen.asgi:application
+    volumes:
+      - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/mediafiles
+    expose:
+      - 8000
+    env_file:
+      - ./.env.prod
+    depends_on:
+      - db
+
   db:
-    image: postgres
+    image: postgres:12.0-alpine
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
-       - ./.env.dev
+      - ./.env.prod
 
-  web:
-    build: .
-    env_file:
-      - ./.env.dev
-    command: python /usr/src/app/manage.py runserver 0.0.0.0:8000
+  nginx:
+    build: ./nginx
+    ports:
+      - 80:80
+      - 443:443
     volumes:
-      - .:/code
-    ports:
-      - "8000:8000"
+      - static_volume:/home/app/web/staticfiles
+      - media_volume:/home/app/web/mediafiles
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
     depends_on:
-      - db
-
-  pgadmin4:
-    image: dpage/pgadmin4
-    ports:
-      - "8080:80"
-    depends_on:
-      - db
+      - web
     env_file:
-      - ./.env.dev
+      - ./.env.prod
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    env_file:
+      - ./.env.prod
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
 volumes:
   postgres_data:
+  static_volume:
+  media_volume:
