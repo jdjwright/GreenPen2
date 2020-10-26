@@ -7,7 +7,7 @@ services:
       context: ./
       dockerfile: Dockerfile.prod
     image: greenpen/greenpen
-    command: daphne -b 0.0.0.0 -p 8000 GreenPen.asgi:application
+    command: ~/.local/bin/daphne -b 0.0.0.0 -p 8000 GreenPen.asgi:application
     volumes:
       - static_volume:/usr/src/app/staticfiles
       - media_volume:/usr/src/app/mediafiles
