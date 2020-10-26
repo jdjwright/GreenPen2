@@ -10,5 +10,5 @@ then
 
     echo "PostgreSQL started"
 fi
-
+cd /usr/src/app || exit
 exec "$@"
