@@ -97,5 +97,6 @@ class LessonChangeForm(forms.ModelForm):
 class SuspendDaysForm(forms.Form):
     start_date = forms.DateField(widget=forms.SelectDateWidget, initial=datetime.date.today)
     end_date = forms.DateField(widget=forms.SelectDateWidget, initial=datetime.date.today)
-    whole_school = forms.BooleanField()
-    teaching_groups = forms.ModelMultipleChoiceField(queryset=TeachingGroup.objects.filter(archived=False))
+    whole_school = forms.BooleanField(required=False)
+    teaching_groups = forms.ModelMultipleChoiceField(queryset=TeachingGroup.objects.filter(archived=False), required=False)
+    reason = forms.CharField(max_length=256)

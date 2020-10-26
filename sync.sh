@@ -16,7 +16,7 @@ docker-compose up -d db
 docker-compose exec db psql -U postgres -c "drop database greenpen"
 
 # restore the dump from the previous part
-cat $dump_name | docker exec -i greenpen_db_1 psql -U postgres
+cat $dump_name | docker exec -i greenpen2_db_1 psql -U postgres
 
 # restart system as normal
 

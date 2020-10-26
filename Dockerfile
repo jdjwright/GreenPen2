@@ -19,19 +19,7 @@ COPY . /usr/src/app/
 
 # Set up deploy image
 
-FROM python:3.8.0-alpine as final-image
-# Copy wheels
-COPY --from=build-image /root/.local /root/.local
-# Make scripts in .lcoal available:
-ENV PATH=/root/.local/bin:$PATH
 
-# Copy libraries:
-COPY --from=build-image /usr/lib/libstdc++.so.6 /usr/lib/libstdc++.so.6
-COPY --from=build-image /usr/lib/libgcc_s.so.1 /usr/lib/libgcc_s.so.1
-COPY --from=build-image /usr/lib/libpq.so.5 /usr/lib/libpq.so.5
-COPY --from=build-image /usr/lib/libldap_r-2.4.so.2 /usr/lib/libldap_r-2.4.so.2
-COPY --from=build-image /usr/lib/liblber-2.4.so.2 /usr/lib/liblber-2.4.so.2
-COPY --from=build-image /usr/lib/libsasl2.so.3 /usr/lib/libsasl2.so.3
 
 # copy project
 COPY . /usr/src/app/

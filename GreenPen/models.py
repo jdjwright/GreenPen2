@@ -770,13 +770,19 @@ class Suspension(models.Model):
     slot = models.ForeignKey(CalendaredPeriod, null=True, on_delete=models.CASCADE)
 
     def set_slot(self, automatic=True):
-        self.slot = CalendaredPeriod.objects.get(date=self.date, tt_slot__period=self.period)
-        if automatic:
-            self.save()
-        return self.slot
+        try:
+            self.slot = CalendaredPeriod.objects.get(date=self.date, tt_slot__period=self.period)
+            if automatic:
+                self.save()
+            return self.slot
+        except ObjectDoesNotExist:
+            # This occurs if we try to suspend a non-teaching day.
+            return False
 
     def save(self, *args, **kwargs):
-        self.set_slot(automatic=False)
+        if not self.set_slot(automatic=False):
+            # This occurs if we are trying to suspend a non-teaching day
+            pass
         if self.whole_school:
             # Assign self to a correct slot
             self.set_slot(automatic=False)

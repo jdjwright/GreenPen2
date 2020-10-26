@@ -676,6 +676,29 @@ def change_lesson(request, lesson_pk, return_pk):
 @user_passes_test(check_superuser)
 def suspend_days(request):
     form = SuspendDaysForm()
+
+    if request.method == 'POST':
+        form = SuspendDaysForm(request.POST)
+        if form.is_valid():
+            start_date = form.cleaned_data['start_date']
+            end_date = form.cleaned_data['end_date']
+            whole_school = form.cleaned_data['whole_school']
+            teachinggroups = form.cleaned_data['teaching_groups']
+
+            delta = end_date - start_date       # as timedelta
+
+            for i in range(delta.days + 1):
+                day = start_date + datetime.timedelta(days=i)
+                periods = Period.objects.filter(year=AcademicYear.objects.get(current=True))
+                for period in periods:
+                    suspension = Suspension.objects.create(date=day,
+                                            whole_school=whole_school,
+                                          reason=form.cleaned_data['reason'],
+                                              period=period)
+                    if not whole_school:
+                        suspension.teachinggroups.set(teachinggroups)
+            return redirect(reverse('tt_splash'))
+
     return render(request, 'GreenPen/suspend_days.html', {'form': form})
 
 
