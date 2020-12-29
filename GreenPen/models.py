@@ -12,6 +12,7 @@ from django.urls import reverse
 from GreenPen.settings import CALENDAR_START_DATE, CALENDAR_END_DATE, ACADEMIC_YEARS
 from django.db.models import Max
 from django.db.models.signals import m2m_changed
+from ckeditor.fields import RichTextField
 
 
 class Person(models.Model):
@@ -175,10 +176,25 @@ class Syllabus(MPTTModel):
         return data
 
 
+class ExamType(models.Model):
+    """
+    Provides a list of exam types
+    """
+    type = models.CharField(max_length=256, blank=False, null=False)
+
+    def __str__(self):
+        return self.type
+
+
 class Exam(models.Model):
     name = models.CharField(max_length=256, blank=False, null=False)
     syllabus = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.SET_NULL)
     weighting = models.FloatField(blank=False, null=False, default=1)
+    type = models.ForeignKey(ExamType,
+                             blank=False,
+                             null=True,
+                             on_delete=models.SET_NULL)
+    year = models.IntegerField(blank=False, null=True)
 
     def total_score(self):
         return Question.objects.filter(exam=self).aggregate(Sum('max_score'))['max_score__sum']
@@ -304,7 +320,7 @@ class Mark(models.Model):
     score = models.FloatField(blank=True, null=True)
     sitting = models.ForeignKey(Sitting, blank=False, null=True, on_delete=models.CASCADE)
     mistakes = TreeManyToManyField(Mistake, blank=True)
-    student_notes = models.TextField(blank=True, null=True)
+    student_notes = RichTextField(blank=True, null=True)
 
     class Meta:
         unique_together = ['student', 'question', 'sitting']

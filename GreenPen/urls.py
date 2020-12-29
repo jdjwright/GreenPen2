@@ -18,7 +18,7 @@ from django.contrib.auth.views import LogoutView, LoginView
 from django.urls import path, include
 from GreenPen.autocomplete import *
 from GreenPen.views import *
-from GreenPen.dash_apps.finished_apps import TeacherDashboard, StudentDashboard
+# from GreenPen.dash_apps.finished_apps import TeacherDashboard, StudentDashboard
 
 urlpatterns = [
     path('ckeditor/', include('ckeditor_uploader.urls')),
