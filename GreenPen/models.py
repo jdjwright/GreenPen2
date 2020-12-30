@@ -206,6 +206,32 @@ class Exam(models.Model):
         from django.urls import reverse
         return reverse('edit-exam', args=[str(self.id)])
 
+    def duplicate(self):
+        # Create a new model instance with a new pk but same settings
+        # Note: something strange happens with python's copy
+        # system, meaning that we have to store the original
+        # item, Otherwise, trying to get the questions assosciated
+        # with the original will instead give the copy.
+        original_pk = self.pk
+        new = self
+        new.pk = None
+        new.save()
+        original = Exam.objects.get(pk=original_pk)
+
+        # Now copy questions
+        questions = Question.objects.filter(exam=original)
+        for question in questions:
+            # Duplicate the question:
+            original_q_pk = question.pk
+            newq = question
+            newq.pk = None
+            newq.exam = new
+            newq.save()
+            original_q = Question.objects.get(pk=original_q_pk)
+            newq.syllabus_points.set(original_q.syllabus_points.all())
+
+        return new
+
 
 class Question(models.Model):
     exam = models.ForeignKey(Exam, blank=False, null=False, on_delete=models.CASCADE)

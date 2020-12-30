@@ -225,13 +225,45 @@ class ExamTestCase(TestCase):
 
     def test_max_score(self):
         exam = setUpExam()
-        q1, q2 = setUpQuestion()
+        q1, q2 = setUpQuestion(exam)
 
         self.assertEqual(exam.total_score(), 5)
 
+    def test_duplicate(self):
+        exam = setUpExam()
+        q1, q2 = setUpQuestion(exam)
+        exam_pk = exam.pk
+        new_exam = exam.duplicate()
+        exam = Exam.objects.get(pk=exam_pk)
 
-def setUpQuestion():
-    exam = setUpExam()
+        self.assertEqual(new_exam.name, exam.name)
+        new_exam.name = 'New Exam'
+        new_exam.save()
+        self.assertEqual(new_exam.name, "New Exam")
+        self.assertEqual(exam.name, "exam 1")
+        self.assertEqual(new_exam.syllabus.pk, exam.syllabus.pk)
+        self.assertEqual(new_exam.question_set.count(), 2)
+        self.assertEqual(new_exam.total_score(), 5)
+        # Check that the syllabus points have been copied
+        q3 = Question.objects.get(exam=new_exam,
+                                  order=1)
+
+        self.assertQuerysetEqual(q3.syllabus_points.all(),
+                                 map(repr, q1.syllabus_points.all()))
+
+        q4 = Question.objects.get(exam=new_exam, order=2)
+
+        self.assertQuerysetEqual(q4.syllabus_points.all(),
+                                 map(repr, q2.syllabus_points.all()))
+
+        new_exam.question_set.first().delete()
+
+        self.assertEqual(new_exam.question_set.count(), 1)
+        self.assertEqual(new_exam.total_score(), 2)
+
+
+def setUpQuestion(exam=setUpExam()):
+
     setUpSyllabus()
 
     q1, created = Question.objects.get_or_create(exam=exam,

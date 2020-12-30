@@ -9,7 +9,7 @@ from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
 from django_plotly_dash import DjangoDash
-from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup, Mistake, Mark
+from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup, Mistake, Mark, Question, Exam
 from django.contrib.auth.models import User
 from GreenPen.settings import CURRENT_ACADEMIC_YEAR
 
@@ -154,7 +154,25 @@ def drop_mistake_columns(df, user):
 external_stylesheets=[dbc.themes.BOOTSTRAP]
 
 # Get column headers for mistake table:
+# This is necessay to make tests and an initial setup work,
+# since we must have at least one mark to populate this field:
+setup_student = Student.objects.create()
+setup_exam = Exam.objects.create(name='setup')
+setup_question = Question.objects.create(exam=setup_exam,
+                                         order=1,
+                                         number='1',
+                                         max_score=1
+                                         )
+setup_mark=Mark.objects.create(student=setup_student,
+                               question=setup_question,
+                               score=1)
 init_df = read_frame(Mark.objects.filter(pk=Mark.objects.first().pk))
+
+# Now clean up created mark
+setup_student.delete()
+setup_exam.delete()
+setup_question.delete()
+setup_mark.delete()
 
 app = DjangoDash('TeacherDashboard', external_stylesheets=external_stylesheets)
 subject_options = [dict(label=subject.text, value=subject.pk) for subject in Syllabus.objects.filter(level=2)]
