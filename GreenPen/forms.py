@@ -3,7 +3,7 @@ from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, Tea
 from django import forms
 from mptt.forms import TreeNodeChoiceField
 from .widgets import TreeSelect
-from jstree.widgets import JsTreeWidget
+from jstree.widgets import JsTreeWidget, JsTreeSingleWidget
 from django.urls import reverse
 import datetime
 import json
@@ -53,14 +53,14 @@ class EditMark(forms.ModelForm):
         model = Mark
         fields = ['score', 'mistakes', 'student_notes']
         widgets = {
-            'mistakes': JsTreeWidget(url=False, result_hidden=True)
+            'mistakes': JsTreeWidget(url='syllabus', result_hidden=True)
         }
 
 
 class SyllabusChoiceForm(forms.Form):
     qs = Syllabus.objects.all()
     points = TreeNodeChoiceField(queryset=qs,
-                                 widget=JsTreeWidget(url=False, result_hidden=True),
+                                 widget=JsTreeWidget(url=False, result_hidden=False),
                                  level_indicator='')
 
     def _get_level_indicator(self, obj):
@@ -70,9 +70,10 @@ class SyllabusChoiceForm(forms.Form):
 class AddExamForm(forms.ModelForm):
     class Meta:
         model = Exam
-        fields = ['name', 'syllabus']
+        exclude = []
         widgets = {
-            'syllabus': TreeSelect(attrs={'class': 'syllabus-checkbox'})
+            'syllabus': JsTreeSingleWidget(url='/syllabus/json/', result_hidden=False),
+
         }
 
 

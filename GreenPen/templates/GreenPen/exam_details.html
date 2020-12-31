@@ -8,6 +8,24 @@
 {% block content %}
  {{ form.media }}
 <form method="post">
+<div class="row">
+
+        <div class="col-md-8">
+            {{ exam_form.name | as_crispy_field }}
+        </div>
+        <div class="col-md-4">
+            {{ exam_form.weighting| as_crispy_field }}
+        </div>
+        <div class="col-md-3">
+            {{ exam_form.type| as_crispy_field }}
+        </div>
+        <div class="col-md-3">
+            {{ exam_form.year| as_crispy_field }}
+        </div>
+        <div class="col-md-12">
+            {{ exam_form.syllabus }}
+        </div>
+</div>
     <h2>Questions</h2>
 
     <p>Use this for to add questions to an exam. To search within a particular syllabus point, select a point from the tree on the left. This will restrict the searches to just your syllabus point.</p>
@@ -26,7 +44,9 @@
 
  <div class="row question-form">
                 <div class="col-sm-6 parent-form">
-                {{ parent_form }}
+               {% comment "Debug %}
+               {{ parent_form }}
+               {% endcomment %}
                 </div>
                 <div class="col-sm-6 question-div">
         {% for subform in form.forms %}<div class="row {% if subform.order.value %}question{% elif not forloop.counter0 %}question{% else %}blank-question{% endif %}">
@@ -111,7 +131,7 @@
 {% block script %}
 
     {{ parent_form.media }}
-
+    {{ exam_form.media }}
     <script src="{% static "js/move_questions.js"%}"></script>
 
 {% endblock script %}

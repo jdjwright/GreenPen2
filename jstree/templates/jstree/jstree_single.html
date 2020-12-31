@@ -8,6 +8,7 @@
 </div>
 
 <script type="text/javascript">
+
     function removeItemAll(arr, value) {
         var i = 0;
         while (i < arr.length) {
@@ -23,12 +24,7 @@
     function add_or_remove(action, node_id){
         let input = $("#{{ widget.attrs.id }}");
         let array = [];
-        if (input.val()) {
-            array = JSON.parse(input.val());
-        }
-        else {
-            array = []
-        }
+
 
         if (action === 'add') {
             array.push(parseInt(node_id));
@@ -37,12 +33,15 @@
         if (action === 'remove') {
             array = removeItemAll(array, parseInt(node_id))
         }
-        input.val("[" + array + "]");
+        input.val(array);
     }
-    $(document).ready(function() {
+    $(function () {
+
         $("#{{ widget.attrs.id }}-tree").jstree({
-            'plugins' : [ 'checkbox' ],
+            'plugins' : [  ],
             'core' : {
+                'select_node': '447',
+                'multiple': false,
                 'data' : {
                     'url' : "{{ url }}",
                     'data' : function (node) {
@@ -60,7 +59,15 @@
             function (e, data) {
                 add_or_remove('remove', data.node.id)
     }
-        );
+        ).on(
+            "loaded.jstree",
+            function() {
+                let input = $("#{{ widget.attrs.id }}");
+                $.jstree.reference('{{ widget.attrs.id }}-tree').select_node(input.val())
+                console.log(input.val())
+            }
+            )
+
     });
-    //# sourceURL=jstree_multiple.js
+    //# sourceURL=jstree_single.js
 </script>

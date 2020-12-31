@@ -53,3 +53,8 @@ class JsTreeWidget(Input):
         js = (
             'jstree/js/jstree{}.js'.format('.min' if settings.DEBUG else ''),
         )
+
+
+class JsTreeSingleWidget(JsTreeWidget):
+    template_name = "jstree/jstree_single.html"
+

@@ -242,13 +242,14 @@ class EditExamQsView(TeacherOnlyMixin, View):
                                                 can_order=False,
                                                 can_delete=True)
 
+    exam_form = AddExamForm()
     parent_form = SyllabusChoiceForm()
     parent_form.fields['points'].widget.set_url('/syllabus/json/')
 
     def get(self, request, *args, **kwargs):
 
         exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
-
+        exam_form = AddExamForm(instance=exam)
         # # Add an extra blank if we have no questions added:
         # if not exam.question_set.count():
         #     self.setquestionsformset = inlineformset_factory(Exam, Question,
@@ -259,20 +260,25 @@ class EditExamQsView(TeacherOnlyMixin, View):
 
         form = self.setquestionsformset(instance=exam)
         return render(request, self.template_name, {'form': form,
-                                                    'parent_form': self.parent_form})
+                                                    'parent_form': self.parent_form,
+                                                    'exam_form': exam_form})
 
     def post(self, request, *args, **kwargs):
         exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
         form = self.setquestionsformset(request.POST, instance=exam)
+        exam_form = AddExamForm(request.POST, instance=exam)
         if form.is_valid():
-            # <process form cleaned data>
-            for q in form.deleted_forms:
-                question = q.cleaned_data['id'].delete()
-            form.save()
+            if exam_form.is_valid():
+                # <process form cleaned data>
+                for q in form.deleted_forms:
+                    question = q.cleaned_data['id'].delete()
+                form.save()
+                exam_form.save()
             return redirect(reverse('edit-exam', args=(exam.pk,)))
 
         return render(request, self.template_name, {'form': form,
-                                                    'parent_form': self.parent_form})
+                                                    'parent_form': self.parent_form,
+                                                    'exam_form': exam_form})
 
 
 class ExamListView(TeacherOnlyMixin, ListView):
