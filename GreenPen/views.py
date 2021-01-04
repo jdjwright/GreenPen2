@@ -234,9 +234,7 @@ class ClassAssessmentForPoint(TeacherOnlyMixin, ListView):
 
 class EditExamQsView(TeacherOnlyMixin, View):
     template_name = 'GreenPen/exam_details.html'
-    syllabus_widget = autocomplete.ModelSelect2Multiple(url='syllabus-autocomplete',
-                                                        forward=['points'],
-                                                        )
+
     setquestionsformset = inlineformset_factory(Exam, Question,
                                                 form=SetQuestions,
                                                 extra=10,
@@ -275,7 +273,6 @@ class EditExamQsView(TeacherOnlyMixin, View):
                     question = q.cleaned_data['id'].delete()
                 form.save()
                 exam_form.save()
-            return redirect(reverse('edit-exam', args=(exam.pk,)))
 
         return render(request, self.template_name, {'form': form,
                                                     'parent_form': self.parent_form,

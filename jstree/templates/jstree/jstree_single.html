@@ -33,7 +33,7 @@
         if (action === 'remove') {
             array = removeItemAll(array, parseInt(node_id))
         }
-        input.val(array);
+        input.val("[" + array + "]");
     }
     $(function () {
 
@@ -63,8 +63,8 @@
             "loaded.jstree",
             function() {
                 let input = $("#{{ widget.attrs.id }}");
-                $.jstree.reference('{{ widget.attrs.id }}-tree').select_node(input.val())
-                console.log(input.val())
+
+                input.val("[" + input.val() + "]")
             }
             )
 

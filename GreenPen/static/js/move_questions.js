@@ -52,7 +52,10 @@ $(document).on('click',".delete-button", function(){
     current_q.find('.exam-delete input').prop('checked', true);
     current_q.nextUntil($('#empty-question')).each(function() {
         let order_box = $(this).find('.exam-order input');
-        order_box.val(Number(order_box.val())-1);
+        // Only change ones with an exiting order, or we'll cause errors:
+        if (order_box.val()) {
+            order_box.val(Number(order_box.val()) - 1);
+        };
     })
     current_q.addClass('deleted-question')
 })

@@ -47,14 +47,7 @@ th.rotate > div {
     justify-content: space-around
 }
 
-.row {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    width: 100%;
-    align-items: flex-start;
-    border: 1px
-}
+
 
 
 .contact-form-cntr {
@@ -176,11 +169,6 @@ th.rotate > div {
   flex-basis: 40%;
 }
 
-.right {
-
-  height: 100vh;
-  overflow: auto;
-}
 
 .exam-order {
     display: none;
@@ -219,13 +207,27 @@ th.rotate > div {
     display: none;
 }
 
-.question-div {
-    overflow-y: scroll;
 
+
+/*Set the row height to the viewport*/
+.row-height{
+    height: 100vh;
 }
 
-.question-form {
-    margin: 0;
-    overflow: hidden;
+/*Set up the columns with a 100% height, body color and overflow scroll*/
+
+.left{
     height: 100%;
+    overflow-y: scroll;
 }
+
+.right{
+    height: 100%;
+    overflow-y: scroll;
+}
+
+.mid{
+    height: 100%;
+    overflow-y: scroll;
+}
+

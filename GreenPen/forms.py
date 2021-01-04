@@ -32,7 +32,7 @@ class SetQuestions(forms.ModelForm):
         fields = ['number', 'max_score', 'syllabus_points', 'order', 'id']
         widgets = {
             'syllabus_points': autocomplete.ModelSelect2Multiple(url='syllabus-autocomplete',
-                                                                 forward=['points'],
+                                                                 forward=['syllabus'],
                                                                  ),
             'exam': forms.HiddenInput(),
             'id': forms.HiddenInput(),
@@ -60,7 +60,7 @@ class EditMark(forms.ModelForm):
 class SyllabusChoiceForm(forms.Form):
     qs = Syllabus.objects.all()
     points = TreeNodeChoiceField(queryset=qs,
-                                 widget=JsTreeWidget(url=False, result_hidden=False),
+                                 widget=JsTreeWidget(url=False, result_hidden=True),
                                  level_indicator='')
 
     def _get_level_indicator(self, obj):
@@ -68,10 +68,13 @@ class SyllabusChoiceForm(forms.Form):
 
 
 class SyllabusSingleChoiceField(TreeNodeChoiceField):
-    widget = JsTreeSingleWidget(url='/syllabus/json', result_hidden=False)
+    widget = JsTreeSingleWidget(url='/syllabus/json', result_hidden=True)
 
-    def to_python(self, *args, **kwargs):
-        value = super(SyllabusSingleChoiceField, self).to_python(*args, **kwargs)
+    def clean(self, value):
+        # JSTreeWidget produces an array of values, but we only want one
+        # Hence we must extract it.
+        value = value[0]
+        value = super(SyllabusSingleChoiceField, self).clean(value)
         return value
 
 

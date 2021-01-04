@@ -6,26 +6,30 @@
 {% block description %}These are the details of the exam {{ exam.name }}.{% endblock description %}
 
 {% block content %}
- {{ form.media }}
-<form method="post">
-<div class="row">
+    <div class="container-fluid h-100 d-flex flex-column">
 
-        <div class="col-md-8">
-            {{ exam_form.name | as_crispy_field }}
-        </div>
-        <div class="col-md-4">
-            {{ exam_form.weighting| as_crispy_field }}
-        </div>
-        <div class="col-md-3">
-            {{ exam_form.type| as_crispy_field }}
-        </div>
-        <div class="col-md-3">
-            {{ exam_form.year| as_crispy_field }}
-        </div>
-        <div class="col-md-12">
-            {{ exam_form.syllabus }}
-        </div>
-</div>
+    {{ form.media }}
+<form method="post">
+    <div class="row row-height">
+        <div class="col-md-6 left">
+            <div class="col-md-8">
+                {{ exam_form.name | as_crispy_field }}
+            </div>
+            <div class="col-md-4">
+                {{ exam_form.weighting| as_crispy_field }}
+            </div>
+            <div class="col-md-3">
+                {{ exam_form.type| as_crispy_field }}
+            </div>
+            <div class="col-md-3">
+                {{ exam_form.year| as_crispy_field }}
+            </div>
+            <div class="col-md-12">
+                {{ exam_form.syllabus }}
+            </div>
+    </div>
+        <div class="col-md-6 right">
+
     <h2>Questions</h2>
 
     <p>Use this for to add questions to an exam. To search within a particular syllabus point, select a point from the tree on the left. This will restrict the searches to just your syllabus point.</p>
@@ -43,12 +47,8 @@
   {% endfor %}
 
  <div class="row question-form">
-                <div class="col-sm-6 parent-form">
-               {% comment "Debug %}
-               {{ parent_form }}
-               {% endcomment %}
-                </div>
-                <div class="col-sm-6 question-div">
+
+                <div class="col-md-12 question-div">
         {% for subform in form.forms %}<div class="row {% if subform.order.value %}question{% elif not forloop.counter0 %}question{% else %}blank-question{% endif %}">
             <div class="col">
             <div class="card">
@@ -122,9 +122,11 @@
 
         <button type="submit" class="btn btn-success float-right">Save</button>
       </div>
-    </form>
+    </div>
+</div>
+</form>
 
-
+    </div>
 
 {% endblock content %}
 

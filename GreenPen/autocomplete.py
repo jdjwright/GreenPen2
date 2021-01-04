@@ -25,8 +25,8 @@ class SyllabusComplete(autocomplete.Select2QuerySetView):
 
         qs = Syllabus.objects.all()
 
-        if self.forwarded.get('points', None):
-            pks = json.loads(self.forwarded.get('points', None))
+        if self.forwarded.get('syllabus', None):
+            pks = json.loads(self.forwarded.get('syllabus', None))
             qs = qs.filter(pk__in=pks).get_descendants().distinct()
 
         if self.q:
