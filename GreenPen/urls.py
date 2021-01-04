@@ -26,6 +26,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('syllabus/json/<int:syllabus_pk>', send_syllabus_children, name='ajax-syllabus-children'),
     path('syllabus/json/', load_syllabus_points, name='json_syllabus_points'),
+    path('syllabus/json/exam/<int:exam_pk>/', load_syllabus_points_exam, name='load_syllabus_points_exam'),
     path('students/', StudentList.as_view(), name='student_list'),
     path('uploadstudents', import_students, name='import_students'),
     path('uploadclasses', import_classes, name='import_classes'),

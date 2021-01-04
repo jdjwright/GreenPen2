@@ -67,7 +67,17 @@ class SyllabusChoiceForm(forms.Form):
         return ''
 
 
+class SyllabusSingleChoiceField(TreeNodeChoiceField):
+    widget = JsTreeSingleWidget(url='/syllabus/json', result_hidden=False)
+
+    def to_python(self, *args, **kwargs):
+        value = super(SyllabusSingleChoiceField, self).to_python(*args, **kwargs)
+        return value
+
+
+
 class AddExamForm(forms.ModelForm):
+    syllabus = SyllabusSingleChoiceField(queryset=Syllabus.objects.all())
     class Meta:
         model = Exam
         exclude = []
@@ -75,6 +85,9 @@ class AddExamForm(forms.ModelForm):
             'syllabus': JsTreeSingleWidget(url='/syllabus/json/', result_hidden=False),
 
         }
+        # fields = {
+        #     'syllabus': SyllabusSingleChoiceField(queryset=Syllabus.objects.all())
+        # }
 
 
 class TeachingGroupRollover(forms.ModelForm):

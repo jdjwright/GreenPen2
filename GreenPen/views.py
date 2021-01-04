@@ -152,6 +152,7 @@ def import_sittings(request):
     return render(request, 'GreenPen/csv_upload.html', {'csvform': csvform,
                                                         'title': 'Upload Sittings'})
 
+
 @user_passes_test(check_superuser)
 def import_marks(request):
     # Deal with getting a CSV file
@@ -170,6 +171,7 @@ def import_marks(request):
     return render(request, 'GreenPen/csv_upload.html', {'csvform': csvform,
                                                         'title': 'Upload Marks'})
 
+
 @user_passes_test(check_superuser)
 def update_classes(request):
     # Deal with getting a CSV file
@@ -187,6 +189,7 @@ def update_classes(request):
         csvform = CSVDocForm()
     return render(request, 'GreenPen/csv_upload.html', {'csvform': csvform,
                                                         'title': 'Upload Marks'})
+
 
 @user_passes_test(check_superuser)
 def update_assignments(request):
@@ -208,7 +211,6 @@ def update_assignments(request):
 
 
 class StudentAssessmentForPoint(TeacherOnlyMixin, ListView):
-
     template_name = 'GreenPen/studnet_assessment_list.html'
 
     def get_queryset(self):
@@ -219,7 +221,6 @@ class StudentAssessmentForPoint(TeacherOnlyMixin, ListView):
 
 
 class ClassAssessmentForPoint(TeacherOnlyMixin, ListView):
-
     template_name = 'GreenPen/class_assessment_list.html'
 
     def get_queryset(self):
@@ -234,8 +235,8 @@ class ClassAssessmentForPoint(TeacherOnlyMixin, ListView):
 class EditExamQsView(TeacherOnlyMixin, View):
     template_name = 'GreenPen/exam_details.html'
     syllabus_widget = autocomplete.ModelSelect2Multiple(url='syllabus-autocomplete',
-                                                                 forward=['points'],
-                                                                 )
+                                                        forward=['points'],
+                                                        )
     setquestionsformset = inlineformset_factory(Exam, Question,
                                                 form=SetQuestions,
                                                 extra=10,
@@ -257,7 +258,7 @@ class EditExamQsView(TeacherOnlyMixin, View):
         #                                                 extra=1,
         #                                                 can_order=False,
         #                                                 can_delete=True)
-
+        exam_form.fields['syllabus'].widget.set_url(reverse('load_syllabus_points_exam', args=[exam.pk]))
         form = self.setquestionsformset(instance=exam)
         return render(request, self.template_name, {'form': form,
                                                     'parent_form': self.parent_form,
@@ -309,7 +310,6 @@ def send_syllabus_children(request, syllabus_pk):
     return JsonResponse({'points': points})
 
 
-
 @user_passes_test(check_teacher)
 def exam_result_view(request, sitting_pk):
     context = {}
@@ -329,9 +329,9 @@ def exam_result_view(request, sitting_pk):
         for student in students:
             try:
                 row.append(Mark.objects.get(sitting=sitting,
-                                                student=student,
-                                                question=question,
-                                                  ))
+                                            student=student,
+                                            question=question,
+                                            ))
             except ObjectDoesNotExist:
                 # creating lots of marks can overload the server,
                 # so we will only create the first mark for each student.
@@ -374,9 +374,9 @@ def alp_result_view(request, sitting_pk):
         for question in questions:
             try:
                 row.append(Mark.objects.get(sitting=sitting,
-                                                student=student,
-                                                question=question,
-                                                  ))
+                                            student=student,
+                                            question=question,
+                                            ))
             except ObjectDoesNotExist:
                 # creating lots of marks can overload the server,
                 # so we will only create the first mark for each student.
@@ -385,9 +385,7 @@ def alp_result_view(request, sitting_pk):
                                                    student=student,
                                                    question=question))
 
-
         marks.append(row)
-
 
     context['marks'] = marks
 
@@ -396,20 +394,17 @@ def alp_result_view(request, sitting_pk):
 
 @user_passes_test(check_teacher)
 def teacher_dashboard(request):
-
     return render(request, 'GreenPen/teacher_dashboard.html')
 
 
 @login_required()
 def student_dashboard(request):
-
     # Check use is allowed to see this data:
 
     return render(request, 'GreenPen/teacher_dashboard.html')
 
 
 def input_mark(request, mark_pk):
-
     mark = Mark.objects.get(pk=mark_pk)
 
     # Check teacher of students own mark:
@@ -444,8 +439,8 @@ def input_mark(request, mark_pk):
 
                 if next_q:
                     next_mark, created = Mark.objects.get_or_create(student=mark.student,
-                                                            sitting=mark.sitting,
-                                                           question=next_q)
+                                                                    sitting=mark.sitting,
+                                                                    question=next_q)
                     return redirect('input_mark', mark_pk=next_mark.pk)
                 else:
                     return redirect('student-dashboard')
@@ -482,7 +477,7 @@ def year_rollover_part1(request):
             return redirect(reverse('rollover2'))
 
     return render(request, 'GreenPen/rollover_part_1.html', {'rollover_form': rollover_form,
-                                                        'title': 'Upload Marks'})
+                                                             'title': 'Upload Marks'})
 
 
 @user_passes_test(check_superuser)
@@ -506,7 +501,6 @@ def year_rollover_part2(request):
 
 @user_passes_test(check_teacher)
 def new_sitting(request, exam_pk):
-
     exam = Exam.objects.get(pk=exam_pk)
     questions = Question.objects.filter(exam=exam)
     sittingform = NewSittingForm()
@@ -525,7 +519,7 @@ def new_sitting(request, exam_pk):
 
         else:
             return render(request, 'GreenPen/add-sitting.html', {'sittingform': sittingform,
-                                                            'exam': exam})
+                                                                 'exam': exam})
 
     return render(request, 'GreenPen/add-sitting.html', {'sittingform': sittingform,
                                                          'exam': exam})
@@ -572,13 +566,13 @@ def student_exam_view(request, student_pk):
                'first_mark': first_mark}
         data.append(row)
     return render(request, 'GreenPen/exam_list_student.html', {'student': student,
-                                                              'data': data})
+                                                               'data': data})
 
 
 def student_exam_entry(request):
     if request.user.groups.filter(name='Students').count():
         student = Student.objects.get(user=request.user)
-        return redirect(reverse('student-exam-list', args=[student.student_id,]))
+        return redirect(reverse('student-exam-list', args=[student.student_id, ]))
     else:
         raise Http404
 
@@ -610,18 +604,18 @@ def timetable_overview(request, start_slot_pk, teacher_pk):
     starting_slot = CalendaredPeriod.objects.get(pk=start_slot_pk)
 
     slots = CalendaredPeriod.objects.filter(date__gte=starting_slot.date,
-                                            date__lt=starting_slot.date+datetime.timedelta(weeks=1))
+                                            date__lt=starting_slot.date + datetime.timedelta(weeks=1))
     calendar_items = build_week_grid(starting_slot, teacher)
 
     try:
-        next_week_pk = CalendaredPeriod.objects.get(date=starting_slot.date+datetime.timedelta(weeks=1),
-                                                tt_slot__period=starting_slot.tt_slot.period).pk
+        next_week_pk = CalendaredPeriod.objects.get(date=starting_slot.date + datetime.timedelta(weeks=1),
+                                                    tt_slot__period=starting_slot.tt_slot.period).pk
     except ObjectDoesNotExist:
         next_week_pk = False
 
     try:
-        last_week_pk = CalendaredPeriod.objects.get(date=starting_slot.date-datetime.timedelta(weeks=1),
-                                                tt_slot__period=starting_slot.tt_slot.period).pk
+        last_week_pk = CalendaredPeriod.objects.get(date=starting_slot.date - datetime.timedelta(weeks=1),
+                                                    tt_slot__period=starting_slot.tt_slot.period).pk
     except ObjectDoesNotExist:
         last_week_pk = False
 
@@ -638,9 +632,9 @@ def build_week_grid(start_period=CalendaredPeriod.objects.none(),
     periods = Period.objects.filter(year=AcademicYear.objects.get(current=True))
 
     slots = CalendaredPeriod.objects.filter(date__gte=start_period.date,
-                                            date__lt=start_period.date+datetime.timedelta(weeks=1))
+                                            date__lt=start_period.date + datetime.timedelta(weeks=1))
     row = [period for period in periods]
-#    row = [''] + row
+    #    row = [''] + row
     rows = [row]
     for day in days:
         row = [day]
@@ -679,6 +673,7 @@ def change_lesson(request, lesson_pk, return_pk):
     return render(request, 'GreenPen/lesson_change.html', {'lesson': lesson,
                                                            'form': form})
 
+
 @user_passes_test(check_superuser)
 def suspend_days(request):
     form = SuspendDaysForm()
@@ -691,23 +686,21 @@ def suspend_days(request):
             whole_school = form.cleaned_data['whole_school']
             teachinggroups = form.cleaned_data['teaching_groups']
 
-            delta = end_date - start_date       # as timedelta
+            delta = end_date - start_date  # as timedelta
 
             for i in range(delta.days + 1):
                 day = start_date + datetime.timedelta(days=i)
                 periods = Period.objects.filter(year=AcademicYear.objects.get(current=True))
                 for period in periods:
                     suspension = Suspension.objects.create(date=day,
-                                            whole_school=whole_school,
-                                          reason=form.cleaned_data['reason'],
-                                              period=period)
+                                                           whole_school=whole_school,
+                                                           reason=form.cleaned_data['reason'],
+                                                           period=period)
                     if not whole_school:
                         suspension.teachinggroups.set(teachinggroups)
             return redirect(reverse('tt_splash'))
 
     return render(request, 'GreenPen/suspend_days.html', {'form': form})
-
-
 
 
 @login_required()
@@ -733,9 +726,11 @@ def load_mistake_children(request, mark_pk=False):
             parent_pk = '#'
         undetermined = False
         selected = False
+        opened = False
         if mark_pk:
             if child in mistake_ancestors:
                 undetermined = True
+                opened = True
             if child in mark_mistakes:
                 selected = True
         data.append({
@@ -744,7 +739,8 @@ def load_mistake_children(request, mark_pk=False):
             'text': child.mistake_type,
             'children': not child.is_leaf_node(),
             'state': {'selected': selected,
-                      'undetermined': undetermined}
+                      'undetermined': undetermined,
+                      'opened': opened}
         })
     return JsonResponse(data, safe=False)
 
@@ -776,3 +772,58 @@ def load_syllabus_points(request):
 
         })
     return JsonResponse(data, safe=False)
+
+
+@login_required()
+def load_syllabus_points_exam(request, exam_pk):
+    """
+    Loads the syllabus points for a JSTree widget when selecting the
+    syllabus section that an exam tests.
+    """
+
+    # See if we have a parent loaded. If we are expanding a node, this will be present.
+    # if not, we are on the initial load, and it will raise a value error.
+    parent_id = request.GET.get('id')
+    try:
+        parent_id = int(parent_id)
+        parent = Syllabus.objects.get(pk=parent_id)
+        children = Syllabus.objects.filter(parent=parent)
+    except ValueError:
+        children = Syllabus.objects.filter(level=0)
+
+    # get the exam, and find what syallbus it's currently set to.
+    exam = Exam.objects.get(pk=exam_pk)
+
+    if exam.syllabus:
+        exam_syllabus = exam.syllabus
+        exam_ancestors = exam_syllabus.get_ancestors(include_self=False)
+
+    #  Build a list of the parent points.
+    data = []
+    for child in children:
+        if child.parent:
+            parent_pk = child.parent.pk
+        else:
+            parent_pk = '#'
+        undetermined = False
+        selected = False
+        opened = False
+        if exam.syllabus:
+            if child in exam_ancestors:
+                undetermined = True
+                opened = True
+
+            if child == exam_syllabus:
+                selected = True
+
+        data.append({
+            'id': child.pk,
+            'parent': parent_pk,
+            'text': child.text,
+            'children': not child.is_leaf_node(),
+            'state': {'selected': selected,
+                      'undetermined': undetermined,
+                      'opened': opened}
+        })
+    return JsonResponse(data, safe=False)
+
