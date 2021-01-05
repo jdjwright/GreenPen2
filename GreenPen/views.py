@@ -237,7 +237,7 @@ class EditExamQsView(TeacherOnlyMixin, View):
 
     setquestionsformset = inlineformset_factory(Exam, Question,
                                                 form=SetQuestions,
-                                                extra=10,
+                                                extra=0,
                                                 can_order=False,
                                                 can_delete=True)
 
@@ -274,6 +274,7 @@ class EditExamQsView(TeacherOnlyMixin, View):
                 exam_form.save()
                 # Have to re-generate this to clear old values (only if valid!)
                 exam_form = AddExamForm(instance=exam)
+                return redirect('edit-exam', exam.pk)
         return render(request, self.template_name, {'form': form,
                                                     'exam_form': exam_form})
 

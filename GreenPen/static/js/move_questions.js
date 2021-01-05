@@ -37,13 +37,18 @@ $(document).on('click',".down-button", function() {
 });
 
 $(document).on('click',".insert-button", function() {
-    let empty_q = $(".blank-question").first().clone();
+    let empty_q = $(".empty-question").first().clone(true);
     let current_q = $(this).closest($('.question'));
+    let form_idx = $('#id_question_set-TOTAL_FORMS').val();
+    let debug_html=empty_q.html();
+    let fixed_html = debug_html.replace(/__prefix__/g, form_idx);
+    empty_q.html(fixed_html);
+    $('#id_question_set-TOTAL_FORMS').val(parseInt(form_idx) + 1);
+    empty_q.insertAfter(current_q);
     empty_q.removeClass('blank-question');
     empty_q.addClass('question')
     let order_box = empty_q.find('.exam-order input');
     order_box.val(-1)
-    empty_q.insertAfter(current_q);
     empty_q.slideDown();
 
     set_order()
