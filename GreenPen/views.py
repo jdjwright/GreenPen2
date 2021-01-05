@@ -259,7 +259,6 @@ class EditExamQsView(TeacherOnlyMixin, View):
         exam_form.fields['syllabus'].widget.set_url(reverse('load_syllabus_points_exam', args=[exam.pk]))
         form = self.setquestionsformset(instance=exam)
         return render(request, self.template_name, {'form': form,
-                                                    'parent_form': self.parent_form,
                                                     'exam_form': exam_form})
 
     def post(self, request, *args, **kwargs):
@@ -273,9 +272,9 @@ class EditExamQsView(TeacherOnlyMixin, View):
                     question = q.cleaned_data['id'].delete()
                 form.save()
                 exam_form.save()
-
+                # Have to re-generate this to clear old values (only if valid!)
+                exam_form = AddExamForm(instance=exam)
         return render(request, self.template_name, {'form': form,
-                                                    'parent_form': self.parent_form,
                                                     'exam_form': exam_form})
 
 

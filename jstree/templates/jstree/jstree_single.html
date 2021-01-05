@@ -63,8 +63,12 @@
             "loaded.jstree",
             function() {
                 let input = $("#{{ widget.attrs.id }}");
+                // Hacky, but sometimes we get double []s around our value. Prevent this
+                if  (input.val().indexOf('[') === -1)
+                {
+                    input.val("[" + input.val() + "]")
+                }
 
-                input.val("[" + input.val() + "]")
             }
             )
 

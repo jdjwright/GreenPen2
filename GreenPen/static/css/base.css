@@ -231,3 +231,14 @@ th.rotate > div {
     overflow-y: scroll;
 }
 
+.exam-delete{
+    display: none;
+}
+
+.exam-order{
+    display: none;
+}
+
+.invalid-feedback{
+    display: contents;
+}

@@ -37,9 +37,12 @@ $(document).on('click',".down-button", function() {
 });
 
 $(document).on('click',".insert-button", function() {
-    let empty_q = $(".blank-question").first();
+    let empty_q = $(".blank-question").first().clone();
     let current_q = $(this).closest($('.question'));
     empty_q.removeClass('blank-question');
+    empty_q.addClass('question')
+    let order_box = empty_q.find('.exam-order input');
+    order_box.val(-1)
     empty_q.insertAfter(current_q);
     empty_q.slideDown();
 
@@ -70,9 +73,9 @@ $(document).on('change',".textInput", function(){
 function set_order(){
     let i = 1;
     $('.question').each( function(){
-        number_box = $(this).find('.textInput');
-        if(number_box.val()){
-            let order_box = $(this).find('.exam-order input');
+        let order_box = $(this).find('.exam-order input');
+        if(order_box.val()){
+
             order_box.val(i);
             i++;
             }

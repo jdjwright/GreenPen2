@@ -10,21 +10,25 @@
 
     {{ form.media }}
 <form method="post">
-    <div class="row row-height">
+    <div class="row row-height">x
         <div class="col-md-6 left">
-            <div class="col-md-8">
+            <div class="col-md-12">
                 {{ exam_form.name | as_crispy_field }}
             </div>
-            <div class="col-md-4">
-                {{ exam_form.weighting| as_crispy_field }}
-            </div>
-            <div class="col-md-3">
-                {{ exam_form.type| as_crispy_field }}
-            </div>
-            <div class="col-md-3">
-                {{ exam_form.year| as_crispy_field }}
+            <div class="row">
+                <div class="col-sm-4">
+                    {{ exam_form.weighting| as_crispy_field }}
+                </div>
+                <div class="col-sm-4">
+                    {{ exam_form.type| as_crispy_field }}
+                </div>
+                <div class="col-md-4">
+                    {{ exam_form.year| as_crispy_field }}
+                </div>
             </div>
             <div class="col-md-12">
+                {% for error in exam_form.errors.syllabus %}
+                    <p class="invalid-feedback">{{error}}</p>{% endfor %}
                 {{ exam_form.syllabus }}
             </div>
     </div>
