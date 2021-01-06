@@ -45,8 +45,7 @@ $(document).on('click',".insert-button", function() {
     empty_q.html(fixed_html);
     $('#id_question_set-TOTAL_FORMS').val(parseInt(form_idx) + 1);
     empty_q.insertAfter(current_q);
-    empty_q.removeClass('blank-question');
-    empty_q.addClass('question')
+    empty_q.removeClass('empty-question');
     let order_box = empty_q.find('.exam-order input');
     order_box.val(-1)
     empty_q.slideDown();

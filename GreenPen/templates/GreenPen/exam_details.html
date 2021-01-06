@@ -7,16 +7,7 @@
 
 {% block content %}
     <div class="container-fluid h-100 d-flex flex-column">
-        <script type="text/javascript" src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
 
-        <!-- Start of form media -->
-        <link href="/staticfiles/admin/css/vendor/select2/select2.css" type="text/css" media="screen" rel="stylesheet">
-        <link href="/staticfiles/admin/css/autocomplete.css" type="text/css" media="screen" rel="stylesheet">
-        <link href="/staticfiles/autocomplete_light/select2.css" type="text/css" media="screen" rel="stylesheet">
-        <script src="/staticfiles/admin/js/vendor/select2/select2.full.js"></script>
-        <script src="/staticfiles/autocomplete_light/autocomplete_light.js"></script>
-        <script src="/staticfiles/autocomplete_light/select2.js"></script>
-        <script src="/staticfiles/autocomplete_light/i18n/en.js"></script>
         <!-- End of form media -->
 
         <form method="post">
@@ -214,7 +205,21 @@
 {% endblock content %}
 
 {% block script %}
-    {{ exam_form.media }}
+    <script type="text/javascript" src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
     <script src="{% static "js/move_questions.js"%}"></script>
+
+
+
+    {{ exam_form.media }}
+
+
+    <!-- Start of form media -->
+    <link href="/staticfiles/admin/css/vendor/select2/select2.css" type="text/css" media="screen" rel="stylesheet">
+    <link href="/staticfiles/admin/css/autocomplete.css" type="text/css" media="screen" rel="stylesheet">
+    <link href="/staticfiles/autocomplete_light/select2.css" type="text/css" media="screen" rel="stylesheet">
+    <script src="/staticfiles/admin/js/vendor/select2/select2.full.js"></script>
+    <script src="/staticfiles/autocomplete_light/autocomplete_light.js"></script>
+    <script src="/staticfiles/autocomplete_light/select2.js"></script>
+    <script src="/staticfiles/autocomplete_light/i18n/en.js"></script>
 
 {% endblock script %}
