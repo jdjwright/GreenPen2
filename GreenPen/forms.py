@@ -29,7 +29,7 @@ class CSVDocForm(forms.ModelForm):
 class SetQuestions(forms.ModelForm):
     class Meta:
         model = Question
-        fields = ['number', 'max_score', 'syllabus_points', 'order', 'id']
+        fields = ['number', 'max_score', 'syllabus_points', 'id']
         widgets = {
             'syllabus_points': autocomplete.ModelSelect2Multiple(url='syllabus-autocomplete',
                                                                  forward=['syllabus'],

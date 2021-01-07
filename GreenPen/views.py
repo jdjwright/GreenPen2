@@ -239,7 +239,7 @@ class EditExamQsView(TeacherOnlyMixin, View):
     setquestionsformset = inlineformset_factory(Exam, Question,
                                                 form=SetQuestions,
                                                 extra=0,
-                                                can_order=False,
+                                                can_order=True,
                                                 can_delete=True)
 
     exam_form = AddExamForm()
@@ -271,13 +271,26 @@ class EditExamQsView(TeacherOnlyMixin, View):
                 # <process form cleaned data>
                 for q in form.deleted_forms:
                     question = q.cleaned_data['id'].delete()
-                form.save()
+                for subform in form.forms:
+                    question = subform.save(commit=False)
+                    question.order = subform.cleaned_data['ORDER']
+                    question.save()
+                    subform.save_m2m()
+                    # Don't forget that m2m relations aren't automatically saved!
+
                 exam_form.save()
-                # Have to re-generate this to clear old values (only if valid!)
-                exam_form = AddExamForm(instance=exam)
+
                 messages.success(request, 'Exam saved successfully.')
                 return redirect('edit-exam', exam.pk)
 
+        # Some eror occured.
+        # We need to sort the form so that it's in the correct order,
+        # otherwise newly-added questions will always be at the bottom.
+        # Key function to provide sort value
+        def sort_order_func(subform):
+            return subform.cleaned_data['ORDER']
+
+        form.forms.sort(key=sort_order_func)
         messages.warning(request, "One or more errors occured, please check below.")
         return render(request, self.template_name, {'form': form,
                                                     'exam_form': exam_form})
