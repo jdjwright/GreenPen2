@@ -11,6 +11,7 @@ from GreenPen.functions.imports import *
 from .forms import *
 from .settings import CURRENT_ACADEMIC_YEAR
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from .widgets import *
 import os
 
@@ -274,7 +275,10 @@ class EditExamQsView(TeacherOnlyMixin, View):
                 exam_form.save()
                 # Have to re-generate this to clear old values (only if valid!)
                 exam_form = AddExamForm(instance=exam)
+                messages.success(request, 'Exam saved successfully.')
                 return redirect('edit-exam', exam.pk)
+
+        messages.warning(request, "One or more errors occured, please check below.")
         return render(request, self.template_name, {'form': form,
                                                     'exam_form': exam_form})
 

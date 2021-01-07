@@ -46,6 +46,7 @@ $(document).on('click',".insert-button", function() {
     $('#id_question_set-TOTAL_FORMS').val(parseInt(form_idx) + 1);
     empty_q.insertAfter(current_q);
     empty_q.removeClass('empty-question');
+    empty_q.addClass('not-saved');
     let order_box = empty_q.find('.exam-order input');
     order_box.val(-1)
     empty_q.slideDown();
@@ -56,6 +57,10 @@ $(document).on('click',".insert-button", function() {
 
 $(document).on('click',".delete-button", function(){
     let current_q = $(this).closest($('.question'));
+    // Only need to remove if it hasn't been saved yet.
+    if (current_q.hasClass('not-saved')) {
+        current_q.remove();
+    };
     current_q.find('.exam-delete input').prop('checked', true);
     current_q.nextUntil($('#empty-question')).each(function() {
         let order_box = $(this).find('.exam-order input');

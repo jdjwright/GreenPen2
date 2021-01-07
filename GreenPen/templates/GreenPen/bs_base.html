@@ -48,6 +48,16 @@
         <!-- Topbar -->
 {% include 'GreenPen/partials/_topbar.html' %}
         <!-- End of Topbar -->
+        <!-- Messages -->
+          {% for message in messages %}
+              <div class="alert {{ message.tags }} alert-dismissible" role="alert">
+                  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                  </button>
+                  {{ message }}
+              </div>
+          {% endfor %}
+      <!-- End of Messages -->
 
         <!-- Begin Page Content -->
         <div class="container-fluid">

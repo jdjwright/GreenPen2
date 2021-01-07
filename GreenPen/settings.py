@@ -254,3 +254,14 @@ LOGIN_URL = '/login'
 
 CKEDITOR_UPLOAD_PATH = MEDIA_ROOT
 CKEDITOR_ALLOW_NONIMAGE_FILES = False
+
+# Boostrap messages settings (see https://simpleisbetterthancomplex.com/tips/2016/09/06/django-tip-14-messages-framework.html)
+from django.contrib.messages import constants as messages
+
+MESSAGE_TAGS = {
+    messages.DEBUG: 'alert-info',
+    messages.INFO: 'alert-info',
+    messages.SUCCESS: 'alert-success',
+    messages.WARNING: 'alert-warning',
+    messages.ERROR: 'alert-danger',
+}
