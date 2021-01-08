@@ -58,9 +58,7 @@ $(document).on('click',".insert-button", function() {
 $(document).on('click',".delete-button", function(){
     let current_q = $(this).closest($('.question'));
     // Only need to remove if it hasn't been saved yet.
-    if (current_q.hasClass('not-saved')) {
-        current_q.remove();
-    };
+
     current_q.find('.exam-delete input').prop('checked', true);
     current_q.nextUntil($('#empty-question')).each(function() {
         let order_box = $(this).find('.exam-order input');
@@ -90,3 +88,13 @@ function set_order(){
             }
     });
 }
+
+// Set the initial question orders
+
+$(document).ready(function (){
+    let order = 1
+    $('.exam-order input').not('.empty-question').each(function() {
+        $(this).val(order);
+        order++
+    });
+});

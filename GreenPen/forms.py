@@ -68,7 +68,7 @@ class SyllabusChoiceForm(forms.Form):
 
 
 class SyllabusSingleChoiceField(TreeNodeChoiceField):
-    widget = JsTreeSingleWidget(url='/syllabus/json', result_hidden=False)
+    widget = JsTreeSingleWidget(url='/syllabus/json', result_hidden=True)
 
     def clean(self, value):
         # JSTreeWidget produces an array of values, but we only want one

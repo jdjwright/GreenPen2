@@ -236,11 +236,12 @@ class ClassAssessmentForPoint(TeacherOnlyMixin, ListView):
 class EditExamQsView(TeacherOnlyMixin, View):
     template_name = 'GreenPen/exam_details.html'
 
-    setquestionsformset = inlineformset_factory(Exam, Question,
-                                                form=SetQuestions,
-                                                extra=0,
-                                                can_order=True,
-                                                can_delete=True)
+    form = inlineformset_factory(Exam, Question,
+                                     form=SetQuestions,
+                                     extra=1,
+                                     can_order=True,
+                                     can_delete=True,
+                                     )
 
     exam_form = AddExamForm()
     parent_form = SyllabusChoiceForm()
@@ -250,28 +251,50 @@ class EditExamQsView(TeacherOnlyMixin, View):
 
         exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
         exam_form = AddExamForm(instance=exam)
-        # # Add an extra blank if we have no questions added:
-        # if not exam.question_set.count():
-        #     self.setquestionsformset = inlineformset_factory(Exam, Question,
-        #                                                 form=SetQuestions,
-        #                                                 extra=1,
-        #                                                 can_order=False,
-        #                                                 can_delete=True)
+        # Add an extra blank if we have no questions added:
+        if Question.objects.filter(exam=exam).count():
+            extra = 0
+        else:
+            extra = 1
+        formset_factory = inlineformset_factory(Exam, Question,
+                                               form=SetQuestions,
+                                               extra=extra,
+                                               can_order=True,
+                                               can_delete=True,
+                                               )
+        form = formset_factory(instance=exam)
+
+        # Set syllabus tree widget URL
         exam_form.fields['syllabus'].widget.set_url(reverse('load_syllabus_points_exam', args=[exam.pk]))
-        form = self.setquestionsformset(instance=exam)
         return render(request, self.template_name, {'form': form,
                                                     'exam_form': exam_form})
 
     def post(self, request, *args, **kwargs):
         exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
-        form = self.setquestionsformset(request.POST, instance=exam)
+
+        form = self.form(request.POST, instance=exam)
+
         exam_form = AddExamForm(request.POST, instance=exam)
         if form.is_valid():
             if exam_form.is_valid():
                 # <process form cleaned data>
-                for q in form.deleted_forms:
-                    question = q.cleaned_data['id'].delete()
+
                 for subform in form.forms:
+                    # Possible hack:
+                    # If we have deleted a dynamically-created form, we will
+                    # now need to skip it, otherwise we get an index error.
+                    if not len(subform.cleaned_data):
+                        continue
+
+                    if subform.cleaned_data['DELETE']:
+                        try:
+                            subform.cleaned_data['id'].delete()
+                            continue
+                        except (ObjectDoesNotExist, AttributeError):
+                            # Occurs if we are deleting a non-saved deleted form; skip
+                            continue
+
+
                     question = subform.save(commit=False)
                     question.order = subform.cleaned_data['ORDER']
                     question.save()
@@ -316,6 +339,12 @@ class AddExam(TeacherOnlyMixin, CreateView):
     template_name = 'GreenPen/add-exam.html'
     form_class = AddExamForm
     model = Exam
+
+    # Need to make form name consistent for template:
+    def get_context_data(self, **kwargs):
+        context = super(AddExam, self).get_context_data(**kwargs)
+        context["exam_form"] = context["form"]
+        return context
 
 
 def send_syllabus_children(request, syllabus_pk):
@@ -363,7 +392,7 @@ def exam_result_view(request, sitting_pk):
     context['lastrow'] = lastrow
     context['marks'] = marks
 
-    return render(request, 'GreenPen/exam_results.html', context)
+    return render(request, 'GreenPen/exam_details.html', context)
 
 
 @user_passes_test(check_teacher)
