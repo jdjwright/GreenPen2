@@ -17,7 +17,10 @@
                             {% endfor %}
                         </ul>
                     <div class="card-footer align-bottom align-items-bottom">
-                        <a href="{% url 'new-sitting' exam.pk %}" class="card-link"><i class="fas fa-plus"></i>Add sitting</a>
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'new-sitting' exam.pk %}" class="card-link"><i class="fas fa-plus"></i>Add sitting</a>
+                            <a href="{% url 'duplicate-exam' exam.pk %}"><i class="far fa-copy"></i>Duplicate</a>
+                        </div>
                     </div>
                     </div>
             </div>

@@ -237,11 +237,11 @@ class EditExamQsView(TeacherOnlyMixin, View):
     template_name = 'GreenPen/exam_details.html'
 
     form = inlineformset_factory(Exam, Question,
-                                     form=SetQuestions,
-                                     extra=1,
-                                     can_order=True,
-                                     can_delete=True,
-                                     )
+                                 form=SetQuestions,
+                                 extra=1,
+                                 can_order=True,
+                                 can_delete=True,
+                                 )
 
     exam_form = AddExamForm()
     parent_form = SyllabusChoiceForm()
@@ -257,11 +257,11 @@ class EditExamQsView(TeacherOnlyMixin, View):
         else:
             extra = 1
         formset_factory = inlineformset_factory(Exam, Question,
-                                               form=SetQuestions,
-                                               extra=extra,
-                                               can_order=True,
-                                               can_delete=True,
-                                               )
+                                                form=SetQuestions,
+                                                extra=extra,
+                                                can_order=True,
+                                                can_delete=True,
+                                                )
         form = formset_factory(instance=exam)
 
         # Set syllabus tree widget URL
@@ -270,15 +270,20 @@ class EditExamQsView(TeacherOnlyMixin, View):
                                                     'exam_form': exam_form})
 
     def post(self, request, *args, **kwargs):
+
+        def sort_order_func(subform):
+            return subform.cleaned_data['ORDER']
+
         exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
 
         form = self.form(request.POST, instance=exam)
 
         exam_form = AddExamForm(request.POST, instance=exam)
-        if form.is_valid():
-            if exam_form.is_valid():
-                # <process form cleaned data>
-
+        if exam_form.is_valid():
+            if form.is_valid():
+                # Sort the forms by order:
+                form.forms.sort(key=sort_order_func)
+                order = 1
                 for subform in form.forms:
                     # Possible hack:
                     # If we have deleted a dynamically-created form, we will
@@ -294,24 +299,22 @@ class EditExamQsView(TeacherOnlyMixin, View):
                             # Occurs if we are deleting a non-saved deleted form; skip
                             continue
 
-
                     question = subform.save(commit=False)
-                    question.order = subform.cleaned_data['ORDER']
+                    question.order = order
+                    order += 1
                     question.save()
                     subform.save_m2m()
                     # Don't forget that m2m relations aren't automatically saved!
 
                 exam_form.save()
-
-                messages.success(request, 'Exam saved successfully.')
+                success_message = "Exam save succeffully. <a href='" + reverse('new-sitting', args=(exam.pk,)) + "'>Click here to create a sitting for it</a>."
+                messages.success(request, success_message)
                 return redirect('edit-exam', exam.pk)
 
         # Some eror occured.
         # We need to sort the form so that it's in the correct order,
         # otherwise newly-added questions will always be at the bottom.
         # Key function to provide sort value
-        def sort_order_func(subform):
-            return subform.cleaned_data['ORDER']
 
         form.forms.sort(key=sort_order_func)
         messages.warning(request, "One or more errors occured, please check below.")
@@ -333,6 +336,15 @@ class ExamListView(TeacherOnlyMixin, ListView):
 
         else:
             raise PermissionDenied
+
+
+def duplicate_exam(request, exam):
+    exam = get_object_or_404(Exam, pk=exam)
+    new_exam = exam.duplicate()
+    new_exam.name = "Copy of " + new_exam.name
+    new_exam.save()
+    messages.success(request, new_exam.name + " created.")
+    return redirect('edit-exam', new_exam.pk)
 
 
 class AddExam(TeacherOnlyMixin, CreateView):
@@ -392,7 +404,7 @@ def exam_result_view(request, sitting_pk):
     context['lastrow'] = lastrow
     context['marks'] = marks
 
-    return render(request, 'GreenPen/exam_details.html', context)
+    return render(request, 'GreenPen/exam_results.html', context)
 
 
 @user_passes_test(check_teacher)
@@ -869,4 +881,3 @@ def load_syllabus_points_exam(request, exam_pk):
                       'opened': opened}
         })
     return JsonResponse(data, safe=False)
-
