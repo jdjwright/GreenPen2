@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 from django.db.models import Q, Sum, Avg, QuerySet
 from django.db.models.signals import m2m_changed, post_save
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from mptt.models import MPTTModel, TreeForeignKey, TreeManyToManyField
 from mptt.querysets import TreeQuerySet
 import datetime
@@ -175,6 +175,9 @@ class Syllabus(MPTTModel):
                                  children_4_5=Sum('children_4_5'))
         return data
 
+    def resources(self):
+        return Resource.objects.filter(syllabus=self)
+
 
 class ExamType(models.Model):
     """
@@ -194,7 +197,13 @@ class Exam(models.Model):
                              blank=False,
                              null=True,
                              on_delete=models.SET_NULL)
-    year = models.IntegerField(blank=False, null=True)
+    year = models.IntegerField(blank=False, null=True,
+                               help_text="Year group sitting this exam"
+                               )
+    mark_scheme_url = models.URLField(blank=True, null=True, help_text="Location of the mark scheme.")
+
+    share_mark_scheme = models.BooleanField(default=False,
+                                            help_text="Make this mark scheme available to students.")
 
     def total_score(self):
         return Question.objects.filter(exam=self).aggregate(Sum('max_score'))['max_score__sum']
@@ -270,9 +279,10 @@ class Sitting(models.Model):
                                             score__isnull=False)
         if student_marks.count():
             data = student_marks.aggregate(scored=Sum('score'), total=Sum('question__max_score'))
-            return int(data['scored'] / data['total'] * 100)
-        else:
-            return "No scores"
+            if data['total']:
+                return int(data['scored'] / data['total'] * 100)
+
+        return "No scores"
 
     def avg_pc_badge_class(self):
         if self.avg_percent() == "No scores":
@@ -333,7 +343,8 @@ class Mistake(MPTTModel):
     def __str__(self):
         return self.mistake_type
 
-    def cohort_totals(self, cohort=Student.objects.all(), syllabus=Syllabus.objects.all(), sittings=Sitting.objects.all()):
+    def cohort_totals(self, cohort=Student.objects.all(), syllabus=Syllabus.objects.all(),
+                      sittings=Sitting.objects.all()):
         return Mark.objects.filter(mistakes=self,
                                    student__in=cohort,
                                    sitting__in=sittings,
@@ -378,7 +389,7 @@ class Mark(models.Model):
     def get_previous(self):
         if self.question.order > 1:
             previous_q = Question.objects.get(exam=self.sitting.exam,
-                                          order=self.question.order-1)
+                                              order=self.question.order - 1)
             return Mark.objects.get(student=self.student,
                                     sitting=self.sitting,
                                     question=previous_q)
@@ -433,6 +444,9 @@ class StudentSyllabusAssessmentRecord(models.Model):
     def set_calculated_fields(self):
         """ These need to be stored to speed up reports via database aggregation """
 
+        # Avoid divide by zero error.
+        if not self.attempted_plus_children:
+            return
         self.percentage = round(self.correct_plus_children / self.attempted_plus_children * 100, 0)
         self.rating = self.percentage * 0.05
 
@@ -454,7 +468,6 @@ class StudentSyllabusAssessmentRecord(models.Model):
         self.save()
 
 
-
 def fix_student_assessment_record_order(students=Student.objects.all(), points=Syllabus.objects.all()):
     """
     Used to repair orders if they become corrupt
@@ -467,7 +480,7 @@ def fix_student_assessment_record_order(students=Student.objects.all(), points=S
         for point in points:
             rerun = False
             competitors = StudentSyllabusAssessmentRecord.objects.filter(student=student,
-                                                                         syllabus_point=point).\
+                                                                         syllabus_point=point). \
                 order_by('-order').distinct()
 
             # Firstly, set orders to something that cannot clash:
@@ -484,7 +497,7 @@ def fix_student_assessment_record_order(students=Student.objects.all(), points=S
             for competitor in competitors:
                 competitor.order = i
                 competitor.save()
-                i = i -1
+                i = i - 1
 
 
 def syllabus_record_created(sender, instance, created, **kwargs):
@@ -517,9 +530,8 @@ def syllabus_record_created(sender, instance, created, **kwargs):
                         competitor.save()
                 except IntegrityError:
                     # This occurs if our ordering has somehow become corrupted.
-                        fix_student_assessment_record_order(students=Student.objects.filter(pk=other.student.pk),
-                                                                         points=Syllabus.objects.filter(pk=other.syllabus_point.pk))
-
+                    fix_student_assessment_record_order(students=Student.objects.filter(pk=other.student.pk),
+                                                        points=Syllabus.objects.filter(pk=other.syllabus_point.pk))
 
         # Refresh from db to check correct competitors:
         competitors = StudentSyllabusAssessmentRecord.objects.filter(syllabus_point=instance.syllabus_point,
@@ -668,10 +680,44 @@ def student_mark_changed(sender, instance=Mark.objects.none(), **kwargs):
 post_save.connect(student_mark_changed, sender=Mark)
 
 
+
+
 class CSVDoc(models.Model):
     description = models.CharField(max_length=255, blank=True)
     document = models.FileField(upload_to='documents/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+
+class ResourceType(models.Model):
+    name = models.CharField(max_length=256, blank=False, null=False)
+
+
+class Resource(models.Model):
+    name = models.CharField(max_length=256, blank=False, null=False)
+    open_to_all = models.BooleanField()
+    created_by = models.ForeignKey(User, blank=False, null=True, on_delete=models.SET_NULL)
+    created = models.DateTimeField(blank=False, null=False, default=datetime.datetime.now)
+    url = models.URLField(blank=True, null=True)
+    syllabus = models.ForeignKey(Syllabus, blank=False, null=True, on_delete=models.SET_NULL
+                                 )
+    allowed_groups = models.ManyToManyField(TeachingGroup)
+
+    def __str__(self):
+        return self.name
+
+    def can_view(self, user=User.objects.none):
+        if self.open_to_all:
+            return True
+
+        # Allow teachers to see all
+        if Group.objects.filter(user=user).count():
+            return True
+
+        allowed_students = User.objects.filter(student__teachinggroup__in=self.allowed_groups)
+        if allowed_students.filter(user=user):
+            return True
+
+        return False
 
 
 ## Models for calendaring
@@ -1001,3 +1047,73 @@ def setup_lessons(teachinggrousp=TeachingGroup.objects.all()):
             lesson.save()  # Required to force a re-slot.
             i += 1
 
+
+
+class GQuizExam(Exam):
+    master_form_url = models.URLField(null=False,
+                                         blank=False,
+                                         help_text="This must be the URL for the Google Sheet containing your responses")
+
+
+class GQuizQuestion(Question):
+    text = RichTextField(blank=True, null=True)
+
+
+class GQuizSitting(Sitting):
+    scores_sheet_url = models.URLField(blank=True, null=True)
+    scores_sheet_key = models.CharField(blank=False, null=False, max_length=1000)
+    def import_questions(self):
+        import gspread
+        gc = gspread.service_account()
+        ss = gc.open_by_key(self.scores_sheet_key)
+        qs = ss.worksheet("Questions").get_all_records()
+        for row in qs:
+            question, created = GQuizQuestion.objects.get_or_create(exam=self.exam,
+                                                                    order=row['Question Number'])
+            question.text = row['Question Text']
+            question.max_score = row['Max Score']
+            question.number = row['Question Number']
+            question.save()
+
+    def import_scores(self):
+        import gspread
+        gc = gspread.service_account()
+        ss = gc.open_by_key(self.scores_sheet_key)
+        qs = ss.worksheet("Scores").get_all_records()
+
+        # Get the sitting:
+
+        for row in qs:
+            print(row)
+            student = Student.objects.get(user__email=row['Student Email Address'])
+
+            question = GQuizQuestion.objects.get(exam=self.exam,
+                                                 order=row['Question order'])
+            try:
+                # Check if there's a normal Mark object:
+                mark = Mark.objects.get(question=question,
+                                        sitting=self,
+                                        student=student)
+                mark.delete()
+            except ObjectDoesNotExist:
+                pass
+            mark, created = GQuizMark.objects.get_or_create(question=question,
+                                                            sitting=self, student=student)
+            mark.score = row['Student Score']
+            mark.student_response = row['Student Answer']
+            mark.teacher_response = row['Teacher Feedback']
+            mark.student_notes = "You were asked: " + str(mark.question.gquizquestion.text) +".<br>You answered: " + str(mark.student_response) + "<br><strong>Teacher response:</strong>: " + str(mark.teacher_response)
+            mark.save()
+
+
+class GQuizMark(Mark):
+    student_response = RichTextField(blank=True, null=True)
+    teacher_response = RichTextField(blank=True, null=True)
+
+
+def student_mark_changed(sender, instance=GQuizMark.objects.none(), **kwargs):
+    if instance.score is not None:
+        instance.set_student_syllabus_assessment_records()
+
+
+post_save.connect(student_mark_changed, sender=GQuizMark)

@@ -1,5 +1,5 @@
 from dal import autocomplete
-from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, TeachingGroup, Lesson, Mistake
+from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, TeachingGroup, Lesson
 from django import forms
 from mptt.forms import TreeNodeChoiceField
 from .widgets import TreeSelect
@@ -103,6 +103,7 @@ class TeachingGroupRollover(forms.ModelForm):
 class NewSittingForm(forms.Form):
     group = forms.ModelChoiceField(TeachingGroup.objects.filter(archived=False))
     date = forms.DateField(widget=forms.SelectDateWidget)
+    response_form_key = forms.CharField(max_length=1000, required=False, help_text="If importing answers from a Google Form, include the ID part of the response sheet URL here.")
 
 
 class LessonChangeForm(forms.ModelForm):

@@ -307,7 +307,8 @@ class EditExamQsView(TeacherOnlyMixin, View):
                     # Don't forget that m2m relations aren't automatically saved!
 
                 exam_form.save()
-                success_message = "Exam save succeffully. <a href='" + reverse('new-sitting', args=(exam.pk,)) + "'>Click here to create a sitting for it</a>."
+                success_message = "Exam save succeffully. <a href='" + reverse('new-sitting', args=(
+                exam.pk,)) + "'>Click here to create a sitting for it</a>."
                 messages.success(request, success_message)
                 return redirect('edit-exam', exam.pk)
 
@@ -562,10 +563,24 @@ def new_sitting(request, exam_pk):
     if request.method == 'POST':
         sittingform = NewSittingForm(request.POST)
         if sittingform.is_valid():
-
             classgroup = sittingform.cleaned_data['group']
-            sitting = Sitting.objects.create(exam=exam, group=classgroup, date=sittingform.cleaned_data['date'],
-                                             )
+
+            if sittingform.cleaned_data['response_form_key']:
+                sitting = GQuizSitting.objects.create(exam=exam,
+                                                      group=classgroup,
+                                                      date=sittingform.cleaned_data['date'],
+                                                      scores_sheet_key=sittingform.cleaned_data['response_form_key']
+                                                      )
+
+                 # Import the questions before we create
+                sitting.import_questions()
+                messages.success(request, "Questions imported successfully. You are advised to go back and set syllabus points for these now.")
+
+            else:
+                sitting = Sitting.objects.create(exam=exam,
+                                                 group=classgroup,
+                                                 date=sittingform.cleaned_data['date'],
+                                                 )
             students = classgroup.students.all()
             for student in students:
                 for question in questions:
@@ -578,6 +593,12 @@ def new_sitting(request, exam_pk):
 
     return render(request, 'GreenPen/add-sitting.html', {'sittingform': sittingform,
                                                          'exam': exam})
+
+
+def import_sitting_scores(request, sitting_pk):
+    sitting = GQuizSitting.objects.get(pk=sitting_pk)
+    sitting.import_scores()
+    return redirect(reverse('exam-results', args=[sitting.pk, ]))
 
 
 @user_passes_test(check_teacher)

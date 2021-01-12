@@ -54,6 +54,7 @@ urlpatterns = [
     path('sitting/<int:sitting_pk>/alpresults', alp_result_view, name='alp-exam-results'),
     path('sitting/<int:sitting_pk>/delete', confirm_delete_sitting, name='delete-sitting1'),
     path('sitting/<int:sitting_pk>/confirm_delete', delete_sitting, name='delete-sitting2'),
+    path('sitting/<int:sitting_pk>/import_scores', import_sitting_scores, name='import_scores'),
     path('marks/<int:mark_pk>', input_mark, name='input_mark'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('login/', LoginView.as_view(), name='login'),
@@ -65,5 +66,5 @@ urlpatterns = [
     path('lesson/<int:lesson_pk>/<int:return_pk>', change_lesson, name='edit_lesson'),
     path('timetable/suspend', suspend_days, name='suspend_days'),
     path('mistake_json', load_mistake_children, name='mistake_json'),
-    path('mistake_json/<int:mark_pk>', load_mistake_children, name='mistake_json_mark')
-]
+    path('mistake_json/<int:mark_pk>', load_mistake_children, name='mistake_json_mark'),
+  ]

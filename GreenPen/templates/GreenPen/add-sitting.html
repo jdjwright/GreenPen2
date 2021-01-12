@@ -2,7 +2,11 @@
 {% load crispy_forms_tags %}
 {% block content %}
 <h1>Add a sitting</h1>
-    <div>You are adding a sitting for {{ exam }}</div>
+    <div class="row">
+        <div class="col-md-12">
+            You are adding a sitting for {{ exam }}
+        </div>
+    </div>
     <form method="post">
     {% csrf_token %}
         <div class="row">
@@ -12,6 +16,12 @@
 
             <div class="col-md-6">
                 {{ sittingform.date|as_crispy_field }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                {{ sittingform.response_form_key | as_crispy_field }}
+                <br><strong>Important: </strong>If importing a Google Quiz using this form, you <strong>must</strong> have already run the add-on 'export Questions' in the Google Form, otherwise this will fail.
             </div>
         </div>
     <button type="submit" class="btn-primary">Submit</button>
