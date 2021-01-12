@@ -9,6 +9,7 @@ services:
        - ./.env.dev
 
   web:
+    image: greenpen/greenpen-full
     build: .
     env_file:
       - ./.env.dev
