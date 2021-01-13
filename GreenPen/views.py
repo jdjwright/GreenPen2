@@ -14,6 +14,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .widgets import *
 import os
+import threading
+import gspread
 
 from plotly.offline import plot
 import plotly.graph_objects as go
@@ -373,13 +375,60 @@ class AddGoogleExam(TeacherOnlyMixin, CreateView):
 
     @transaction.atomic
     def form_valid(self, form):
+        if not test_gc_sheets_questions(form.cleaned_data['master_response_sheet_url'], self.request):
+            return self.get(self, form=form)
         self.object = form.save()
-        try:
-            self.object.import_questions()
-        except:
-            print("Error when importing questions")
+        self.object.import_questions()
+
+        messages.success(self.request, "Exam created and questions imported. <strong>Important: </strong>Remember that questions worth 0 marks (e.g. student names) have still been imported - check carefully before assigning syllabus points!")
         return HttpResponseRedirect(self.get_success_url())
 
+
+def test_gq_sheets_url(url, request):
+    gc = gspread.service_account()
+    try:
+        ss = gc.open_by_url(url)
+    except (gspread.exceptions.NoValidUrlKeyFound, gspread.exceptions.SpreadsheetNotFound):
+        messages.error(request, "Google Sheets URL not valid; did you use the Forms URL instead?")
+        return False
+    except gspread.exceptions.APIError:
+        messages.error(request, "An error occured. Check that you've run stage '1. Grant access to GreenPen'. If this persists, we may have overloaded Google's servers. Try again in 100 seconds.")
+        return False
+    return ss
+
+
+def test_gc_sheets_questions(url, request):
+
+    ss = test_gq_sheets_url(url, request)
+    if not ss:
+        return False
+
+    try:
+        qs = ss.worksheet("Questions").get_all_records()
+        return qs
+    except gspread.exceptions.APIError:
+        messages.error(request, "An error occured. Check that you've run stage '1. Grant access to GreenPen'. If this persists, we may have overloaded Google's servers. Try again in 100 seconds.")
+        return False
+    except gspread.exceptions.WorksheetNotFound:
+        messages.error(request, "Worksheet 'Questions' not found. Did you run 2. Extract  Questions?")
+        return False
+
+
+def test_gc_sheets_responses(url, request):
+
+    ss = test_gq_sheets_url(url, request)
+    if not ss:
+        return False
+
+    try:
+        qs = ss.worksheet("Scores").get_all_records()
+        return qs
+    except gspread.exceptions.APIError:
+        messages.error(request, "An error occured. Check that you've run stage '1. Grant access to GreenPen'. If this persists, we may have overloaded Google's servers. Try again in 100 seconds.")
+        return False
+    except gspread.exceptions.WorksheetNotFound:
+        messages.error(request, "Worksheet 'Scores' not found. Did you run 3. Extract  scores from Form?")
+        return False
 
 
 
@@ -393,6 +442,8 @@ def send_syllabus_children(request, syllabus_pk):
 def exam_result_view(request, sitting_pk):
     context = {}
     sitting = Sitting.objects.get(pk=sitting_pk)
+    if sitting.gquizsitting.importing:
+        messages.warning(request, "Scores for this exam are currently importing. Please check back in a few minutes.")
     context['sitting'] = sitting
     students = sitting.group.students.all().order_by('user__last_name')
     context['students'] = students
@@ -589,6 +640,10 @@ def new_sitting(request, exam_pk):
             classgroup = sittingform.cleaned_data['group']
 
             if sittingform.cleaned_data['response_form_url']:
+                # Check it's accessible:
+                if not test_gc_sheets_responses(sittingform.cleaned_data['response_form_url'], request):
+                    return render(request, 'GreenPen/add-sitting.html', {'sittingform': sittingform,
+                                                                         'exam': exam})
                 sitting = GQuizSitting.objects.create(exam=exam,
                                                       group=classgroup,
                                                       date=sittingform.cleaned_data['date'],
@@ -596,11 +651,9 @@ def new_sitting(request, exam_pk):
                                                       )
 
                  # Import the questions before we create
-                try:
-                    sitting.import_scores()
-                except MarkScoreError:
-                    messages.error(request, "Import failed. One or more scores had a score higher than the maximum. Have you changed the Google Form since you imported it? If so, create a new sitting and re-do the import.")
-                messages.success(request, "Scores imported successfully.")
+                t = threading.Thread(target=sitting.import_scores, daemon=True)
+                t.start()
+                messages.warning(request, "Started importing questions. Return to the scores page in a few minutes to check they've imported correctly.")
 
             else:
                 sitting = Sitting.objects.create(exam=exam,
@@ -623,11 +676,13 @@ def new_sitting(request, exam_pk):
 
 def import_sitting_scores(request, sitting_pk):
     sitting = GQuizSitting.objects.get(pk=sitting_pk)
-    try:
-        sitting.import_scores()
-        messages.success(request, "Scores improted successfully.")
-    except MarkScoreError:
-        messages.error(request, "Import failed. One or more scores had a score higher than the maximum. Have you changed the Google Form since you imported it? If so, create a new sitting and re-do the import.")
+    if sitting.importing:
+        messages.error(request, "There is already an import running for this sitting. Please check back later.")
+    else:
+        t = threading.Thread(target=sitting.import_scores, daemon=True)
+
+        t.start()
+        messages.warning(request, "Started importing questions. Return to the scores page in a few minutes to check they've imported correctly.")
     return redirect(reverse('exam-results', args=[sitting.pk, ]))
 
 

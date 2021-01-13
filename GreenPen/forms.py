@@ -73,7 +73,10 @@ class SyllabusSingleChoiceField(TreeNodeChoiceField):
     def clean(self, value):
         # JSTreeWidget produces an array of values, but we only want one
         # Hence we must extract it.
-        value = value[0]
+        try:
+            value = value[0]
+        except IndexError:
+            return Syllabus.objects.filter(level=0).first()
         value = super(SyllabusSingleChoiceField, self).clean(value)
         return value
 

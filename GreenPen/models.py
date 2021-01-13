@@ -13,7 +13,8 @@ from GreenPen.settings import CALENDAR_START_DATE, CALENDAR_END_DATE, ACADEMIC_Y
 from django.db.models import Max
 from django.db.models.signals import m2m_changed
 from ckeditor.fields import RichTextField
-from .exceptions import MarkScoreError
+from .exceptions import MarkScoreError, AlreadyImportingScoreError
+import gspread
 
 
 class Person(models.Model):
@@ -1059,7 +1060,6 @@ class GQuizExam(Exam):
                                                 help_text="This must be the URL for the Google Sheet containing your responses")
 
     def import_questions(self):
-        import gspread
         gc = gspread.service_account()
         ss = gc.open_by_url(self.master_response_sheet_url)
         qs = ss.worksheet("Questions").get_all_records()
@@ -1075,6 +1075,7 @@ class GQuizExam(Exam):
             question.save()
             order += 1
 
+
 class GQuizQuestion(Question):
     text = RichTextField(blank=True, null=True)
     google_id = models.IntegerField(blank=False, null=False)
@@ -1083,9 +1084,14 @@ class GQuizQuestion(Question):
 class GQuizSitting(Sitting):
     scores_sheet_url = models.URLField(blank=False, null=True)
     scores_sheet_key = models.CharField(blank=False, null=True, max_length=1000, help_text="This is the ID field of the Google Sheet with your answers on it.")
+    importing = models.BooleanField(default=False)
 
     def import_scores(self):
-        import gspread
+        if self.importing:
+            raise AlreadyImportingScoreError
+
+        self.importing = True
+        self.save()
         gc = gspread.service_account()
         if self.scores_sheet_url:
             ss = gc.open_by_url(self.scores_sheet_url)
@@ -1122,6 +1128,8 @@ class GQuizSitting(Sitting):
             mark.student_notes = "You were asked: " + str(mark.question.gquizquestion.text) +".<br>You answered: " + str(mark.student_response) + "<br><strong>Teacher response:</strong>: " + str(mark.teacher_response)
             mark.save()
 
+        self.importing = False
+        self.save()
 
 class GQuizMark(Mark):
     student_response = RichTextField(blank=True, null=True)
@@ -1134,3 +1142,6 @@ def student_mark_changed(sender, instance=GQuizMark.objects.none(), **kwargs):
 
 
 post_save.connect(student_mark_changed, sender=GQuizMark)
+
+
+

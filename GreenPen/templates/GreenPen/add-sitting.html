@@ -1,12 +1,16 @@
 {% extends 'GreenPen/bs_base.html' %}
 {% load crispy_forms_tags %}
 {% block content %}
-<h1>Add a sitting</h1>
+    <div class="container-fluid h-100 d-flex flex-column">
+    <div class="row">
+    <h1>Add a sitting</h1>
+    </div>
     <div class="row">
         <div class="col-md-12">
             You are adding a sitting for {{ exam }}
         </div>
     </div>
+    <div class="row">
     <form method="post">
     {% csrf_token %}
         <div class="row">
@@ -26,4 +30,6 @@
         </div>
     <button type="submit" class="btn-primary">Submit</button>
     </form>
+    </div>
+    </div>
 {% endblock content %}

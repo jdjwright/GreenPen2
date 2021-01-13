@@ -3,7 +3,7 @@
 {% block content %}
 <h1>Exam results for {{ sitting.group }} taking {{ sitting.exam }} on {{ sitting.date }}</h1><br>
 <a href="{% url 'delete-sitting1' sitting.pk %}" class="btn btn-danger">Delete exam</a>
-    {% if sitting.gquizsitting.scores_sheet_key %}
+    {% if sitting.gquizsitting.scores_sheet_url %}
     <a href="{% url 'import_scores' sitting.pk %}" class="btn btn-primary">Import scores</a>
     {% endif %}
 <table class="table table-responsive">
