@@ -1,0 +1,38 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% load static %}
+
+{% block title %}Exam Details{% endblock title %}
+{% block description %}These are the details of the exam {{ exam.name }}.{% endblock description %}
+
+{% block content %}
+    <div class="container-fluid h-100 d-flex flex-column">
+
+        <!-- End of form media -->
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="row row-height">
+                <div class="col-md-12">
+                    {% include 'GreenPen/exams/exam-form-google.html' %}
+                    <div class="row">
+                        <div class="col-md-12">
+                            <strong>Warning: </strong>You must have run at least the first two stages of exporting the questions using the Quiz Exporter Addon in Google Sheets before proceeeding, or unexpected errors will occur.
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+
+                </div>
+
+            </div>
+        </form>
+
+    </div>
+
+{% endblock content %}
+
+{% block script %}
+
+    {{ exam_form.media }}
+
+{% endblock script %}

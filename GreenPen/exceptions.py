@@ -1,0 +1,2 @@
+class MarkScoreError(Exception):
+    pass

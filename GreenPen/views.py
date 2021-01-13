@@ -1,7 +1,7 @@
 from GreenPen.models import Student, Question
 from django.views.generic.list import ListView, View
 from django.views.generic.edit import UpdateView
-from django.http import JsonResponse, HttpResponseForbidden, Http404
+from django.http import JsonResponse, HttpResponseForbidden, Http404, HttpResponseRedirect
 from django.forms import modelformset_factory
 from django.views.generic.edit import CreateView
 from django.core.exceptions import PermissionDenied
@@ -360,6 +360,29 @@ class AddExam(TeacherOnlyMixin, CreateView):
         return context
 
 
+class AddGoogleExam(TeacherOnlyMixin, CreateView):
+    template_name = 'GreenPen/add-google-exam.html'
+    form_class = AddGoogleExamForm
+    model = GQuizExam
+
+    # Need to make form name consistent for template:
+    def get_context_data(self, **kwargs):
+        context = super(AddGoogleExam, self).get_context_data(**kwargs)
+        context["exam_form"] = context["form"]
+        return context
+
+    @transaction.atomic
+    def form_valid(self, form):
+        self.object = form.save()
+        try:
+            self.object.import_questions()
+        except:
+            print("Error when importing questions")
+        return HttpResponseRedirect(self.get_success_url())
+
+
+
+
 def send_syllabus_children(request, syllabus_pk):
     points = Syllabus.objects.get(pk=syllabus_pk).get_children()
 
@@ -565,16 +588,19 @@ def new_sitting(request, exam_pk):
         if sittingform.is_valid():
             classgroup = sittingform.cleaned_data['group']
 
-            if sittingform.cleaned_data['response_form_key']:
+            if sittingform.cleaned_data['response_form_url']:
                 sitting = GQuizSitting.objects.create(exam=exam,
                                                       group=classgroup,
                                                       date=sittingform.cleaned_data['date'],
-                                                      scores_sheet_key=sittingform.cleaned_data['response_form_key']
+                                                      scores_sheet_url=sittingform.cleaned_data['response_form_url']
                                                       )
 
                  # Import the questions before we create
-                sitting.import_questions()
-                messages.success(request, "Questions imported successfully. You are advised to go back and set syllabus points for these now.")
+                try:
+                    sitting.import_scores()
+                except MarkScoreError:
+                    messages.error(request, "Import failed. One or more scores had a score higher than the maximum. Have you changed the Google Form since you imported it? If so, create a new sitting and re-do the import.")
+                messages.success(request, "Scores imported successfully.")
 
             else:
                 sitting = Sitting.objects.create(exam=exam,
@@ -597,7 +623,11 @@ def new_sitting(request, exam_pk):
 
 def import_sitting_scores(request, sitting_pk):
     sitting = GQuizSitting.objects.get(pk=sitting_pk)
-    sitting.import_scores()
+    try:
+        sitting.import_scores()
+        messages.success(request, "Scores improted successfully.")
+    except MarkScoreError:
+        messages.error(request, "Import failed. One or more scores had a score higher than the maximum. Have you changed the Google Form since you imported it? If so, create a new sitting and re-do the import.")
     return redirect(reverse('exam-results', args=[sitting.pk, ]))
 
 

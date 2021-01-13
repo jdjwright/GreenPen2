@@ -13,6 +13,7 @@ from GreenPen.settings import CALENDAR_START_DATE, CALENDAR_END_DATE, ACADEMIC_Y
 from django.db.models import Max
 from django.db.models.signals import m2m_changed
 from ckeditor.fields import RichTextField
+from .exceptions import MarkScoreError
 
 
 class Person(models.Model):
@@ -1052,33 +1053,44 @@ def setup_lessons(teachinggrousp=TeachingGroup.objects.all()):
 class GQuizExam(Exam):
     master_form_url = models.URLField(null=False,
                                          blank=False,
-                                         help_text="This must be the URL for the Google Sheet containing your responses")
+                                         help_text="This must be the URL for the Google Form containing your questions")
+    master_response_sheet_url = models.URLField(null=True,
+                                                blank=False,
+                                                help_text="This must be the URL for the Google Sheet containing your responses")
 
-
-class GQuizQuestion(Question):
-    text = RichTextField(blank=True, null=True)
-
-
-class GQuizSitting(Sitting):
-    scores_sheet_url = models.URLField(blank=True, null=True)
-    scores_sheet_key = models.CharField(blank=False, null=False, max_length=1000)
     def import_questions(self):
         import gspread
         gc = gspread.service_account()
-        ss = gc.open_by_key(self.scores_sheet_key)
+        ss = gc.open_by_url(self.master_response_sheet_url)
         qs = ss.worksheet("Questions").get_all_records()
+
+        order = 1
         for row in qs:
-            question, created = GQuizQuestion.objects.get_or_create(exam=self.exam,
-                                                                    order=row['Question Number'])
+            question, created = GQuizQuestion.objects.get_or_create(exam=self,
+                                                                    order=order,
+                                                                    google_id=row['ID'])
             question.text = row['Question Text']
             question.max_score = row['Max Score']
             question.number = row['Question Number']
             question.save()
+            order += 1
+
+class GQuizQuestion(Question):
+    text = RichTextField(blank=True, null=True)
+    google_id = models.IntegerField(blank=False, null=False)
+
+
+class GQuizSitting(Sitting):
+    scores_sheet_url = models.URLField(blank=False, null=True)
+    scores_sheet_key = models.CharField(blank=False, null=True, max_length=1000, help_text="This is the ID field of the Google Sheet with your answers on it.")
 
     def import_scores(self):
         import gspread
         gc = gspread.service_account()
-        ss = gc.open_by_key(self.scores_sheet_key)
+        if self.scores_sheet_url:
+            ss = gc.open_by_url(self.scores_sheet_url)
+        else:
+            ss = gc.open_by_key(self.scores_sheet_key)
         qs = ss.worksheet("Scores").get_all_records()
 
         # Get the sitting:
@@ -1088,7 +1100,7 @@ class GQuizSitting(Sitting):
             student = Student.objects.get(user__email=row['Student Email Address'])
 
             question = GQuizQuestion.objects.get(exam=self.exam,
-                                                 order=row['Question order'])
+                                                 google_id=row['ID'])
             try:
                 # Check if there's a normal Mark object:
                 mark = Mark.objects.get(question=question,
@@ -1097,6 +1109,11 @@ class GQuizSitting(Sitting):
                 mark.delete()
             except ObjectDoesNotExist:
                 pass
+
+            # Sanity check for max score in case of changed questions.
+            if row['Maximum score'] > question.max_score:
+                raise MarkScoreError
+
             mark, created = GQuizMark.objects.get_or_create(question=question,
                                                             sitting=self, student=student)
             mark.score = row['Student Score']

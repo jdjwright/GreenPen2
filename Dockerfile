@@ -16,11 +16,6 @@ RUN apk add jpeg-dev zlib-dev freetype-dev lcms2-dev openjpeg-dev tiff-dev tk-de
 RUN pip install --upgrade pip
 COPY ./requirements.txt /usr/src/app/requirements.txt
 RUN pip install --user -r requirements.txt
-COPY . /usr/src/app/
-
-# Set up deploy image
-
-
 
 # copy project
 COPY . /usr/src/app/

@@ -28,7 +28,8 @@ def get_groups_from_graph(callback, user=User.objects.none()):
 
     # If we're a student, only output themselves.
     if user.groups.filter(name='Students').count():
-        groups = TeachingGroup.objects.filter(students=Student.objects.get(user=user))
+        groups = TeachingGroup.objects.filter(students=Student.objects.get(user=user),
+                                              archived=False)
 
     if user.groups.filter(name='Teachers').count():
 
@@ -144,7 +145,6 @@ def drop_mistake_columns(df, user):
     :param user: User instance from dash
     :return: dataframe with appropriate columsn removed.
     """
-    df = df.drop(columns=['id', 'question', 'score', 'sitting'])
 
     if user.groups.filter(name='Students').count():
         df = df.drop(columns='student')
@@ -688,12 +688,12 @@ def update_mistakes_table(*args, **kwargs):
     syllabus = get_syllabus_point_from_graph(callback)
 
     notes_qs = Mark.objects.filter(student__in=students,
-                                   mistakes__in=mistakes,
+
                                    sitting__in=sittings,
                                    question__syllabus_points__in=syllabus.get_descendants(include_self=True),
                                    student_notes__isnull=False).exclude(student_notes='').distinct()
 
-    df = read_frame(notes_qs)
+    df = read_frame(notes_qs, fieldnames=['student', 'sitting__exam__name', 'student_notes'])
     df = drop_mistake_columns(df, user)
     data = df.to_dict('records')
 
@@ -716,7 +716,8 @@ def update_mistakes_table_headings(*args, **kwargs):
     """
     user = kwargs['user']
 
-    init_df = read_frame(Mark.objects.filter(pk=Mark.objects.first().pk))
+    init_df = read_frame(Mark.objects.filter(pk=Mark.objects.first().pk),
+                         fieldnames=['student', 'sitting__exam__name', 'student_notes'])
     init_df = drop_mistake_columns(init_df, user)
     columns = [{"name": i, "id": i} for i in init_df.columns]
     return columns
