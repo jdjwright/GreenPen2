@@ -442,8 +442,13 @@ def send_syllabus_children(request, syllabus_pk):
 def exam_result_view(request, sitting_pk):
     context = {}
     sitting = Sitting.objects.get(pk=sitting_pk)
-    if sitting.gquizsitting.importing:
-        messages.warning(request, "Scores for this exam are currently importing. Please check back in a few minutes.")
+
+    try:
+        if sitting.gquizsitting.importing:
+            messages.warning(request, "Scores for this exam are currently importing. Please check back in a few minutes.")
+    except Sitting.DoesNotExist:
+        # Will occur if this is not a Google Quiz subclass.
+        pass
     context['sitting'] = sitting
     students = sitting.group.students.all().order_by('user__last_name')
     context['students'] = students
