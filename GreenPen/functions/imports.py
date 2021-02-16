@@ -71,6 +71,10 @@ def import_classgroups_from_csv(path):
                                                                                               'title': row[6]})
                 teachinggroup.teachers.add(teacher)
             student, created = Student.objects.get_or_create(student_id=row[8])
+            if created:
+                print("Error in student lists - caused by ID" + str(row[8]))
+                student.delete()
+                continue
             teachinggroup.students.add(student)
             classgroup_pks.append(teachinggroup.pk)
 

@@ -300,7 +300,7 @@ class Question(models.Model):
 
     def average_pc(self, cohort=Student.objects.all(), sittings=False):
         avg = self.average(cohort, sittings)
-        if self.max_score:
+        if self.max_score and avg:
             return round(avg/self.max_score * 100, 0)
 
 
@@ -417,7 +417,7 @@ class Mark(models.Model):
         unique_together = ['student', 'question', 'sitting']
 
     def pc(self):
-        if self.question.max_score:
+        if self.question.max_score and self.score:
             return round(self.score / self.question.max_score *100 , 0)
 
     def score_class(self):
