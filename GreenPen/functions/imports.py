@@ -51,7 +51,7 @@ def import_classgroups_from_csv(path):
             print('Adding ' + row[0])
             teachinggroup, created = TeachingGroup.objects.filter(archived=False).get_or_create(name=row[0], defaults={
                 'subject': row[1],
-                'year_taught': row[8]})
+                'year_taught': row[7]})
             teacher_user, created = User.objects.get_or_create(email=row[3], defaults={'username': row[2],
                                                                                        'first_name': row[3],
                                                                                        'last_name': row[4],
@@ -60,7 +60,7 @@ def import_classgroups_from_csv(path):
             teacher_user.groups.add(teacher_auth_group)
             teacher, created = Teacher.objects.get_or_create(user=teacher_user)
             teachinggroup.teachers.add(teacher)
-            student, created = Student.objects.get_or_create(student_id=row[7])
+            student, created = Student.objects.get_or_create(student_id=row[8])
             teachinggroup.students.add(student)
             classgroup_pks.append(teachinggroup.pk)
         return classgroup_pks
