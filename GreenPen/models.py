@@ -15,6 +15,7 @@ from django.db.models.signals import m2m_changed
 from ckeditor.fields import RichTextField
 from .exceptions import MarkScoreError, AlreadyImportingScoreError
 import gspread
+import re
 
 
 class Person(models.Model):
@@ -81,20 +82,47 @@ class TeachingGroup(models.Model):
     name = models.CharField(max_length=256, blank=True, null=True)
     sims_name = models.CharField(max_length=256, blank=True, null=True)
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, blank=True, null=True)
-    teachers = models.ManyToManyField(Teacher)
-    students = models.ManyToManyField(Student)
+    teachers = models.ManyToManyField(Teacher, blank=True)
+    students = models.ManyToManyField(Student, blank=True)
     syllabus = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.SET_NULL)
     archived = models.BooleanField(blank=True, null=True, default=False)
     year_taught = models.IntegerField(null=True, blank=True)
     rollover_name = models.CharField(max_length=256, blank=True, null=True)
     lessons = models.ManyToManyField('TTSlot', blank=True)
     use_for_exams = models.BooleanField(default=True, help_text="If you have mutliple identical groups, e.g. same A-level class taught by two different teachers, you will need to create three groups: one for each teacher, and one shared one. Use the teacher groups for timetabling and lesson monitoring, and the shared one for all exams. The'Use for exams' flag should be set for the exam class.")
+    linked_groups = models.ManyToManyField('TeachingGroup', blank=True)
 
     def __str__(self):
         if not self.archived:
             return self.name
         else:
             return self.name + "ARCHIVED"
+
+    def set_linked_students(self):
+        """
+        Take the linked_grouops for this tg and set the students to be the same as for this one
+        """
+        for group in self.linked_groups.all():
+            group.students.set(self.students.all())
+
+    def find_linked_groups(self):
+        """
+        In the dev teams school, teaching groups have the convention:
+        10A/Ss1 <-- for single groups
+        10A/Ss1a <-- for groups taught by multiple teachers. E.g.,
+        10A/Ss1a taught by Mr Bloggs
+        10A/Ss1b taught by Mrs Amir.
+
+        Since the students in 10A/Ss1 are always the same, we need to
+        try to sync them so that all assessments appear together.
+        """
+        gen_code = re.search(r'^(.*)\D$', self.name)
+        if gen_code:
+            matches = gen_code.groups()
+            groups = TeachingGroup.objects.all().exclude(pk=self.pk).filter(name__startswith=matches[0], archived=False)
+            self.linked_groups.set(groups)
+
+            return groups
 
     def ratings_pc_between_range(self, min_rating, max_rating, sittings=False, students=False, syllabus_pts=False):
         all_records = StudentSyllabusAssessmentRecord.objects.filter(student__in=self.students.all())
@@ -263,6 +291,18 @@ class Question(models.Model):
     def __str__(self):
         return self.number
 
+    def average(self, cohort=Student.objects.all(), sittings=False):
+        if not sittings:
+            sittings = Sitting.objects.all()
+        marks = Mark.objects.filter(question=self, student__in=cohort, sitting__in=sittings)
+        avg = marks.aggregate(Avg('score'))
+        return avg['score__avg']
+
+    def average_pc(self, cohort=Student.objects.all(), sittings=False):
+        avg = self.average(cohort, sittings)
+        if self.max_score:
+            return round(avg/self.max_score * 100, 0)
+
 
 def new_question_created(sender, instance, **kwargs):
     for sitting in Sitting.objects.filter(exam__question=instance):
@@ -327,6 +367,12 @@ class Sitting(models.Model):
                                     student=student)
         return marks.aggregate(total=Sum('score'))['total']
 
+    def student_qs(self):
+        if self.students.count():
+            return self.students.all()
+        else:
+            return Student.objects.filter(teachinggroup=self.group)
+
 
 def student_added_to_sitting(sender, instance, action, **kwargs):
     if action == 'post_add':
@@ -369,6 +415,29 @@ class Mark(models.Model):
 
     class Meta:
         unique_together = ['student', 'question', 'sitting']
+
+    def pc(self):
+        if self.question.max_score:
+            return round(self.score / self.question.max_score *100 , 0)
+
+    def score_class(self):
+        pc = self.pc()
+        if pc == 0:
+            return "danger"
+        if not pc:
+            return ""
+        if pc < 20:
+            return "danger"
+        elif pc < 40:
+            return "warning"
+        elif pc < 60:
+            return "info"
+        elif pc < 80:
+            return "primary"
+        elif pc <= 100:
+            return "success"
+        else:
+            return "secondary"
 
     def set_student_syllabus_assessment_records(self):
         for point in self.question.syllabus_points.all():

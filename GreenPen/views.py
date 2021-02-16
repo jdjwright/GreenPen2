@@ -483,6 +483,8 @@ def exam_result_view(request, sitting_pk):
                                                    question=question))
 
                 row.append('')
+        # Iterated through all scores, so lets add the average.
+        row.append(question.average_pc(cohort=sitting.student_qs(), sittings=Sitting.objects.filter(pk=sitting.pk)))
         marks.append(row)
 
     lastrow = ['Total']
@@ -1060,6 +1062,9 @@ def update_classgroups(request):
 
             old_tgs = TeachingGroup.objects.all().exclude(archived=False, pk__in=current_tg_pks)
             old_tgs.update(archived=True)
+            for group in TeachingGroup.objects.all():
+                group.find_linked_groups()
+                group.set_linked_students()
             messages.success(request, 'Updated all classgroups.')
             return redirect(reverse('splash'))
     else:

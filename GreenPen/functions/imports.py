@@ -28,7 +28,11 @@ def import_students_from_csv(path):
             except IntegrityError:
                 # This occurs if we're re-adding a student after ID changes.
 
-                clash_s = Student.objects.get(student_id=row[3]).delete()
+                clash_s = Student.objects.get(student_id=row[3])
+                clash_s.user = user
+                clash_s.year = row[5]
+                clash_s.tutor_group = row[6]
+                clash_s.save()
             student_list.append(student)
 
         return student_list
@@ -47,22 +51,31 @@ def import_classgroups_from_csv(path):
         # Skip headers
         next(classes, None)
         teacher_auth_group, created = Group.objects.get_or_create(name='Teachers')
+
+        last_group_name = False
+
         for row in classes:
             print('Adding ' + row[0])
-            teachinggroup, created = TeachingGroup.objects.filter(archived=False).get_or_create(name=row[0], defaults={
-                'subject': row[1],
-                'year_taught': row[7]})
-            teacher_user, created = User.objects.get_or_create(email=row[3], defaults={'username': row[2],
-                                                                                       'first_name': row[3],
-                                                                                       'last_name': row[4],
-                                                                                       'staff_code': row[5],
-                                                                                       'title': row[6]})
-            teacher_user.groups.add(teacher_auth_group)
-            teacher, created = Teacher.objects.get_or_create(user=teacher_user)
-            teachinggroup.teachers.add(teacher)
+
+            if last_group_name != row[0]:
+                subject, created = Subject.objects.get_or_create(name=row[1])
+                teachinggroup, created = TeachingGroup.objects.filter(archived=False).get_or_create(name=row[0], defaults={
+                    'subject': subject,
+                    'year_taught': row[7]})
+                teacher_user, created = User.objects.get_or_create(email=row[2], defaults={'username': row[2],
+                                                                                           'first_name': row[3],
+                                                                                           'last_name': row[4],
+                                                                                           })
+                teacher_user.groups.add(teacher_auth_group)
+                teacher, created = Teacher.objects.get_or_create(user=teacher_user, defaults={'staff_code': row[5],
+                                                                                              'title': row[6]})
+                teachinggroup.teachers.add(teacher)
             student, created = Student.objects.get_or_create(student_id=row[8])
             teachinggroup.students.add(student)
             classgroup_pks.append(teachinggroup.pk)
+
+            last_group_name = row[0]
+
         return classgroup_pks
 
 
