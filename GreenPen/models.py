@@ -49,6 +49,7 @@ class Student(Person):
     tutor_group = models.CharField(max_length=5, blank=True, null=True)
     year_group = models.IntegerField(blank=True, null=True)
     student_id = models.IntegerField(blank=True, null=True, unique=True)
+    on_role = models.BooleanField(default=True)
 
     def __str__(self):
         if self.tutor_group:
@@ -78,6 +79,7 @@ class Subject(models.Model):
 
 class TeachingGroup(models.Model):
     name = models.CharField(max_length=256, blank=True, null=True)
+    sims_name = models.CharField(max_length=256, blank=True, null=True)
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, blank=True, null=True)
     teachers = models.ManyToManyField(Teacher)
     students = models.ManyToManyField(Student)
@@ -86,9 +88,13 @@ class TeachingGroup(models.Model):
     year_taught = models.IntegerField(null=True, blank=True)
     rollover_name = models.CharField(max_length=256, blank=True, null=True)
     lessons = models.ManyToManyField('TTSlot', blank=True)
+    use_for_exams = models.BooleanField(default=True, help_text="If you have mutliple identical groups, e.g. same A-level class taught by two different teachers, you will need to create three groups: one for each teacher, and one shared one. Use the teacher groups for timetabling and lesson monitoring, and the shared one for all exams. The'Use for exams' flag should be set for the exam class.")
 
     def __str__(self):
-        return self.name
+        if not self.archived:
+            return self.name
+        else:
+            return self.name + "ARCHIVED"
 
     def ratings_pc_between_range(self, min_rating, max_rating, sittings=False, students=False, syllabus_pts=False):
         all_records = StudentSyllabusAssessmentRecord.objects.filter(student__in=self.students.all())

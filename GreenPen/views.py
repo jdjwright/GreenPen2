@@ -438,6 +438,13 @@ def send_syllabus_children(request, syllabus_pk):
     return JsonResponse({'points': points})
 
 
+@login_required
+def sitting_splash(request, sitting_pk):
+    if is_teacher(request.user):
+        return redirect('exam-results', args=(sitting_pk,))
+    if is_student(request.user):
+        return redirect()
+
 @user_passes_test(check_teacher)
 def exam_result_view(request, sitting_pk):
     context = {}
@@ -992,3 +999,70 @@ def load_syllabus_points_exam(request, exam_pk):
                       'opened': opened}
         })
     return JsonResponse(data, safe=False)
+
+
+def is_teacher(user=User.objects.none()):
+    if user.groups.filter(name='Teachers').count():
+        return True
+    else:
+        return False
+
+
+def is_student(user=User.objects.none()):
+    if user.groups.filter(name='Students ').count():
+        return True
+    else:
+        return False
+
+
+@user_passes_test(check_superuser)
+def update_students(request):
+    # Deal with getting a CSV file
+
+    if request.method == 'POST':
+        csvform = CSVDocForm(request.POST, request.FILES)
+        if csvform.is_valid():
+            file = csvform.save()
+            path = file.document.path
+
+            # Run import students to update all and add new students
+            current_students = import_students_from_csv(path)
+
+            # Remove any students no longer registered
+
+            ex_students = Student.objects.all().exclude(pk__in=[s.pk for s in current_students])
+            ex_students.update(on_role=False)
+            os.remove(path)
+            file.delete()
+            messages.success(request, 'Updated all students.')
+            return redirect(reverse('splash'))
+    else:
+        csvform = CSVDocForm()
+    return render(request, 'GreenPen/upload_csv.html', {'csvform': csvform,
+                                                             'upload_message': 'Updating Student list'})
+
+
+@user_passes_test(check_superuser)
+def update_classgroups(request):
+    # Deal with getting a CSV file
+
+    if request.method == 'POST':
+        csvform = CSVDocForm(request.POST, request.FILES)
+        if csvform.is_valid():
+            file = csvform.save()
+            path = file.document.path
+
+            # Run import students to update all and add new students
+            current_tg_pks = import_classgroups_from_csv(path)
+            os.remove(path)
+            file.delete()
+            # Remove any students no longer registered
+
+            old_tgs = TeachingGroup.objects.all().exclude(archived=False, pk__in=current_tg_pks)
+            old_tgs.update(archived=True)
+            messages.success(request, 'Updated all classgroups.')
+            return redirect(reverse('splash'))
+    else:
+        csvform = CSVDocForm()
+    return render(request, 'GreenPen/upload_csv.html', {'csvform': csvform,
+                                                             'upload_message': 'Updating Class Groups'})

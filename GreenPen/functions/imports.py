@@ -5,6 +5,7 @@ import csv
 
 
 def import_students_from_csv(path):
+    student_list = []
     with open(path, newline='') as csvfile:
         students = csv.reader(csvfile, delimiter=',', quotechar='"')
         student_auth_group, created = Group.objects.get_or_create(name='Students')
@@ -12,7 +13,7 @@ def import_students_from_csv(path):
         next(students, None)
         for row in students:
             print('Creating student ' + row[0] + " " + row[1])
-            user, created = User.objects.get_or_create(username=row[3])
+            user, created = User.objects.get_or_create(username=row[2])
             user.email = row[2]
             user.first_name = row[0]
             user.last_name = row[1]
@@ -20,11 +21,27 @@ def import_students_from_csv(path):
             user.groups.add(student_auth_group)
             student, created = Student.objects.get_or_create(user=user)
             student.year = row[5]
-            student.student_id = row[4]
-            student.save()
+            student.student_id = row[3]
+            student.tutor_group = row[6]
+            try:
+                student.save()
+            except IntegrityError:
+                # This occurs if we're re-adding a student after ID changes.
+
+                clash_s = Student.objects.get(student_id=row[3]).delete()
+            student_list.append(student)
+
+        return student_list
 
 
 def import_classgroups_from_csv(path):
+    classgroup_pks = []
+
+    # Start by removing all students from the classgroups
+    tgs = TeachingGroup.objects.filter(archived=False)
+    for tg in tgs:
+        tg.students.clear()
+
     with open(path, newline='') as csvfile:
         classes = csv.reader(csvfile, delimiter=',', quotechar='"')
         # Skip headers
@@ -32,18 +49,21 @@ def import_classgroups_from_csv(path):
         teacher_auth_group, created = Group.objects.get_or_create(name='Teachers')
         for row in classes:
             print('Adding ' + row[0])
-            teachinggroup, created = TeachingGroup.objects.get_or_create(pk=row[4], defaults={'name': row[0],
-                                                                                              'subject': row[5],
-                                                                                              'archived': row[1],
-                                                                                              'year_taught': row[6]})
-            teacher_user, created = User.objects.get_or_create(email=row[2], defaults={'username': row[2],
-                                                                                       'first_name': 'Unknown',
-                                                                                       'last_name': 'Teacher'})
+            teachinggroup, created = TeachingGroup.objects.filter(archived=False).get_or_create(name=row[0], defaults={
+                'subject': row[1],
+                'year_taught': row[2]})
+            teacher_user, created = User.objects.get_or_create(email=row[3], defaults={'username': row[3],
+                                                                                       'first_name': row[4],
+                                                                                       'last_name': row[5],
+                                                                                       'staff_code': row[6],
+                                                                                       'title': row[7]})
             teacher_user.groups.add(teacher_auth_group)
             teacher, created = Teacher.objects.get_or_create(user=teacher_user)
             teachinggroup.teachers.add(teacher)
             student, created = Student.objects.get_or_create(student_id=row[3])
             teachinggroup.students.add(student)
+            classgroup_pks.append(teachinggroup.pk)
+        return classgroup_pks
 
 
 def import_syllabus_from_csv(path):
@@ -102,6 +122,7 @@ def import_sittings_from_csv(path):
             sitting.group = TeachingGroup.objects.get(pk=row[2])
             sitting.save()
 
+
 def import_marks_from_csv(path):
     with open(path, newline='') as csvfile:
         qs = csv.reader(csvfile, delimiter=',', quotechar='"')
@@ -116,8 +137,8 @@ def import_marks_from_csv(path):
                 continue
             try:
                 mark, created = Mark.objects.get_or_create(question_id=row[0],
-                                                       student=Student.objects.get(student_id=row[1]),
-                                                       sitting_id=row[3])
+                                                           student=Student.objects.get(student_id=row[1]),
+                                                           sitting_id=row[3])
             except:
                 print('Failed above' + str(row))
             if mark.score is None:
@@ -155,6 +176,7 @@ def update_groups(path):
             teacher, created = Teacher.objects.get_or_create(user=teacher_user)
             teachinggroup.teachers.add(teacher)
 
+
 def update_group_assignments(path):
     with open(path, newline='') as csvfile:
         classes = csv.reader(csvfile, delimiter=',', quotechar='"')
@@ -165,6 +187,7 @@ def update_group_assignments(path):
             print('Adding ' + row[0])
             teachinggroup = TeachingGroup.objects.get(pk=row[4])
             teachinggroup.students.add(Student.objects.get(student_id=row[3]))
+
 
 def import_groups_from_sims(path):
     with open(path, newline='') as csvfile:
@@ -179,7 +202,7 @@ def import_groups_from_sims(path):
                 # Only create a group and update a teacher once
                 current_group_name = row[0]
                 current_group, created = TeachingGroup.objects.get_or_create(name=current_group_name,
-                                                                    year_taught=CURRENT_ACADEMIC_YEAR + 1)
+                                                                             year_taught=CURRENT_ACADEMIC_YEAR + 1)
 
                 teacher, created = Teacher.objects.get_or_create(staff_code=row[9])
                 current_group.teachers.add(teacher)

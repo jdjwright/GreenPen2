@@ -5,7 +5,7 @@
     <div class="card-group">
         {% for exam in object_list %}
             <div class="col-lg-4">
-                <div class="card h-10 d-flex flex-column justify-content-between">
+                <div class="card h-100 d-flex flex-column justify-content-between">
                     <div class="card-header">
                         <h5 class="card-title"><a href="{% url 'edit-exam' exam.pk %}" class="card-title">{{ exam.name }}</a></h5>
                     </div>

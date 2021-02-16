@@ -135,3 +135,9 @@ class SuspendDaysForm(forms.Form):
     whole_school = forms.BooleanField(required=False)
     teaching_groups = forms.ModelMultipleChoiceField(queryset=TeachingGroup.objects.filter(archived=False), required=False)
     reason = forms.CharField(max_length=256)
+
+
+class CSVDocForm(forms.ModelForm):
+    class Meta:
+        model = CSVDoc
+        fields = ('description', 'document', )
