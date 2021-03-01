@@ -1,6 +1,7 @@
 from dal import autocomplete
 from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, TeachingGroup, Lesson, GQuizExam
 from django import forms
+from django.contrib.auth.models import User
 from mptt.forms import TreeNodeChoiceField
 from .widgets import TreeSelect
 from jstree.widgets import JsTreeWidget, JsTreeSingleWidget
@@ -121,6 +122,15 @@ class NewSittingForm(forms.Form):
     group = forms.ModelChoiceField(TeachingGroup.objects.filter(archived=False))
     date = forms.DateField(widget=forms.SelectDateWidget)
     response_form_url = forms.URLField(max_length=1000, required=False, help_text="If importing answers from a Google Form, include the URL  of the response sheet URL here.")
+
+    def set_group_choices(self, user=User.objects.none()):
+        """ Restrict the settable groups based upon the user creating the form. """
+        tgs = TeachingGroup.objects.filter(archived=False, use_for_exams=True)
+        if not User.has_perm('GreenPen.create_any_sitting'):
+            tgs = tgs.filter(teachers__user=user)
+
+        self.group.choices = tgs
+
 
 
 class LessonChangeForm(forms.ModelForm):

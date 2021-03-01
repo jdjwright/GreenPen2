@@ -648,6 +648,7 @@ def new_sitting(request, exam_pk):
     exam = Exam.objects.get(pk=exam_pk)
     questions = Question.objects.filter(exam=exam)
     sittingform = NewSittingForm()
+    sittingform.set_group_choices(user=request.user)
     if request.method == 'POST':
         sittingform = NewSittingForm(request.POST)
         if sittingform.is_valid():
@@ -1059,12 +1060,17 @@ def update_classgroups(request):
             os.remove(path)
             file.delete()
             # Remove any students no longer registered
-
+            for group in TeachingGroup.objects.filter(archived=False):
+                linked_groups = group.find_linked_groups()
+                if linked_groups:
+                    for added in linked_groups:
+                        current_tg_pks.append(added.pk)
+                group.set_linked_students()
+            from GreenPen.functions import housekeeping
+            housekeeping.fix_multiple_group_assignments()
             old_tgs = TeachingGroup.objects.all().exclude(archived=False, pk__in=current_tg_pks)
             old_tgs.update(archived=True)
-            for group in TeachingGroup.objects.all():
-                group.find_linked_groups()
-                group.set_linked_students()
+
             messages.success(request, 'Updated all classgroups.')
             return redirect(reverse('splash'))
     else:

@@ -48,7 +48,8 @@ INSTALLED_APPS = [
     'social_django',
     'jstree',
     'ckeditor',
-    'ckeditor_uploader'
+    'ckeditor_uploader',
+    'django_extensions'
 ]
 
 MIDDLEWARE = [
@@ -248,6 +249,31 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET=os.getenv('SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET')
 
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/login'
+
+# For creating Jupyter notebooks:
+SHELL_PLUS = "ipython"
+
+SHELL_PLUS_PRINT_SQL = True
+
+NOTEBOOK_ARGUMENTS = [
+    "--ip",
+    "0.0.0.0",
+    "--port",
+    "8888",
+    "--allow-root",
+    "--no-browser",
+]
+
+IPYTHON_ARGUMENTS = [
+    "--ext",
+    "django_extensions.management.notebook_extension",
+    "--debug",
+]
+
+IPYTHON_KERNEL_DISPLAY_NAME = "Django Shell-Plus"
+
+if DEBUG:
+    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true" # only use in development
 
 
 CKEDITOR_UPLOAD_PATH = MEDIA_ROOT

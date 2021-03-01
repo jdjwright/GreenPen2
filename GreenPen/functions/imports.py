@@ -19,20 +19,12 @@ def import_students_from_csv(path):
             user.last_name = row[1]
             user.save()
             user.groups.add(student_auth_group)
-            student, created = Student.objects.get_or_create(user=user)
+            student, created = Student.objects.get_or_create(student_id=row[3])
             student.year = row[5]
-            student.student_id = row[3]
+            student.user = user
             student.tutor_group = row[6]
-            try:
-                student.save()
-            except IntegrityError:
-                # This occurs if we're re-adding a student after ID changes.
+            student.save()
 
-                clash_s = Student.objects.get(student_id=row[3])
-                clash_s.user = user
-                clash_s.year = row[5]
-                clash_s.tutor_group = row[6]
-                clash_s.save()
             student_list.append(student)
 
         return student_list

@@ -19,7 +19,7 @@ import re
 
 
 class Person(models.Model):
-    user = models.ForeignKey(User, blank=True, null=True, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, blank=True, null=True, on_delete=models.CASCADE, unique=True)
 
     def first_name(self):
         try:
@@ -318,6 +318,11 @@ class Sitting(models.Model):
     students = models.ManyToManyField(Student)  # Depreciated
     resets_ratings = models.BooleanField(blank=True, null=True, default=False)
     group = models.ForeignKey(TeachingGroup, blank=True, null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        permissions = [
+            ('create_any_sitting', "Can create a sitting for any classgroup"),
+        ]
 
     def __str__(self):
         return str(self.exam) + " " + str(self.date) + "(" + str(self.pk) + ")"

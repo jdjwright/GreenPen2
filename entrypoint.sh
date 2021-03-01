@@ -11,4 +11,7 @@ then
     echo "PostgreSQL started"
 fi
 cd /usr/src/app || exit
+
+# Apply any outstanding migrations
+python manage.py migrate
 exec "$@"

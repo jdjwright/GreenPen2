@@ -28,7 +28,7 @@ def get_groups_from_graph(callback, user=User.objects.none()):
 
     # If we're a student, only output themselves.
     if user.groups.filter(name='Students').count():
-        groups = TeachingGroup.objects.filter(students=Student.objects.get(user=user),
+        groups = TeachingGroup.objects.filter(students=Student.objects.get(user=user, use_for_exams=True),
                                               archived=False)
 
     if user.groups.filter(name='Teachers').count():
@@ -37,7 +37,9 @@ def get_groups_from_graph(callback, user=User.objects.none()):
         # Groups to return
         groups = TeachingGroup.objects.filter(year_taught=CURRENT_ACADEMIC_YEAR,
                                               archived=False,
-                                              syllabus__in=current_selected.get_ancestors(include_self=True).distinct())
+                                              use_for_exams=True,
+                                              syllabus__in=current_selected.get_ancestors(include_self=True,
+                                                                                          ).distinct())
     ## Easy filter; If we've clicked a teaching group.
 
     if callback.inputs['group-chart.clickData']:
@@ -65,7 +67,7 @@ def get_groups_from_graph(callback, user=User.objects.none()):
     return groups
 
 
-def get_students_from_graph(callback, user=User.objects.none(), groups=TeachingGroup.objects.filter(archived=False)):
+def get_students_from_graph(callback, user=User.objects.none(), groups=TeachingGroup.objects.filter(archived=False, use_for_exams=True)):
     """
     Returns a queryset of students filtered by other chart callback.
     :param callback: the plotyl dash callback
@@ -176,7 +178,6 @@ def initial_setup():
     setup_mark.delete()
 
 app = DjangoDash('TeacherDashboard', external_stylesheets=external_stylesheets)
-subject_options = [dict(label=subject.text, value=subject.pk) for subject in Syllabus.objects.filter(level=2)]
 
 app.layout = html.Div([
     html.Div([
@@ -588,7 +589,7 @@ def update_subject_options(*args, **kwargs):
 
     elif user.groups.filter(name='Students').count():
         student = Student.objects.get(user=user)
-        teachinggroups = TeachingGroup.objects.filter(students=student)
+        teachinggroups = TeachingGroup.objects.filter(students=student, use_for_exams=True)
         subjects = Syllabus.objects.filter(teachinggroup__in=teachinggroups)
     else:
         raise NotImplementedError('User must belong to either Teachers or Students groups')
@@ -610,12 +611,13 @@ def update_classgroup_dropdowns(*args, **kwargs):
     user = kwargs['user']
     # Teachers can see everyone:
     if user.groups.filter(name='Teachers').count():
-        classgroups = TeachingGroup.objects.filter(syllabus=syllabus)
+        classgroups = TeachingGroup.objects.filter(syllabus=syllabus, archived=False, use_for_exams=True)
 
     elif user.groups.filter(name='Students').count():
         student = Student.objects.get(user=user)
         classgroups = TeachingGroup.objects.filter(students=student,
-                                                   syllabus=syllabus)
+                                                   syllabus=syllabus,
+                                                   use_for_exams=True)
     else:
         raise NotImplementedError('User must belong to either Teachers or Students groups')
 
