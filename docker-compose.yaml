@@ -17,11 +17,27 @@ services:
     volumes:
       - .:/code
       - /Users/wright.j/Downloads/creds/:/root/.config/gspread/
+
     ports:
       - "8000:8000"
-      - "8888:8888"
     depends_on:
       - db
+
+  jupyter:
+    image: greenpen/jupyter
+    build:
+      context: .
+      dockerfile: ./jupyter/Dockerfile
+    env_file:
+      - ./.env.dev
+    ports:
+      - "8888:8888"
+    command: start-notebook.sh
+    depends_on:
+      - db
+    volumes:
+      - ./notebooks/:/home/jovyan/notebooks/
+
 
 volumes:
   postgres_data:

@@ -18,7 +18,7 @@ from django.contrib.auth.views import LogoutView, LoginView
 from django.urls import path, include
 from GreenPen.autocomplete import *
 from GreenPen.views import *
-from GreenPen.dash_apps.finished_apps import TeacherDashboard, StudentDashboard
+from GreenPen.dash_apps.finished_apps import TeacherDashboard, StudentDashboard, ExamAnalysisDB
 
 urlpatterns = [
     path('ckeditor/', include('ckeditor_uploader.urls')),
@@ -51,6 +51,7 @@ urlpatterns = [
     path('student/<int:student_pk>/exams',student_exam_view, name='student-exam-list'),
     path('student/exams', student_exam_entry, name='student-exam-list-entry'),
     path('bs', teacher_dashboard, name='bs-sample'),
+    path('exam-analysis', exam_analysis_db, name='exam-analysis-db'),
     path('django_plotly_dash/', include('django_plotly_dash.urls')),
     path('sitting/<int:sitting_pk>/', sitting_splash, name='sitting-splash'),
     path('sitting/<int:sitting_pk>/results', exam_result_view, name='exam-results'),

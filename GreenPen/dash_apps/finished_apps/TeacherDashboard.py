@@ -422,6 +422,9 @@ def update_rating_time_graph(*args, **kwargs):
     records = Sitting.objects.filter(exam__question__syllabus_points__in=parent_point.get_descendants(),
                                      group__in=groups,
                                      ).order_by('date').distinct()
+
+    # Debug:
+    records_list=list(records)
     # text = [sitting.exam.name for sitting in records]
     # x = [sitting.date for sitting in records]
     # y = [sitting.avg_syllabus_rating(parent_point) for sitting in records]

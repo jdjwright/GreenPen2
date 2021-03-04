@@ -310,9 +310,11 @@ class SittingTestCase(TestCase):
 
         # Now add a question
         q3 = Question.objects.create(exam=sitting.exam,
-                                     order=4,
+                                     order=3,
                                      number='2',
                                      max_score=5)
+        # Debugs
+
         self.assertEqual(Mark.objects.filter(student=skinner_student).count(), 3)
 
 

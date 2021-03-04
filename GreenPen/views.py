@@ -540,6 +540,10 @@ def alp_result_view(request, sitting_pk):
 def teacher_dashboard(request):
     return render(request, 'GreenPen/teacher_dashboard.html')
 
+@user_passes_test(check_teacher)
+def exam_analysis_db(request):
+    return render(request, 'GreenPen/exam_analysis_db.html')
+
 
 @login_required()
 def student_dashboard(request):

@@ -1,0 +1,15 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% load static %}
+{% block content %}
+    {% load plotly_dash %}
+{% block heading %}Your Dashboard{% endblock %}
+
+
+
+    <div class="{% plotly_class name='ExamAnalysisDB' %}" card style="height: auto; width: 100%">
+    {% plotly_app name='ExamAnalysisDB' ratio=0.7 %}
+    </div>
+
+
+{% endblock %}

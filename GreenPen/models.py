@@ -11,11 +11,13 @@ from django.db import IntegrityError, transaction
 from django.urls import reverse
 from GreenPen.settings import CALENDAR_START_DATE, CALENDAR_END_DATE, ACADEMIC_YEARS
 from django.db.models import Max
-from django.db.models.signals import m2m_changed
 from ckeditor.fields import RichTextField
 from .exceptions import MarkScoreError, AlreadyImportingScoreError
 import gspread
 import re
+from django.dispatch import receiver
+from django_pandas.io import read_frame
+import pandas as pd
 
 
 class Person(models.Model):
@@ -305,6 +307,7 @@ class Question(models.Model):
 
 
 def new_question_created(sender, instance, **kwargs):
+
     for sitting in Sitting.objects.filter(exam__question=instance):
         sync_marks_with_sittings(sitting)
 
@@ -325,7 +328,7 @@ class Sitting(models.Model):
         ]
 
     def __str__(self):
-        return str(self.exam) + " " + str(self.date) + "(" + str(self.pk) + ")"
+        return str(self.exam) + " - " +str(self.group) + " " + str(self.date)
 
     def avg_percent(self):
         student_marks = Mark.objects.filter(sitting=self,
@@ -420,6 +423,12 @@ class Mark(models.Model):
 
     class Meta:
         unique_together = ['student', 'question', 'sitting']
+
+    def save(self, *args, **kwargs):
+        super(Mark, self).save(*args, **kwargs)
+        if self.score is not None:
+            self.set_student_syllabus_assessment_records()
+
 
     def pc(self):
         if self.question.max_score and self.score:
@@ -689,9 +698,9 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
                                                                    most_recent=True). \
         aggregate(Sum('attempted_this_level'), Sum('correct_this_level'))
 
-    record.attempted_plus_children = data['question__max_score__sum'] + float(
+    record.attempted_plus_children = float(data['question__max_score__sum'] or 0) + float(
         children_data['attempted_this_level__sum'] or 0)
-    record.correct_plus_children = data['score__sum'] + float(children_data['correct_this_level__sum'] or 0)
+    record.correct_plus_children = float(data['score__sum'] or 0) + float(children_data['correct_this_level__sum'] or 0)
 
     # Set calculated fields:
     record.save()
@@ -754,12 +763,13 @@ class StudentSyllabusManualTeacherRecord(models.Model):
     created_by = models.ForeignKey(User, blank=False, null=True, on_delete=models.SET_NULL)
 
 
+@receiver(post_save, sender=Mark)
 def student_mark_changed(sender, instance=Mark.objects.none(), **kwargs):
     if instance.score is not None:
         instance.set_student_syllabus_assessment_records()
 
 
-post_save.connect(student_mark_changed, sender=Mark)
+#post_save.connect(student_mark_changed, sender=Mark)
 
 
 
@@ -1224,4 +1234,36 @@ def student_mark_changed(sender, instance=GQuizMark.objects.none(), **kwargs):
 post_save.connect(student_mark_changed, sender=GQuizMark)
 
 
+def generate_analsysios_df(marks=Mark.objects.none):
+    """
+    Takes a queryset of student marks and returns and Pandas dataframe
+    sorted by student score and question average score.
+    """
+    df = read_frame(marks, fieldnames=['student', 'question', 'score', 'question__order', 'question__max_score'])
+    df['percentage'] = df['score']/df['question__max_score']*100
+    scores = df[df.score>-1]
+    sheet = pd.pivot_table(scores, values='percentage', index=['question', 'question__order'], columns='student')
+    sheet = sheet.sort_values('question__order')
+    rs=sheet.reset_index()
+    rs = rs.drop(columns='question__order')
+    df = rs.set_index('question')
 
+    # add student average
+    df.loc['Mean'] = df.mean()
+
+    # Sort by attainment
+    df = df.sort_values('Mean', axis=1, ascending=False)
+
+    # Add question average
+    df['Average'] = df.mean(axis=1)
+
+    # Sort by question average
+    df.sort_values('Average', ascending=False)
+
+    #### Hacky! We have to remove and re-insert the mean because otherwise it will be in the wrong place
+    df=df.drop('Mean')
+    df.loc['Mean'] = df.mean()
+    # clean up
+    df = df.round()
+
+    return df
