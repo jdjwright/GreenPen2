@@ -1081,3 +1081,25 @@ def update_classgroups(request):
         csvform = CSVDocForm()
     return render(request, 'GreenPen/upload_csv.html', {'csvform': csvform,
                                                              'upload_message': 'Updating Class Groups'})
+
+
+class AddResource(TeacherOnlyMixin, CreateView):
+    template_name = 'GreenPen/add-resource.html'
+    form_class = AddResourceForm
+    model = Resource
+
+    def get_initial(self):
+        # Get the initial dictionary from the superclass method
+        initial = super(AddResource, self).get_initial()
+        # Copy the dictionary so we don't accidentally change a mutable dict
+        initial = initial.copy()
+        initial['created_by'] = self.request.user.pk
+        return initial
+
+    def form_valid(self, form):
+        form.set_additional(self.request.user)
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        pass
+

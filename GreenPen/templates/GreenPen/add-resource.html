@@ -1,0 +1,45 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% load static %}
+{% load crispy_forms_filters %}
+
+{% block title %}Exam Details{% endblock title %}
+{% block description %}These are the details of the exam {{ exam.name }}.{% endblock description %}
+
+{% block content %}
+
+        <!-- End of form media -->
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="row row-height">
+                <div class="col-md-12">
+                    <div class="col-md-8">
+                        {{ form.name | as_crispy_field }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.type | as_crispy_field }}
+                    </div>
+                    <div class="col-md-12">
+                        {{ form.url | as_crispy_field }}
+                    </div>
+                    <div class="col-md-12">
+                        {{ form.syllabus | as_crispy_field }}
+                    </div>
+                    {{ form.created_by | as_crispy_field }}
+                    <button type="submit" class="btn btn-primary">Save</button>
+
+                </div>
+
+            </div>
+        </form>
+
+    </div>
+
+{% endblock content %}
+
+{% block script %}
+
+    {{ form.media }}
+
+{% endblock script %}

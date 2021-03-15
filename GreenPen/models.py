@@ -782,17 +782,25 @@ class CSVDoc(models.Model):
 
 class ResourceType(models.Model):
     name = models.CharField(max_length=256, blank=False, null=False)
+    icon = models.CharField(max_length=256, blank=False, null=True, help_text="Enter a font-awesome string here.")
+
+    def __str__(self):
+        return self.name
 
 
 class Resource(models.Model):
     name = models.CharField(max_length=256, blank=False, null=False)
-    open_to_all = models.BooleanField()
+    open_to_all = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, blank=False, null=True, on_delete=models.SET_NULL)
     created = models.DateTimeField(blank=False, null=False, default=datetime.datetime.now)
     url = models.URLField(blank=True, null=True)
-    syllabus = models.ForeignKey(Syllabus, blank=False, null=True, on_delete=models.SET_NULL
-                                 )
-    allowed_groups = models.ManyToManyField(TeachingGroup)
+    syllabus = TreeManyToManyField(Syllabus, blank=False)
+    allowed_groups = models.ManyToManyField(TeachingGroup, blank=True)
+    type = models.ForeignKey(ResourceType,
+                             blank=False,
+                             null=True,
+                             on_delete=models.CASCADE,
+                             )
 
     def __str__(self):
         return self.name
@@ -810,6 +818,9 @@ class Resource(models.Model):
             return True
 
         return False
+
+    def icon(self):
+        return self.type.icon
 
 
 ## Models for calendaring
@@ -1258,10 +1269,10 @@ def generate_analsysios_df(marks=Mark.objects.none):
     df['Average'] = df.mean(axis=1)
 
     # Sort by question average
-    df.sort_values('Average', ascending=False)
+    df = df.sort_values('Average', ascending=False)
 
     #### Hacky! We have to remove and re-insert the mean because otherwise it will be in the wrong place
-    df=df.drop('Mean')
+    df = df.drop('Mean')
     df.loc['Mean'] = df.mean()
     # clean up
     df = df.round()

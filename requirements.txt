@@ -31,3 +31,4 @@ google-api-python-client==1.12.8
 jupyter
 ipython
 django-extensions
+colorlover

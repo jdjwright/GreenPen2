@@ -1,7 +1,7 @@
 from dal import autocomplete
 import json
 
-from GreenPen.models import Student, Syllabus, Mistake
+from GreenPen.models import Student, Syllabus, Mistake, TeachingGroup
 
 
 class StudentComplete(autocomplete.Select2QuerySetView):
@@ -43,4 +43,17 @@ class MistakeAutoComplete(autocomplete.Select2QuerySetView):
         qs = Mistake.objects.all()
         if self.q:
             qs = qs.filter(mistake__type__icontains=self.q)
+        return qs
+
+
+class TeachingGroupAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return TeachingGroup.objects.none()
+
+        qs = TeachingGroup.objects.all()
+
+        if self.q:
+            qs = qs.filter(text__icontains=self.q)
+
         return qs

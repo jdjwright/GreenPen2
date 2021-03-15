@@ -14,6 +14,8 @@ from django.contrib.auth.models import User
 from GreenPen.settings import CURRENT_ACADEMIC_YEAR
 from GreenPen.models import generate_analsysios_df
 
+import colorlover
+
 external_stylesheets=[dbc.themes.BOOTSTRAP]
 
 app = DjangoDash('ExamAnalysisDB', external_stylesheets=external_stylesheets)
@@ -45,6 +47,7 @@ app.layout = html.Div([
                 type="default",
                 children=dash_table.DataTable(
                     id='results-table',
+                    export_format="xlsx",
                     )
             ),
         ] ,className="twelve columns"),
@@ -62,23 +65,34 @@ app.css.append_css({
 
 
 @app.expanded_callback(
-    [Output('results-table', 'data'),Output('results-table', 'columns')],
+    [Output('results-table', 'data'),
+     Output('results-table', 'columns'),
+     Output('results-table', 'style_data_conditional')],
     [Input('subject-dropdown', 'value'),
      Input('exam-dropdown', 'value'),
      Input('sitting-dropdown', 'value'),
      ])
 def update_results_table(*args, **kwargs):
+    callback = kwargs['callback_context']
 
-    # Placeholder test values
-    e = Exam.objects.get(name="2020/21 Mock Y12 Structured paper")
-    qs = Mark.objects.filter(sitting__exam=e)
+    # Only want to filter for one exam at a time, and optionally one sitting
+    e_pk = callback.inputs['exam-dropdown.value']
+    if not e_pk:
+        return [], [], []
+    qs = Mark.objects.filter(sitting__exam__pk=e_pk)
+
+    s_pk = callback.inputs['sitting-dropdown.value']
+    if s_pk:
+        qs = qs.filter(sitting__pk=s_pk)
+
     df = generate_analsysios_df(qs)
+    # Need to reset index to include questoin number
+    df = df.reset_index()
+    styles = discrete_background_color_bins(df)
     columns = [{"name": i, "id": i} for i in df.columns]
     data = df.to_dict('records')
 
-
-    return data, columns
-
+    return data, columns, styles
 
 
 @app.expanded_callback(
@@ -126,3 +140,53 @@ def update_sitting_dropdown(*args, **kwargs):
     return [dict(label=str(sitting), value=sitting.pk) for sitting in sittings]
 
 
+def discrete_background_color_bins(df, n_bins=5, columns='all'):
+
+    bounds = [i * (1.0 / n_bins) for i in range(n_bins + 1)]
+    if columns == 'all':
+        if 'id' in df:
+            df_numeric_columns = df.select_dtypes('number').drop(['id'], axis=1)
+        else:
+            df_numeric_columns = df.select_dtypes('number')
+    else:
+        df_numeric_columns = df[columns]
+    df_max = df_numeric_columns.max().max()
+    df_min = df_numeric_columns.min().min()
+    ranges = [
+        ((df_max - df_min) * i) + df_min
+        for i in bounds
+    ]
+    styles = []
+    legend = []
+    for i in range(1, len(bounds)):
+        min_bound = ranges[i - 1]
+        max_bound = ranges[i]
+        backgroundColor = colorlover.scales[str(n_bins)]['div']['RdYlBu'][i - 1]
+        color = 'white' if i > len(bounds) / 2. else 'inherit'
+
+        for column in df_numeric_columns:
+            styles.append({
+                'if': {
+                    'filter_query': (
+                            '{{{column}}} >= {min_bound}' +
+                            (' && {{{column}}} < {max_bound}' if (i < len(bounds) - 1) else '')
+                    ).format(column=column, min_bound=min_bound, max_bound=max_bound),
+                    'column_id': column
+                },
+                'backgroundColor': backgroundColor,
+                'color': color
+            })
+        legend.append(
+            html.Div(style={'display': 'inline-block', 'width': '60px'}, children=[
+                html.Div(
+                    style={
+                        'backgroundColor': backgroundColor,
+                        'borderLeft': '1px rgb(50, 50, 50) solid',
+                        'height': '10px'
+                    }
+                ),
+                html.Small(round(min_bound, 2), style={'paddingLeft': '2px'})
+            ])
+        )
+
+    return styles

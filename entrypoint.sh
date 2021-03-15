@@ -14,4 +14,9 @@ cd /usr/src/app || exit
 
 # Apply any outstanding migrations
 python manage.py migrate
+
+# Update static files
+
+python manage.py collectstatic --noinput
+
 exec "$@"

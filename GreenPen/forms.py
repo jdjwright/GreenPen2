@@ -1,10 +1,10 @@
 from dal import autocomplete
-from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, TeachingGroup, Lesson, GQuizExam
+from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, TeachingGroup, Lesson, GQuizExam, Resource
 from django import forms
 from django.contrib.auth.models import User
 from mptt.forms import TreeNodeChoiceField
 from .widgets import TreeSelect
-from jstree.widgets import JsTreeWidget, JsTreeSingleWidget
+from jstree.widgets import JsTreeWidget, JsTreeSingleWidget, JSTreeMultipleWidget
 from django.urls import reverse
 import datetime
 import json
@@ -82,7 +82,6 @@ class SyllabusSingleChoiceField(TreeNodeChoiceField):
         return value
 
 
-
 class AddExamForm(forms.ModelForm):
     syllabus = SyllabusSingleChoiceField(queryset=Syllabus.objects.all())
     class Meta:
@@ -95,6 +94,20 @@ class AddExamForm(forms.ModelForm):
         # fields = {
         #     'syllabus': SyllabusSingleChoiceField(queryset=Syllabus.objects.all())
         # }
+        
+
+class AddResourceForm(forms.ModelForm):
+
+    class Meta:
+        model = Resource
+        fields = ['name', 'type', 'url', 'syllabus', 'created_by']
+        widgets = {
+            'syllabus': JsTreeWidget(url='/syllabus/json/', result_hidden=True),
+            'created_by': forms.HiddenInput()
+        }
+
+    def set_additional(self, user):
+        self.fields['created_by'] = user
 
 
 class AddGoogleExamForm(forms.ModelForm):

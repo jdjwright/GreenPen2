@@ -71,4 +71,5 @@ urlpatterns = [
     path('timetable/suspend', suspend_days, name='suspend_days'),
     path('mistake_json', load_mistake_children, name='mistake_json'),
     path('mistake_json/<int:mark_pk>', load_mistake_children, name='mistake_json_mark'),
+    path('resources/new', AddResource.as_view(), name='add_resource')
   ]

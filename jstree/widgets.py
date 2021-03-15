@@ -58,3 +58,6 @@ class JsTreeWidget(Input):
 class JsTreeSingleWidget(JsTreeWidget):
     template_name = "jstree/jstree_single.html"
 
+
+class JSTreeMultipleWidget(JsTreeWidget):
+    template_name = "jstree/jstree.html"
