@@ -18,6 +18,10 @@ import re
 from django.dispatch import receiver
 from django_pandas.io import read_frame
 import pandas as pd
+from django.utils.html import mark_safe
+import dash_html_components as html
+
+
 
 
 class Person(models.Model):
@@ -218,11 +222,26 @@ class Syllabus(MPTTModel):
         return resources
 
     @property
+    def resources_markdown(self):
+        string = ""
+        for r in self.resources():
+            string += r.markdown()
+        return string
+
+    @property
     def resources_html(self):
         string = ""
         for r in self.resources():
             string += r.html()
-        return string
+        return mark_safe(string)
+
+    @property
+    def dash_resources(self):
+        list = []
+        for r in self.resources():
+            row = html.A(href=r.url, children=[html.I(className="fas fa-fw fa-tachometer-alt")])
+            list.append(row)
+        return list
 
 
 
@@ -781,8 +800,6 @@ def student_mark_changed(sender, instance=Mark.objects.none(), **kwargs):
 #post_save.connect(student_mark_changed, sender=Mark)
 
 
-
-
 class CSVDoc(models.Model):
     description = models.CharField(max_length=255, blank=True)
     document = models.FileField(upload_to='documents/')
@@ -837,7 +854,10 @@ class Resource(models.Model):
     def html(self):
         string = '<a href="' + self.url
         string += '" data-toggle="tooltip" title="' + self.name + '">' + self.type.icon + '</a>'
-        return string
+        return mark_safe(string)
+
+    def markdown(self):
+        return "[" + self.name + "](" + mark_safe(self.url) + ")"
 
 
 ## Models for calendaring

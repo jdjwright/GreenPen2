@@ -12,6 +12,8 @@ from django_plotly_dash import DjangoDash
 from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup, Mistake, Mark, Question, Exam, Resource
 from django.contrib.auth.models import User
 from GreenPen.settings import CURRENT_ACADEMIC_YEAR
+from django.utils.html import mark_safe
+
 
 
 
@@ -153,7 +155,11 @@ def drop_mistake_columns(df, user):
 
     return df
 
-external_stylesheets=[dbc.themes.BOOTSTRAP]
+external_stylesheets=[dbc.themes.BOOTSTRAP,
+           "https://use.fontawesome.com/releases/v5.8.1/css/all.css" ]
+
+external_scripts = [{'src': "https://kit.fontawesome.com/3c927c3f34.js",
+                           'crossorigin': 'anonymous'}]
 
 # Get column headers for mistake table:
 # This is necessay to make tests and an initial setup work,
@@ -213,7 +219,7 @@ app.layout = html.Div([
             dcc.Loading(
                 id="review-table-loading",
                 type="default",
-                children=dash_table.DataTable(id='review-table')
+                children=dbc.Table(id='review-table')
             ),
         ] ,className="six columns"),
     ], className='row'),
@@ -736,8 +742,7 @@ def update_mistakes_table_headings(*args, **kwargs):
 
 
 @app.expanded_callback(
-    [Output('review-table', 'data'),
-     Output('review-table', 'columns')],
+    Output('review-table', 'children'),
     [Input('subject-dropdown', 'value'),
      Input('syllabus-graph', 'clickData'),
     ]
@@ -752,7 +757,18 @@ def update_resources_table(*args, **kwargs):
                {"name": "Syllabus", "id": "Syllabus"},
                {"name": "Resources", "id": "Resources"}]
     data = []
-    for point in s_with_rs:
-        data.append({"Rating": 1, "Syllabus": point.text, "Resources": point.resources_html})
 
-    return data, columns
+
+
+    table_header = [
+        html.Thead(html.Tr([html.Th("Rating"), html.Th("Name"), html.Th("Resources")]))
+    ]
+    rows = []
+    for point in s_with_rs:
+        rows.append(html.Tr([html.Td("1"),
+                             html.Td(point.text),
+                             html.Td(point.dash_resources)
+                             ])
+                    )
+
+    return table_header + rows
