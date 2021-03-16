@@ -751,7 +751,10 @@ def update_resources_table(*args, **kwargs):
     callback = kwargs['callback_context']
 
     syllabus = get_syllabus_point_from_graph(callback)
+    user = kwargs['user']
+    students = get_students_from_graph(callback, user)
 
+    sittings = set_sittings(callback, user)
     s_with_rs = syllabus.get_descendants(include_self=True).filter(resource__isnull=False).distinct()
     columns = [{"name": "Rating", "id": "Rating"},
                {"name": "Syllabus", "id": "Syllabus"},
@@ -765,10 +768,12 @@ def update_resources_table(*args, **kwargs):
     ]
     rows = []
     for point in s_with_rs:
-        rows.append(html.Tr([html.Td("1"),
+        rows.append(html.Tr([html.Td(round(point.cohort_stats(students, sittings)['rating'],1)),
                              html.Td(point.text),
-                             html.Td(point.dash_resources)
+                             html.Td(html.Div(point.dash_resources, className='row'))
                              ])
                     )
 
+    # Sort the rows
+    rows.sort(key=lambda x: x.children[0].children)
     return table_header + rows

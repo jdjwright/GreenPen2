@@ -20,6 +20,8 @@ from django_pandas.io import read_frame
 import pandas as pd
 from django.utils.html import mark_safe
 import dash_html_components as html
+import dash_bootstrap_components as dbc
+
 
 
 
@@ -239,7 +241,10 @@ class Syllabus(MPTTModel):
     def dash_resources(self):
         list = []
         for r in self.resources():
-            row = html.A(href=r.url, children=[html.I(className="fas fa-fw fa-tachometer-alt")])
+            row = html.Div([
+                html.A(href=r.url, id="resource-"+str(r.pk), children=[html.I(className=r.type.icon)]),
+                dbc.Tooltip(r.name, target="resource-"+str(r.pk))
+                ])
             list.append(row)
         return list
 
@@ -435,10 +440,10 @@ class Mistake(MPTTModel):
 
     def cohort_totals(self, cohort=Student.objects.all(), syllabus=Syllabus.objects.all(),
                       sittings=Sitting.objects.all()):
-        return Mark.objects.filter(mistakes=self,
+        return round(Mark.objects.filter(mistakes=self,
                                    student__in=cohort,
                                    sitting__in=sittings,
-                                   question__syllabus_points__in=syllabus).count()
+                                   question__syllabus_points__in=syllabus).count(), 1)
 
 
 class Mark(models.Model):
