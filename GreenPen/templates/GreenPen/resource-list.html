@@ -1,0 +1,41 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% load static %}
+
+{% block title %}Exam Details{% endblock title %}
+{% block description %}These are the details of the exam {{ exam.name }}.{% endblock description %}
+
+{% block content %}
+
+        <!-- End of form media -->
+
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th scope="col">Syllabus point</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Created</th>
+                    <th scope="col">Added by</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in object_list %}
+                    <tr>
+                        <td><ul>{% for s in  r.syllabus.all %}<li>{{ s }}</li>{% endfor %}</ul></td>
+                        <td><a href="{% url 'edit-resource' r.pk %}">{{ r.name }}</a></td>
+                        <td><i class="{{ r.icon }}"></i>{{ r.type }}</td>
+                        <td>{{ r.created }}</td>
+                        <td>{{ r.created_by }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+{% endblock content %}
+
+{% block script %}
+
+    {{ exam_form.media }}
+
+{% endblock script %}

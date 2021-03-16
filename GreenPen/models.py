@@ -242,7 +242,7 @@ class Syllabus(MPTTModel):
         list = []
         for r in self.resources():
             row = html.Div([
-                html.A(href=r.url, id="resource-"+str(r.pk), children=[html.I(className=r.type.icon)]),
+                html.A(target='_blank', href=r.url, id="resource-"+str(r.pk), children=[html.I(className=r.type.icon)]),
                 dbc.Tooltip(r.name, target="resource-"+str(r.pk))
                 ])
             list.append(row)

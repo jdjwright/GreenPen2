@@ -46,6 +46,21 @@
       </li>
 
         <li class="nav-item">
+            <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseFour" aria-expanded="true" aria-controls="collapseFour">
+                <i class="fas fa-paperclip"></i>
+                <span>Resources</span>
+            </a>
+            <div id="collapseFour" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
+                <div class="bg-white py-2 collapse-inner rounded">
+                    <h6 class="collapse-header">Resources</h6>
+                    <a class="collapse-item" href="{% url 'add_resource' %}"><i class="fas fa-plus-square"></i>Add a resource</a>
+                    <a class="collapse-item" href="{% url 'list-resources' %}"><i class="fas fa-list"></i></i>List all resources</a>
+
+                </div>
+            </div>
+        </li>
+
+        <li class="nav-item">
         <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseThree" aria-expanded="true" aria-controls="collapseTwo">
           <i class="fas fa-book-open"></i>
           <span>Timetable</span>

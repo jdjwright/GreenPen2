@@ -1186,3 +1186,8 @@ class ResourceSyllabusJSON(SyllabusJSONView):
         indeterminate = checked.get_ancestors(include_self=False)
 
         return checked, indeterminate
+
+
+class ResourceList(ListView):
+    model = Resource
+    template_name = 'GreenPen/resource-list.html'
