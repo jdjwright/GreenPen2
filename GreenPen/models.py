@@ -213,8 +213,17 @@ class Syllabus(MPTTModel):
                                  children_4_5=Sum('children_4_5'))
         return data
 
-    def resources(self):
-        return Resource.objects.filter(syllabus=self)
+    def resources(self, users=False):
+        resources = Resource.objects.filter(syllabus__in=self.get_descendants(include_self=True))
+        return resources
+
+    @property
+    def resources_html(self):
+        string = ""
+        for r in self.resources():
+            string += r.html()
+        return string
+
 
 
 class ExamType(models.Model):
@@ -821,6 +830,14 @@ class Resource(models.Model):
 
     def icon(self):
         return self.type.icon
+
+    def get_absolute_url(self):
+        return reverse('edit-resource', args=(self.pk, ))
+
+    def html(self):
+        string = '<a href="' + self.url
+        string += '" data-toggle="tooltip" title="' + self.name + '">' + self.type.icon + '</a>'
+        return string
 
 
 ## Models for calendaring

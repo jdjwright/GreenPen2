@@ -926,7 +926,7 @@ def load_mistake_children(request, mark_pk=False):
 
 
 @login_required()
-def load_syllabus_points(request):
+def load_syllabus_points(request, resource_pk=False):
     parent_id = request.GET.get('id')
     try:
         parent_id = int(parent_id)
@@ -934,6 +934,11 @@ def load_syllabus_points(request):
         children = Syllabus.objects.filter(parent=parent)
     except ValueError:
         children = Syllabus.objects.filter(level=0)
+
+    if resource_pk:
+        resource = Resource.objects.get(pk=resource_pk)
+        resource_syllabus = resource.syllabus.all()
+        resouce_syllabus_ancestors = resource.syllabus.all().get_ancestors(include_self=False)
 
     data = []
     for child in children:
@@ -952,6 +957,59 @@ def load_syllabus_points(request):
 
         })
     return JsonResponse(data, safe=False)
+
+
+class SyllabusJSONView(View):
+    """
+        Return all children of a parent.
+        Allows for setting indeterminate if a child has been set:
+        this is set by the 'get_children' method.
+        """
+    def set_children(self):
+        """
+        Overide this method to provide inerterminate checkbox
+        if a field has children set.
+        Returns checked and indeterminate syllabus points as querysets.
+        """
+        return Syllabus.objects.none(), Syllabus.objects.none()
+
+    def get(self, request, *args, **kwargs):
+        parent_id = self.request.GET.get('id')
+        checked, indeterminate = self.set_children()
+
+        try:
+            parent_id = int(parent_id)
+            parent = Syllabus.objects.get(pk=parent_id)
+            children = Syllabus.objects.filter(parent=parent)
+        except ValueError:
+            children = Syllabus.objects.filter(level=0)
+
+        data = []
+        for child in children:
+            if child.parent:
+                parent_pk = child.parent.pk
+            else:
+                parent_pk = '#'
+            undetermined = False
+            selected = False
+            opened = False
+            if child in indeterminate:
+                undetermined = True
+                opened = True
+
+            if child in checked:
+                selected = True
+
+            data.append({
+                'id': child.pk,
+                'parent': parent_pk,
+                'text': child.text,
+                'children': not child.is_leaf_node(),
+                'state': {'selected': selected,
+                          'undetermined': undetermined,
+                          'opened': opened}
+            })
+        return JsonResponse(data, safe=False)
 
 
 @login_required()
@@ -1088,18 +1146,43 @@ class AddResource(TeacherOnlyMixin, CreateView):
     form_class = AddResourceForm
     model = Resource
 
+
     def get_initial(self):
         # Get the initial dictionary from the superclass method
         initial = super(AddResource, self).get_initial()
         # Copy the dictionary so we don't accidentally change a mutable dict
         initial = initial.copy()
         initial['created_by'] = self.request.user.pk
+
         return initial
+
+    def get_form(self):
+        form = super(AddResource, self).get_form(self.form_class)
+        if self.object:
+            form.fields['syllabus'].widget.set_url(reverse('resource-syllabus-json', args=[self.object.pk]))
+        else:
+            form.fields['syllabus'].widget.set_url(reverse('json_syllabus_points'))
+        return form
 
     def form_valid(self, form):
         form.set_additional(self.request.user)
+        messages.success(self.request, "Resource saved successfully. Click <a href='/resources/new'>here</a> to add another")
         return super().form_valid(form)
 
     def form_invalid(self, form):
         pass
 
+
+class EditResource(AddResource, UpdateView):
+    def get_initial(self):
+        return super(AddResource, self).get_initial()
+
+
+class ResourceSyllabusJSON(SyllabusJSONView):
+    def set_children(self):
+        resource_pk = self.kwargs['resource_pk']
+        resource = Resource.objects.get(pk=resource_pk)
+        checked = resource.syllabus.all()
+        indeterminate = checked.get_ancestors(include_self=False)
+
+        return checked, indeterminate

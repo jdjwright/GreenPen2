@@ -25,8 +25,9 @@ urlpatterns = [
     path('', splash, name='splash'),
     path('admin/', admin.site.urls),
     path('syllabus/json/<int:syllabus_pk>', send_syllabus_children, name='ajax-syllabus-children'),
-    path('syllabus/json/', load_syllabus_points, name='json_syllabus_points'),
+    path('syllabus/json/', SyllabusJSONView.as_view(), name='json_syllabus_points'),
     path('syllabus/json/exam/<int:exam_pk>/', load_syllabus_points_exam, name='load_syllabus_points_exam'),
+    path('syllabus/json/resource/<int:resource_pk>/', ResourceSyllabusJSON.as_view(), name='resource-syllabus-json'),
     path('students/', StudentList.as_view(), name='student_list'),
     path('students/update', update_students, name='update_students'),
     path('uploadstudents', import_students, name='import_students'),
@@ -71,5 +72,6 @@ urlpatterns = [
     path('timetable/suspend', suspend_days, name='suspend_days'),
     path('mistake_json', load_mistake_children, name='mistake_json'),
     path('mistake_json/<int:mark_pk>', load_mistake_children, name='mistake_json_mark'),
-    path('resources/new', AddResource.as_view(), name='add_resource')
+    path('resources/new', AddResource.as_view(), name='add_resource'),
+    path('resources/<int:pk>', EditResource.as_view(), name='edit-resource')
   ]

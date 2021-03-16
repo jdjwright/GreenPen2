@@ -9,7 +9,7 @@ from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
 from django_plotly_dash import DjangoDash
-from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup, Mistake, Mark, Question, Exam
+from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup, Mistake, Mark, Question, Exam, Resource
 from django.contrib.auth.models import User
 from GreenPen.settings import CURRENT_ACADEMIC_YEAR
 
@@ -197,7 +197,8 @@ app.layout = html.Div([
 
                 ]),
             ]),
-        ]), ]),
+        ]),
+    ]),
     html.Div([
         html.Div([
             html.H3('Syllabus Performance'),
@@ -208,15 +209,14 @@ app.layout = html.Div([
             ),
         ] ,className="six columns"),
         html.Div([
-            html.H3('Mistakes'),
+            html.H3('Review Materials'),
             dcc.Loading(
-                id="mistake-chart-loading",
+                id="review-table-loading",
                 type="default",
-                children=dcc.Graph(id='mistake-chart')
+                children=dash_table.DataTable(id='review-table')
             ),
-            html.Button('Reset filter on this graph', id='time-chart-reset')
-        ], className="six columns"),
-    ], className='Row'),
+        ] ,className="six columns"),
+    ], className='row'),
     html.Div([
         html.Div([
             html.H3('Over Time'),
@@ -226,10 +226,17 @@ app.layout = html.Div([
                 children=dcc.Graph(id='time-chart')
             ),
             html.Button('Reset filter on this graph', id='time-chart-reset')
-    ], className="six columns"),
-
-
-    html.Div([
+    ], className="four columns"),
+        html.Div([
+            html.H3('Mistakes'),
+            dcc.Loading(
+                id="mistake-chart-loading",
+                type="default",
+                children=dcc.Graph(id='mistake-chart')
+            ),
+            html.Button('Reset filter on this graph', id='time-chart-reset')
+        ], className="four columns"),
+        html.Div([
         html.H3('Group Performance'),
         dcc.Loading(
             id="group-performance-loading",
@@ -237,7 +244,7 @@ app.layout = html.Div([
             children=dcc.Graph(id='group-chart')
         ),
         html.Button('Reset filter on this graph', id='group-performance-reset')
-        ], className="six columns")
+        ], className="four columns")
     ], className="row"),
 
     html.Div([
@@ -705,7 +712,6 @@ def update_mistakes_table(*args, **kwargs):
 
     return data
 
-
 @app.expanded_callback(
     Output('mistakes-table', 'columns'),
     [Input('url', 'pathname')]
@@ -727,3 +733,26 @@ def update_mistakes_table_headings(*args, **kwargs):
     init_df = drop_mistake_columns(init_df, user)
     columns = [{"name": i, "id": i} for i in init_df.columns]
     return columns
+
+
+@app.expanded_callback(
+    [Output('review-table', 'data'),
+     Output('review-table', 'columns')],
+    [Input('subject-dropdown', 'value'),
+     Input('syllabus-graph', 'clickData'),
+    ]
+)
+def update_resources_table(*args, **kwargs):
+    callback = kwargs['callback_context']
+
+    syllabus = get_syllabus_point_from_graph(callback)
+
+    s_with_rs = syllabus.get_descendants(include_self=True).filter(resource__isnull=False).distinct()
+    columns = [{"name": "Rating", "id": "Rating"},
+               {"name": "Syllabus", "id": "Syllabus"},
+               {"name": "Resources", "id": "Resources"}]
+    data = []
+    for point in s_with_rs:
+        data.append({"Rating": 1, "Syllabus": point.text, "Resources": point.resources_html})
+
+    return data, columns
