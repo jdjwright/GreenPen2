@@ -172,6 +172,7 @@ class Syllabus(MPTTModel):
     parent = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.CASCADE)
     identifier = models.CharField(max_length=20, blank=True, null=True,
                                   help_text='This would be a sub point number, e.g. if this is 1.1.1 Blah blah, enter 1')
+    tier = models.CharField(max_length=20, blank=True, null=True)
 
     def __str__(self):
         string = ''
@@ -255,6 +256,7 @@ class ExamType(models.Model):
     Provides a list of exam types
     """
     type = models.CharField(max_length=256, blank=False, null=False)
+    eligible_for_self_assessment = models.BooleanField(default=False)
 
     def __str__(self):
         return self.type
@@ -350,8 +352,9 @@ post_save.connect(new_question_created, sender=Question)
 
 class Sitting(models.Model):
     exam = models.ForeignKey(Exam, blank=False, null=False, on_delete=models.CASCADE)
+    self_assessed = models.BooleanField(default=False)
     date = models.DateField(blank=False, null=False, default=datetime.date.today)
-    students = models.ManyToManyField(Student)  # Depreciated
+    students = models.ManyToManyField(Student)
     resets_ratings = models.BooleanField(blank=True, null=True, default=False)
     group = models.ForeignKey(TeachingGroup, blank=True, null=True, on_delete=models.SET_NULL)
 
@@ -413,6 +416,7 @@ class Sitting(models.Model):
             return self.students.all()
         else:
             return Student.objects.filter(teachinggroup=self.group)
+
 
 
 def student_added_to_sitting(sender, instance, action, **kwargs):
@@ -1228,6 +1232,13 @@ class GQuizSitting(Sitting):
     scores_sheet_url = models.URLField(blank=False, null=True)
     scores_sheet_key = models.CharField(blank=False, null=True, max_length=1000, help_text="This is the ID field of the Google Sheet with your answers on it.")
     importing = models.BooleanField(default=False)
+    self_assessment = models.BooleanField(default=False, help_text='Set to yes if this is a student self-assessment attempt')
+    order = models.IntegerField(blank=True, null=True)
+
+    def self_assessment_link(self):
+        exam = GQuizExam.objects.get(pk=self.exam.pk)
+        return "<a href='{url}'>{name}</a>".format(url=str(exam.master_form_url), name=str(exam.name))
+
 
     def import_scores(self):
         if self.importing:

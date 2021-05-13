@@ -229,3 +229,34 @@ def import_groups_from_sims(path):
             student.user.save()
             current_group.students.add(student)
             print("Added " + str(student))
+
+
+def import_syllabus_from_csv_new(path):
+    with open(path, newline='') as csvfile:
+        points = csv.reader(csvfile, delimiter=',', quotechar='"')
+        # Skip headers
+        next(points, None)
+        home_point = Syllabus.objects.get(text='Garden International School')
+
+        for row in points:
+            print('Adding ' + row[9])
+            course, created = Syllabus.objects.get_or_create(identifier=row[0],
+                                                             default={'text', row[0],
+                                                                      'parent', home_point,
+                                                                      })
+        topic, created = Syllabus.objects.get_or_create(parent=course, identifier=row[1],
+                                               defaults={'text', row[2]})
+        sub_topic, created = Syllabus.objects.get_or_create(parent=topic, identifier=row[3],
+                                                   defaults={'text', row[4]})
+        if row[5]=="N/A":
+            point, created = Syllabus.objects.get_or_create(parent=sub_topic, identifier=row[8],
+                                                   defaults={'text', row[9],
+                                                             'tier', row[7]})
+        else:
+            sub_sub_topic, created = Syllabus.objects.get_or_create(parent=sub_topic, identifier=row[5],
+                                                           defaults={'text', row[6]})
+            point, created = Syllabus.objects.get_or_create(parent=sub_sub_topic, identifier=row[8],
+                                                   defaults={'text', row[9],
+                                                             'tier', row[7]})
+
+

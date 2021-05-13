@@ -30,7 +30,7 @@
     <script type="text/javascript" src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
     <script src="{% static "js/move_questions.js"%}"></script>
 
-
+    <script src="{% static "js/log_initial_exam_syllabus_items.js" %}"></script>
 
     {{ exam_form.media }}
 
@@ -43,5 +43,5 @@
     <script src="/staticfiles/autocomplete_light/autocomplete_light.js"></script>
     <script src="/staticfiles/autocomplete_light/select2.js"></script>
     <script src="/staticfiles/autocomplete_light/i18n/en.js"></script>
-
+    <script defer src="{% static "js/set_tree_green_if_added.js" %}"></script>
 {% endblock script %}

@@ -242,3 +242,11 @@ th.rotate > div {
 .invalid-feedback{
     display: contents;
 }
+
+.selected_syllabus_point{
+    background: #00cc66 !important;
+}
+
+.parent-selected-point{
+    background: #EFEFAF !important;
+}

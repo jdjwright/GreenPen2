@@ -30,7 +30,7 @@ def get_groups_from_graph(callback, user=User.objects.none()):
 
     # If we're a student, only output themselves.
     if user.groups.filter(name='Students').count():
-        groups = TeachingGroup.objects.filter(students=Student.objects.get(user=user, use_for_exams=True),
+        groups = TeachingGroup.objects.filter(students=Student.objects.get(user=user), use_for_exams=True,
                                               archived=False)
 
     if user.groups.filter(name='Teachers').count():
@@ -621,24 +621,25 @@ def update_subject_options(*args, **kwargs):
 )
 def update_classgroup_dropdowns(*args, **kwargs):
     syllabus_pk = kwargs['callback_context'].inputs['subject-dropdown.value']
-    if not syllabus_pk:
-        return False
-    syllabus = Syllabus.objects.get(pk=syllabus_pk)
     user = kwargs['user']
-    # Teachers can see everyone:
     if user.groups.filter(name='Teachers').count():
-        classgroups = TeachingGroup.objects.filter(syllabus=syllabus, archived=False, use_for_exams=True)
+        tgs = TeachingGroup.objects.filter( archived=False, use_for_exams=True)
 
     elif user.groups.filter(name='Students').count():
         student = Student.objects.get(user=user)
-        classgroups = TeachingGroup.objects.filter(students=student,
-                                                   syllabus=syllabus,
-                                                   use_for_exams=True)
+        tgs = TeachingGroup.objects.filter(students=student,
+                                           use_for_exams=True)
     else:
         raise NotImplementedError('User must belong to either Teachers or Students groups')
 
+    if not syllabus_pk:
+        return [dict(label=group.name, value=group.pk) for group in tgs]
 
-    return [dict(label=group.name, value=group.pk) for group in classgroups]
+    # Now filter if we've picked a syllabus
+    syllabus = Syllabus.objects.get(pk=syllabus_pk)
+    tgs = tgs.filter(syllabus=syllabus)
+
+    return [dict(label=group.name, value=group.pk) for group in tgs]
 
 
 @app.expanded_callback(
@@ -745,6 +746,7 @@ def update_mistakes_table_headings(*args, **kwargs):
     Output('review-table', 'children'),
     [Input('subject-dropdown', 'value'),
      Input('syllabus-graph', 'clickData'),
+     Input('student-dropdown', 'clickData')
     ]
 )
 def update_resources_table(*args, **kwargs):
@@ -755,6 +757,7 @@ def update_resources_table(*args, **kwargs):
     students = get_students_from_graph(callback, user)
 
     sittings = set_sittings(callback, user)
+
     s_with_rs = syllabus.get_descendants(include_self=True).filter(resource__isnull=False).distinct()
     columns = [{"name": "Rating", "id": "Rating"},
                {"name": "Syllabus", "id": "Syllabus"},
@@ -768,7 +771,11 @@ def update_resources_table(*args, **kwargs):
     ]
     rows = []
     for point in s_with_rs:
-        rows.append(html.Tr([html.Td(round(point.cohort_stats(students, sittings)['rating'],1)),
+        try:
+            rating = round(point.cohort_stats(students, sittings)['rating'],1)
+        except TypeError:
+            rating = "N/A"
+        rows.append(html.Tr([html.Td(rating),
                              html.Td(point.text),
                              html.Td(html.Div(point.dash_resources, className='row'))
                              ])

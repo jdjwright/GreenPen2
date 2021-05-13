@@ -652,7 +652,7 @@ def new_sitting(request, exam_pk):
     exam = Exam.objects.get(pk=exam_pk)
     questions = Question.objects.filter(exam=exam)
     sittingform = NewSittingForm()
-    sittingform.set_group_choices(user=request.user)
+    # sittingform.set_group_choices(user=request.user)
     if request.method == 'POST':
         sittingform = NewSittingForm(request.POST)
         if sittingform.is_valid():
@@ -1191,3 +1191,54 @@ class ResourceSyllabusJSON(SyllabusJSONView):
 class ResourceList(ListView):
     model = Resource
     template_name = 'GreenPen/resource-list.html'
+
+
+@login_required
+def create_self_assessment_sitting(request, exam_pk, student_pk):
+    """
+    Create a self-assessment sitting of an exam for a student. This can be
+    either self-selected if he requesting user is a student, or assigned if the
+    requesting user is a teacher.
+    """
+
+    student = get_object_or_404(Student, pk=student_pk)
+    exam = get_object_or_404(Exam, pk=exam_pk)
+    # Security check:
+    if request.user.groups.filter(name='Teacher').count() < 1: # not a teacher
+        if student.user != request.user:
+            return HttpResponseForbidden
+
+    # Check this is a self-assessment exam
+
+    if not exam.type.eligible_for_self_assessment:
+        return HttpResponseForbidden
+
+    previous_attempts = GQuizSitting.objects.filter(exam=exam,
+                                               students=student).count()
+
+    sitting = Sitting.objects.create(exam=exam,
+                                     date=datetime.date.today(),
+                                     self_assessment=True,
+                                     order=previous_attempts + 1,
+                                     self_assessed=True)
+
+    messages.success(request, "Your sitting has been created. Click {link} to open it.".format(link=sitting.self_assessment_link))
+    return redirect(reverse('splash'))
+
+
+def recieve_google_completion_message():
+    """
+    This code receives a POST request from Google to tell us that a student has
+    completed an online assessment, so that we can now retrieve that students'
+    answers and update their scores.
+
+    This code will only work with new attempts, so we must be careful to manually
+    re-enter the whole thing if a teacher changes answers or the original Google form
+    becomes corrupt.
+
+    The POST payload should include the following:
+
+    gapps_id: PK of the teacher who set it up
+    gapps_key: alphanumeric password generated at runtime.
+    sheet_id; 
+    """

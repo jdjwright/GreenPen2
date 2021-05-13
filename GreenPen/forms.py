@@ -139,8 +139,8 @@ class NewSittingForm(forms.Form):
     def set_group_choices(self, user=User.objects.none()):
         """ Restrict the settable groups based upon the user creating the form. """
         tgs = TeachingGroup.objects.filter(archived=False, use_for_exams=True)
-        if not User.has_perm('GreenPen.create_any_sitting'):
-            tgs = tgs.filter(teachers__user=user)
+        # if not User.has_perm('GreenPen.create_any_sitting'):
+        #     tgs = tgs.filter(teachers__user=user)
 
         self.group.choices = tgs
 
