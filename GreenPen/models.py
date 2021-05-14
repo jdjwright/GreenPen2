@@ -174,6 +174,12 @@ class Syllabus(MPTTModel):
                                   help_text='This would be a sub point number, e.g. if this is 1.1.1 Blah blah, enter 1')
     tier = models.CharField(max_length=20, blank=True, null=True)
 
+    class Meta:
+        ordering = ['identifier']
+
+    class MPTTMeta:
+        order_insertion_by  = ['identifier']
+
     def __str__(self):
         string = ''
         for ancestor in self.get_ancestors():

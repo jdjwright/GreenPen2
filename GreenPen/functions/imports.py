@@ -241,22 +241,22 @@ def import_syllabus_from_csv_new(path):
         for row in points:
             print('Adding ' + row[9])
             course, created = Syllabus.objects.get_or_create(identifier=row[0],
-                                                             default={'text', row[0],
-                                                                      'parent', home_point,
+                                                             defaults={'text': row[0],
+                                                                      'parent': home_point,
                                                                       })
-        topic, created = Syllabus.objects.get_or_create(parent=course, identifier=row[1],
-                                               defaults={'text', row[2]})
-        sub_topic, created = Syllabus.objects.get_or_create(parent=topic, identifier=row[3],
-                                                   defaults={'text', row[4]})
-        if row[5]=="N/A":
-            point, created = Syllabus.objects.get_or_create(parent=sub_topic, identifier=row[8],
-                                                   defaults={'text', row[9],
-                                                             'tier', row[7]})
-        else:
-            sub_sub_topic, created = Syllabus.objects.get_or_create(parent=sub_topic, identifier=row[5],
-                                                           defaults={'text', row[6]})
-            point, created = Syllabus.objects.get_or_create(parent=sub_sub_topic, identifier=row[8],
-                                                   defaults={'text', row[9],
-                                                             'tier', row[7]})
+            topic, created = Syllabus.objects.get_or_create(parent=course, identifier=row[1],
+                                                   defaults={'text': row[2]})
+            sub_topic, created = Syllabus.objects.get_or_create(parent=topic, identifier=row[3],
+                                                       defaults={'text': row[4]})
+            if row[5]=="N/A":
+                point, created = Syllabus.objects.get_or_create(parent=sub_topic, identifier=row[8],
+                                                       defaults={'text': row[9],
+                                                                 'tier': row[7]})
+            else:
+                sub_sub_topic, created = Syllabus.objects.get_or_create(parent=sub_topic, identifier=row[5],
+                                                               defaults={'text': row[6]})
+                point, created = Syllabus.objects.get_or_create(parent=sub_sub_topic, identifier=row[8],
+                                                       defaults={'text': row[9],
+                                                                 'tier': row[7]})
 
 

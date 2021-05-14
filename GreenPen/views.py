@@ -108,7 +108,7 @@ def import_syllabus(request):
         if csvform.is_valid():
             file = csvform.save()
             path = file.document.path
-            import_syllabus_from_csv(path)
+            import_syllabus_from_csv_new(path)
             os.remove(path)
             file.delete()
             return redirect('/')
@@ -1036,6 +1036,13 @@ def load_syllabus_points_exam(request, exam_pk):
         exam_syllabus = exam.syllabus
         exam_ancestors = exam_syllabus.get_ancestors(include_self=False)
 
+    # We also want to open the nodes for any points already
+    # in the exam
+
+    included_points = Syllabus.objects.filter(question__exam=exam)
+
+    included_ancestors = included_points.get_ancestors(include_self=False)
+
     #  Build a list of the parent points.
     data = []
     for child in children:
@@ -1046,6 +1053,7 @@ def load_syllabus_points_exam(request, exam_pk):
         undetermined = False
         selected = False
         opened = False
+        li_attr = False
         if exam.syllabus:
             if child in exam_ancestors:
                 undetermined = True
@@ -1054,6 +1062,13 @@ def load_syllabus_points_exam(request, exam_pk):
             if child == exam_syllabus:
                 selected = True
 
+        if child in included_ancestors:
+            opened = True
+            li_attr = {"class": "jstree-ancestor-checked"}
+
+        if child in included_points:
+            li_attr = {"class": "jstree-syllabus-checked"}
+
         data.append({
             'id': child.pk,
             'parent': parent_pk,
@@ -1061,7 +1076,8 @@ def load_syllabus_points_exam(request, exam_pk):
             'children': not child.is_leaf_node(),
             'state': {'selected': selected,
                       'undetermined': undetermined,
-                      'opened': opened}
+                      'opened': opened},
+            'li_attr': li_attr
         })
     return JsonResponse(data, safe=False)
 
