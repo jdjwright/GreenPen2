@@ -1,6 +1,10 @@
 
-$('#id_syllabus-tree').bind('loaded.jstree', function(e, data) {
-    $('.select2-hidden-accessible').each(function() {
+$('#id_syllabus-tree').bind('loaded.jstree', function (e, data) {
+    bind_select2_to_tree()
+})
+
+function bind_select2_to_tree() {
+    $('.select2-hidden-accessible').not('.syllabus-tree-bound').each(function() {
         $(this).on('select2:select', function (e) {
             if(isNaN( points_added[e.params.data.id])) {
                 points_added[e.params.data.id] = 1
@@ -22,8 +26,12 @@ $('#id_syllabus-tree').bind('loaded.jstree', function(e, data) {
             set_tree_inserted_syllabus_points()
 
         })
+        $(this).addClass('syllabus-tree-bound');
+
+        // Remove the keyup binding so we don't keep firing events.
+
     });
-})
+}
 
 $('#id_syllabus-tree').bind('open_node.jstree', function(e, data) {
     set_tree_inserted_syllabus_points()

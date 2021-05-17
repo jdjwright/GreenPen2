@@ -48,12 +48,23 @@ $(document).on('click',".insert-button", function() {
     empty_q.removeClass('empty-question');
     empty_q.addClass('not-saved');
     let order_box = empty_q.find('.exam-order input');
-    order_box.val(-1)
+    order_box.val(-1);
     empty_q.slideDown();
 
-    set_order()
+    set_order();
+    // We have to fire an event rather than doing this directly, so that
+    // select2 has time to create the '.select2-hidden-accessible' object
 
 });
+
+$(document).on("click", function() {
+    bind_select2_to_tree();
+})
+
+$(document).on("keydown", function() {
+    bind_select2_to_tree();
+})
+
 
 $(document).on('click',".delete-button", function(){
     let current_q = $(this).closest($('.question'));
