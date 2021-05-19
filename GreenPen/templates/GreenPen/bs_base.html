@@ -11,7 +11,7 @@
   <meta name="description" content="">
   <meta name="author" content="">
 
-  <title>GreenPen</title>
+  <title>{% block title %}{% endblock title %}</title>
 
   <!-- Custom fonts for this template-->
   <link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet" type="text/css">
@@ -68,9 +68,11 @@
 
           </div>
         <div class="row">
+        <div class="col">
             {% block content %}
 
             {% endblock %}
+        </div>
         </div>
 
 

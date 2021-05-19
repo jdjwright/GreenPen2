@@ -1,0 +1,27 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% load static %}
+
+{% block title %}Do a self-paced Quiz{% endblock title %}
+
+{% block content %}
+<div class="row">
+<div class="col">
+<h1>{{ sitting.exam.name }}</h1>
+</div>
+</div>
+    <div class="row">
+    <div class="col-md-12">
+    <p>
+    Please complete the quiz {{ sitting.self_assessment_link | safe }}
+    </p>
+    <p>When you've submitted your answer, click the button below to import your answers to GreenPen</p>
+    <a href="{% url 'import_student_self_assessment_scores_2' sitting.pk student.pk%}"><button class="btn btn-primary">Import</button></a>
+    </div>
+    </div>
+{% endblock content %}
+
+{% block script %}
+
+
+{% endblock script %}

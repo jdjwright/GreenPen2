@@ -777,7 +777,7 @@ def update_resources_table(*args, **kwargs):
             rating = "N/A"
         rows.append(html.Tr([html.Td(rating),
                              html.Td(point.text),
-                             html.Td(html.Div(point.dash_resources, className='row'))
+                             html.Td(html.Div(point.dash_resources(kwargs['user']), className='row'))
                              ])
                     )
 

@@ -100,7 +100,7 @@ class AddResourceForm(forms.ModelForm):
 
     class Meta:
         model = Resource
-        fields = ['name', 'type', 'url', 'syllabus', 'created_by']
+        fields = ['name', 'type', 'url', 'syllabus', 'created_by', 'exam']
         widgets = {
             'syllabus': JsTreeWidget(url='/syllabus/json/', result_hidden=True),
             'created_by': forms.HiddenInput()

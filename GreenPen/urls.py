@@ -18,11 +18,14 @@ from django.contrib.auth.views import LogoutView, LoginView
 from django.urls import path, include
 from GreenPen.autocomplete import *
 from GreenPen.views import *
+import debug_toolbar
+
 
 from GreenPen.dash_apps.finished_apps import TeacherDashboard, StudentDashboard, ExamAnalysisDB
 
 urlpatterns = [
     path('ckeditor/', include('ckeditor_uploader.urls')),
+    path('__debug__/', include(debug_toolbar.urls)),
     path('', splash, name='splash'),
     path('admin/', admin.site.urls),
     path('syllabus/json/<int:syllabus_pk>', send_syllabus_children, name='ajax-syllabus-children'),
@@ -37,6 +40,7 @@ urlpatterns = [
     path('uploadquestions', import_questions),
     path('uploadsittings', import_sittings),
     path('uploadmarks', import_marks),
+    path('gquizalert', gquiz_alert),
     path('updateclasses', update_classgroups, name='update_classgroups'),
     path('updateassignments', update_assignments),
     path('student-autocomplete', StudentComplete.as_view(), name='student-autocomplete'),
@@ -49,8 +53,9 @@ urlpatterns = [
     path('exam/<int:exam>/edit', EditExamQsView.as_view(), name='edit-exam'),
     path('exam/<int:exam>/duplicate', duplicate_exam, name='duplicate-exam'),
     path('exam/<int:exam_pk>/new-sitting', new_sitting, name='new-sitting'),
+    path('exam/<int:exam_pk>/<int:student_pk>/new_ss_sitting', create_self_assessment_sitting, name='create_self_assessment_sitting'),
     path('student/dashboard', student_dashboard, name='student-dashboard'),
-    path('student/<int:student_pk>/exams',student_exam_view, name='student-exam-list'),
+    path('student/<int:student_pk>/exams', student_exam_view, name='student-exam-list'),
     path('student/exams', student_exam_entry, name='student-exam-list-entry'),
     path('bs', teacher_dashboard, name='bs-sample'),
     path('exam-analysis', exam_analysis_db, name='exam-analysis-db'),
@@ -61,6 +66,9 @@ urlpatterns = [
     path('sitting/<int:sitting_pk>/delete', confirm_delete_sitting, name='delete-sitting1'),
     path('sitting/<int:sitting_pk>/confirm_delete', delete_sitting, name='delete-sitting2'),
     path('sitting/<int:sitting_pk>/import_scores', import_sitting_scores, name='import_scores'),
+    path('sitting/<int:sitting_pk>/<int:student_pk>/import1', import_student_self_assessment_scores_pt1, name='import_student_self_assessment_scores')
+    ,
+    path('sitting/<int:sitting_pk>/<int:student_pk>/import2', import_student_self_assessment_scores_pt1, name='import_student_self_assessment_scores_2'),
     path('marks/<int:mark_pk>', input_mark, name='input_mark'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('login/', LoginView.as_view(), name='login'),
@@ -76,4 +84,5 @@ urlpatterns = [
     path('resources', ResourceList.as_view(), name='list-resources'),
     path('resources/new', AddResource.as_view(), name='add_resource'),
     path('resources/<int:pk>', EditResource.as_view(), name='edit-resource')
+
   ]

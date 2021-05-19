@@ -32,3 +32,4 @@ jupyter
 ipython
 django-extensions
 colorlover
+django-debug-toolbar

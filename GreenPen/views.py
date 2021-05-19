@@ -1,7 +1,7 @@
 from GreenPen.models import Student, Question
 from django.views.generic.list import ListView, View
 from django.views.generic.edit import UpdateView
-from django.http import JsonResponse, HttpResponseForbidden, Http404, HttpResponseRedirect
+from django.http import JsonResponse, HttpResponseForbidden, Http404, HttpResponseRedirect, HttpResponse, HttpResponseBadRequest
 from django.forms import modelformset_factory
 from django.views.generic.edit import CreateView
 from django.core.exceptions import PermissionDenied
@@ -16,6 +16,9 @@ from .widgets import *
 import os
 import threading
 import gspread
+from .decorators import teacher_or_own_only
+from django.views.decorators.csrf import csrf_exempt
+
 
 from plotly.offline import plot
 import plotly.graph_objects as go
@@ -1209,7 +1212,7 @@ class ResourceList(ListView):
     template_name = 'GreenPen/resource-list.html'
 
 
-@login_required
+@teacher_or_own_only
 def create_self_assessment_sitting(request, exam_pk, student_pk):
     """
     Create a self-assessment sitting of an exam for a student. This can be
@@ -1220,26 +1223,32 @@ def create_self_assessment_sitting(request, exam_pk, student_pk):
     student = get_object_or_404(Student, pk=student_pk)
     exam = get_object_or_404(Exam, pk=exam_pk)
     # Security check:
-    if request.user.groups.filter(name='Teacher').count() < 1: # not a teacher
-        if student.user != request.user:
-            return HttpResponseForbidden
 
     # Check this is a self-assessment exam
 
     if not exam.type.eligible_for_self_assessment:
-        return HttpResponseForbidden
+        messages.error(request, "You attempted to create a self-assessment quiz using a non-self assesed exam")
+        return HttpResponseForbidden()
+
+    # Check if the student has started and not completed an attempt:
 
     previous_attempts = GQuizSitting.objects.filter(exam=exam,
-                                               students=student).count()
+                                               students=student).order_by('order')
 
-    sitting = Sitting.objects.create(exam=exam,
+    if previous_attempts.last():
+        if not previous_attempts.last().imported:
+            messages.warning(request, "Youv'e already started and not completed this quiz. Click  Click {link} to "
+                                      "open it.".format(link=previous_attempts.last().self_assessment_link))
+
+    sitting = GQuizSitting.objects.create(exam=exam,
                                      date=datetime.date.today(),
                                      self_assessment=True,
-                                     order=previous_attempts + 1,
-                                     self_assessed=True)
+                                     order=previous_attempts.count() + 1,
+                                     imported=False)
+    sitting.students.add(student)
 
-    messages.success(request, "Your sitting has been created. Click {link} to open it.".format(link=sitting.self_assessment_link))
-    return redirect(reverse('splash'))
+    messages.success(request, "Your sitting has been created. Click {link} to open it.".format(link=sitting.self_assessment_link()))
+    return redirect('import_student_self_assessment_scores', sitting_pk=sitting.pk, student_pk=student_pk)
 
 
 def recieve_google_completion_message():
@@ -1258,3 +1267,45 @@ def recieve_google_completion_message():
     gapps_key: alphanumeric password generated at runtime.
     sheet_id; 
     """
+    pass
+
+
+@teacher_or_own_only
+def import_student_self_assessment_scores_pt1(request, sitting_pk, student_pk):
+    sitting = get_object_or_404(GQuizSitting, pk=sitting_pk)
+    student = get_object_or_404(Student, pk=student_pk)
+
+    return render(request, "GreenPen/Import_quiz.html", {'student': student,
+                                           'sitting': sitting})
+
+
+@teacher_or_own_only
+def import_student_self_assessment_scores_pt2(request, sitting_pk, student_pk):
+
+    sitting = get_object_or_404(GQuizExam, pk=sitting_pk)
+    student = get_object_or_404(Student, pk=student_pk)
+
+
+@csrf_exempt
+def gquiz_alert(request):
+    if request.method == 'POST':
+        recieved_json = json.loads(request.body)
+        sheet_url = recieved_json['form_url']
+        student_email = recieved_json['student_email']
+        response_timestamp = recieved_json['ID']
+
+        remote_add = request.META['REMOTE_ADDR']
+
+
+        print('Sheet url: ' + sheet_url)
+        print('Email: ' + student_email)
+        print('Timestamp' + response_timestamp)
+        print('remote address:' + remote_add)
+
+        sitting = get_object_or_404(GQuizSitting, scores_sheet_url=sheet_url)
+
+        sitting.import_scores(email=student_email, timestamp=response_timestamp)
+
+        return HttpResponse('Success')
+    else:
+        return HttpResponseBadRequest

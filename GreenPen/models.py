@@ -244,12 +244,21 @@ class Syllabus(MPTTModel):
             string += r.html()
         return mark_safe(string)
 
-    @property
-    def dash_resources(self):
+
+    def dash_resources(self, user):
         list = []
+
+
         for r in self.resources():
+            # Teachers get a link to edit the resource
+
+            if user.groups.filter(name='Teachers').count():
+                link = reverse('edit-resource', args=[r.pk])
+            elif user.groups.filter(name='Students').count():
+                student_pk = Student.objects.get(user=user).pk
+                link = r.student_clickable_link(student_pk)
             row = html.Div([
-                html.A(target='_blank', href=r.url, id="resource-"+str(r.pk), children=[html.I(className=r.type.icon)]),
+                html.A(target='_blank', href=link, id="resource-"+str(r.pk), children=[html.I(className=r.type.icon)]),
                 dbc.Tooltip(r.name, target="resource-"+str(r.pk))
                 ])
             list.append(row)
@@ -358,11 +367,11 @@ post_save.connect(new_question_created, sender=Question)
 
 class Sitting(models.Model):
     exam = models.ForeignKey(Exam, blank=False, null=False, on_delete=models.CASCADE)
-    self_assessed = models.BooleanField(default=False)
     date = models.DateField(blank=False, null=False, default=datetime.date.today)
     students = models.ManyToManyField(Student)
     resets_ratings = models.BooleanField(blank=True, null=True, default=False)
     group = models.ForeignKey(TeachingGroup, blank=True, null=True, on_delete=models.SET_NULL)
+    imported = models.BooleanField(default=True, help_text='Set to true after results have been imported.')
 
     class Meta:
         permissions = [
@@ -834,7 +843,7 @@ class Resource(models.Model):
     open_to_all = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, blank=False, null=True, on_delete=models.SET_NULL)
     created = models.DateTimeField(blank=False, null=False, default=datetime.datetime.now)
-    url = models.URLField(blank=True, null=True)
+    url = models.URLField(blank=True, null=True, help_text='If creating a Google Quiz, this should be a link to edit the quiz on Google Forms.')
     syllabus = TreeManyToManyField(Syllabus, blank=False)
     allowed_groups = models.ManyToManyField(TeachingGroup, blank=True)
     type = models.ForeignKey(ResourceType,
@@ -842,6 +851,11 @@ class Resource(models.Model):
                              null=True,
                              on_delete=models.CASCADE,
                              )
+    exam = models.ForeignKey('GQuizExam',
+                             blank=True,
+                             null=True,
+                             on_delete=models.SET_NULL,
+                             help_text="If you've made a Google Self-Assessed quiz, add it to GreenPen first and then link it here.")
 
     def __str__(self):
         return self.name
@@ -866,13 +880,23 @@ class Resource(models.Model):
     def get_absolute_url(self):
         return reverse('edit-resource', args=(self.pk, ))
 
-    def html(self):
-        string = '<a href="' + self.url
+    def html(self, student_pk=False):
+        string = '<a href="' + self.student_clickable_link(student_pk=student_pk)
         string += '" data-toggle="tooltip" title="' + self.name + '">' + self.type.icon + '</a>'
         return mark_safe(string)
 
     def markdown(self):
         return "[" + self.name + "](" + mark_safe(self.url) + ")"
+
+    def student_clickable_link(self, student_pk):
+        if self.exam:
+            if student_pk:
+                return reverse('create_self_assessment_sitting',
+                               kwargs={'student_pk': student_pk,
+                                     'exam_pk': self.exam.pk})
+        else:
+            return self.url
+
 
 
 ## Models for calendaring
@@ -1239,16 +1263,20 @@ class GQuizSitting(Sitting):
     scores_sheet_key = models.CharField(blank=False, null=True, max_length=1000, help_text="This is the ID field of the Google Sheet with your answers on it.")
     importing = models.BooleanField(default=False)
     self_assessment = models.BooleanField(default=False, help_text='Set to yes if this is a student self-assessment attempt')
-    order = models.IntegerField(blank=True, null=True)
+    order = models.IntegerField(blank=True, null=True, help_text='Used for multiple attempts at same self-assessment quiz')
 
     def self_assessment_link(self):
         exam = GQuizExam.objects.get(pk=self.exam.pk)
         return "<a href='{url}'>{name}</a>".format(url=str(exam.master_form_url), name=str(exam.name))
 
 
-    def import_scores(self):
+    def import_scores(self, email=False, timestamp=False):
+        """ Use Google API to get the score data.
+        If an email is supplied, only process the data for that student.
+        """
         if self.importing:
-            raise AlreadyImportingScoreError
+            if not email:
+                raise AlreadyImportingScoreError
 
         self.importing = True
         self.save()
@@ -1262,6 +1290,12 @@ class GQuizSitting(Sitting):
         # Get the sitting:
 
         for row in qs:
+            if email:
+                if email != row['Student Email Address']:
+                    continue
+                elif timestamp != row['ID']:
+                    continue
+
             print(row)
             student = Student.objects.get(user__email=row['Student Email Address'])
 
