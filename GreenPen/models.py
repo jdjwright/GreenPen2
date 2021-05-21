@@ -6,11 +6,12 @@ from django.contrib.auth.models import User, Group
 from mptt.models import MPTTModel, TreeForeignKey, TreeManyToManyField
 from mptt.querysets import TreeQuerySet
 import datetime
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from django.db import IntegrityError, transaction
 from django.urls import reverse
 from GreenPen.settings import CALENDAR_START_DATE, CALENDAR_END_DATE, ACADEMIC_YEARS
 from django.db.models import Max
+from .validators import validate_g_form, validate_g_sheet
 from ckeditor.fields import RichTextField
 from .exceptions import MarkScoreError, AlreadyImportingScoreError
 import gspread
@@ -21,9 +22,6 @@ import pandas as pd
 from django.utils.html import mark_safe
 import dash_html_components as html
 import dash_bootstrap_components as dbc
-
-
-
 
 
 class Person(models.Model):
@@ -97,7 +95,8 @@ class TeachingGroup(models.Model):
     year_taught = models.IntegerField(null=True, blank=True)
     rollover_name = models.CharField(max_length=256, blank=True, null=True)
     lessons = models.ManyToManyField('TTSlot', blank=True)
-    use_for_exams = models.BooleanField(default=True, help_text="If you have mutliple identical groups, e.g. same A-level class taught by two different teachers, you will need to create three groups: one for each teacher, and one shared one. Use the teacher groups for timetabling and lesson monitoring, and the shared one for all exams. The'Use for exams' flag should be set for the exam class.")
+    use_for_exams = models.BooleanField(default=True,
+                                        help_text="If you have mutliple identical groups, e.g. same A-level class taught by two different teachers, you will need to create three groups: one for each teacher, and one shared one. Use the teacher groups for timetabling and lesson monitoring, and the shared one for all exams. The'Use for exams' flag should be set for the exam class.")
     linked_groups = models.ManyToManyField('TeachingGroup', blank=True)
 
     def __str__(self):
@@ -178,7 +177,7 @@ class Syllabus(MPTTModel):
         ordering = ['identifier']
 
     class MPTTMeta:
-        order_insertion_by  = ['identifier']
+        order_insertion_by = ['identifier']
 
     def __str__(self):
         string = ''
@@ -244,10 +243,8 @@ class Syllabus(MPTTModel):
             string += r.html()
         return mark_safe(string)
 
-
     def dash_resources(self, user):
         list = []
-
 
         for r in self.resources():
             # Teachers get a link to edit the resource
@@ -258,12 +255,12 @@ class Syllabus(MPTTModel):
                 student_pk = Student.objects.get(user=user).pk
                 link = r.student_clickable_link(student_pk)
             row = html.Div([
-                html.A(target='_blank', href=link, id="resource-"+str(r.pk), children=[html.I(className=r.type.icon)]),
-                dbc.Tooltip(r.name, target="resource-"+str(r.pk))
-                ])
+                html.A(target='_blank', href=link, id="resource-" + str(r.pk),
+                       children=[html.I(className=r.type.icon)]),
+                dbc.Tooltip(r.name, target="resource-" + str(r.pk))
+            ])
             list.append(row)
         return list
-
 
 
 class ExamType(models.Model):
@@ -353,11 +350,10 @@ class Question(models.Model):
     def average_pc(self, cohort=Student.objects.all(), sittings=False):
         avg = self.average(cohort, sittings)
         if self.max_score and avg:
-            return round(avg/self.max_score * 100, 0)
+            return round(avg / self.max_score * 100, 0)
 
 
 def new_question_created(sender, instance, **kwargs):
-
     for sitting in Sitting.objects.filter(exam__question=instance):
         sync_marks_with_sittings(sitting)
 
@@ -367,7 +363,7 @@ post_save.connect(new_question_created, sender=Question)
 
 class Sitting(models.Model):
     exam = models.ForeignKey(Exam, blank=False, null=False, on_delete=models.CASCADE)
-    date = models.DateField(blank=False, null=False, default=datetime.date.today)
+    date = models.DateTimeField(blank=False, null=False, default=datetime.datetime.now())
     students = models.ManyToManyField(Student)
     resets_ratings = models.BooleanField(blank=True, null=True, default=False)
     group = models.ForeignKey(TeachingGroup, blank=True, null=True, on_delete=models.SET_NULL)
@@ -379,7 +375,7 @@ class Sitting(models.Model):
         ]
 
     def __str__(self):
-        return str(self.exam) + " - " +str(self.group) + " " + str(self.date)
+        return str(self.exam) + " - " + str(self.group) + " " + str(self.date.date())
 
     def avg_percent(self):
         student_marks = Mark.objects.filter(sitting=self,
@@ -432,6 +428,29 @@ class Sitting(models.Model):
         else:
             return Student.objects.filter(teachinggroup=self.group)
 
+    def get_generic_teaching_group(self):
+        """
+        IF creating a whole-school self-assessment task,
+        this function will return the teaching group associated with
+        all students taking that exam.
+        """
+
+        if self.group:
+            # Dont' over-write explicity let groups
+            return self.group
+
+        else:
+            student = self.students.first()
+            year = student.year_group
+            subject = self.exam.syllabus.get_ancestors(include_self=True).get(level=2)
+            group, created = TeachingGroup.objects.get_or_create(name="Year " + str(year) + " " + subject.text,
+                                                                 defaults={
+                                                                     'year_taught': year,
+                                                                     'syllabus': subject,
+
+                                                                 })
+            group.students.add(*self.students.all())
+            return group
 
 
 def student_added_to_sitting(sender, instance, action, **kwargs):
@@ -460,9 +479,9 @@ class Mistake(MPTTModel):
     def cohort_totals(self, cohort=Student.objects.all(), syllabus=Syllabus.objects.all(),
                       sittings=Sitting.objects.all()):
         return round(Mark.objects.filter(mistakes=self,
-                                   student__in=cohort,
-                                   sitting__in=sittings,
-                                   question__syllabus_points__in=syllabus).count(), 1)
+                                         student__in=cohort,
+                                         sitting__in=sittings,
+                                         question__syllabus_points__in=syllabus).count(), 1)
 
 
 class Mark(models.Model):
@@ -481,10 +500,9 @@ class Mark(models.Model):
         if self.score is not None:
             self.set_student_syllabus_assessment_records()
 
-
     def pc(self):
         if self.question.max_score and self.score:
-            return round(self.score / self.question.max_score *100 , 0)
+            return round(self.score / self.question.max_score * 100, 0)
 
     def score_class(self):
         pc = self.pc()
@@ -821,7 +839,7 @@ def student_mark_changed(sender, instance=Mark.objects.none(), **kwargs):
         instance.set_student_syllabus_assessment_records()
 
 
-#post_save.connect(student_mark_changed, sender=Mark)
+# post_save.connect(student_mark_changed, sender=Mark)
 
 
 class CSVDoc(models.Model):
@@ -843,7 +861,8 @@ class Resource(models.Model):
     open_to_all = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, blank=False, null=True, on_delete=models.SET_NULL)
     created = models.DateTimeField(blank=False, null=False, default=datetime.datetime.now)
-    url = models.URLField(blank=True, null=True, help_text='If creating a Google Quiz, this should be a link to edit the quiz on Google Forms.')
+    url = models.URLField(blank=True, null=True,
+                          help_text='If creating a Google Quiz, this should be a link to edit the quiz on Google Forms.')
     syllabus = TreeManyToManyField(Syllabus, blank=False)
     allowed_groups = models.ManyToManyField(TeachingGroup, blank=True)
     type = models.ForeignKey(ResourceType,
@@ -878,7 +897,7 @@ class Resource(models.Model):
         return self.type.icon
 
     def get_absolute_url(self):
-        return reverse('edit-resource', args=(self.pk, ))
+        return reverse('edit-resource', args=(self.pk,))
 
     def html(self, student_pk=False):
         string = '<a href="' + self.student_clickable_link(student_pk=student_pk)
@@ -893,10 +912,9 @@ class Resource(models.Model):
             if student_pk:
                 return reverse('create_self_assessment_sitting',
                                kwargs={'student_pk': student_pk,
-                                     'exam_pk': self.exam.pk})
+                                       'exam_pk': self.exam.pk})
         else:
             return self.url
-
 
 
 ## Models for calendaring
@@ -1227,13 +1245,14 @@ def setup_lessons(teachinggrousp=TeachingGroup.objects.all()):
             i += 1
 
 
-
 class GQuizExam(Exam):
     master_form_url = models.URLField(null=False,
-                                         blank=False,
-                                         help_text="This must be the URL for the Google Form containing your questions")
+                                      blank=False,
+                                      validators=[validate_g_form],
+                                      help_text="This must be the URL for the Google Form containing your questions")
     master_response_sheet_url = models.URLField(null=True,
                                                 blank=False,
+                                                validators=[validate_g_sheet],
                                                 help_text="This must be the URL for the Google Sheet containing your responses")
 
     def import_questions(self):
@@ -1253,22 +1272,68 @@ class GQuizExam(Exam):
             order += 1
 
 
+    def save(self, *args, **kwargs):
+        g_sheet_pattern = r'(^https://docs.google.com/spreadsheets/.*/edit?)'
+        g_form_patern = r'(^https://docs.google.com/forms/.*)'
+
+        self.master_response_sheet_url = re.search(g_sheet_pattern, self.master_response_sheet_url).group()
+        self.master_form_url = re.search(g_form_patern, self.master_form_url).group()
+        super(GQuizExam, self).save(*args, **kwargs)
+
+
 class GQuizQuestion(Question):
     text = RichTextField(blank=True, null=True)
     google_id = models.IntegerField(blank=False, null=False)
 
 
+class GQuizSittingQuerySet(models.QuerySet):
+    def get_closest_to(self, target):
+        closest_greater_qs = self.filter(date__gte=target).order_by('date')
+        closest_less_qs = self.filter(date__lte=target).order_by('-date')
+
+        try:
+            try:
+                closest_greater = closest_greater_qs[0]
+            except IndexError:
+                return closest_less_qs[0]
+
+            try:
+                closest_less = closest_less_qs[0]
+            except IndexError:
+                return closest_greater_qs[0]
+        except IndexError:
+            raise self.model.DoesNotExist("There is no closest object"
+                                          " because there are no objects.")
+
+        if closest_greater.date - target > target - closest_less.date:
+            return closest_less
+        else:
+            return closest_greater
+
+
+class GQuizSittingManager(models.Manager):
+    def get_queryset(self):
+        return GQuizSittingQuerySet(model=self.model)
+
+    def get_closest_to(self, target):
+        return self.get_queryset().get_closest_to(target)
+
+
 class GQuizSitting(Sitting):
     scores_sheet_url = models.URLField(blank=False, null=True)
-    scores_sheet_key = models.CharField(blank=False, null=True, max_length=1000, help_text="This is the ID field of the Google Sheet with your answers on it.")
+    scores_sheet_key = models.CharField(blank=False, null=True, max_length=1000,
+                                        help_text="This is the ID field of the Google Sheet with your answers on it.")
     importing = models.BooleanField(default=False)
-    self_assessment = models.BooleanField(default=False, help_text='Set to yes if this is a student self-assessment attempt')
-    order = models.IntegerField(blank=True, null=True, help_text='Used for multiple attempts at same self-assessment quiz')
+    self_assessment = models.BooleanField(default=False,
+                                          help_text='Set to yes if this is a student self-assessment attempt')
+    order = models.IntegerField(blank=True, null=True,
+                                help_text='Used for multiple attempts at same self-assessment quiz')
+
+    objects = GQuizSittingManager()
 
     def self_assessment_link(self):
         exam = GQuizExam.objects.get(pk=self.exam.pk)
-        return "<a href='{url}'>{name}</a>".format(url=str(exam.master_form_url), name=str(exam.name))
-
+        return "<a href='{url}' target='blank'>{name}</a>".format(url=str(exam.master_form_url), name=str(exam.name))
 
     def import_scores(self, email=False, timestamp=False):
         """ Use Google API to get the score data.
@@ -1280,21 +1345,26 @@ class GQuizSitting(Sitting):
 
         self.importing = True
         self.save()
-        gc = gspread.service_account()
-        if self.scores_sheet_url:
-            ss = gc.open_by_url(self.scores_sheet_url)
-        else:
-            ss = gc.open_by_key(self.scores_sheet_key)
-        qs = ss.worksheet("Scores").get_all_records()
+        marks_entered = False
 
+        gc = gspread.service_account()
+        ss = gc.open_by_url(self.scores_sheet_url)
+        qs = ss.worksheet("Scores").get_all_records()
         # Get the sitting:
 
         for row in qs:
             if email:
+                time_string = str(row['Timestamp'])
+                time_string = time_string.replace('T', ' ')
+                time_string = re.match(r'(.*)\.', time_string).group()
+                time_string = time_string[:-1]
+                response_timestamp = datetime.datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S")
                 if email != row['Student Email Address']:
                     continue
-                elif timestamp != row['ID']:
+                elif timestamp != response_timestamp:
                     continue
+            # We have found at least one row to import
+            marks_entered = True
 
             print(row)
             student = Student.objects.get(user__email=row['Student Email Address'])
@@ -1319,11 +1389,16 @@ class GQuizSitting(Sitting):
             mark.score = row['Student Score']
             mark.student_response = row['Student Answer']
             mark.teacher_response = row['Teacher Feedback']
-            mark.student_notes = "You were asked: " + str(mark.question.gquizquestion.text) +".<br>You answered: " + str(mark.student_response) + "<br><strong>Teacher response:</strong>: " + str(mark.teacher_response)
+            mark.student_notes = "You were asked: " + str(
+                mark.question.gquizquestion.text) + ".<br>You answered: " + str(
+                mark.student_response) + "<br><strong>Teacher response:</strong>: " + str(mark.teacher_response)
             mark.save()
+
 
         self.importing = False
         self.save()
+
+        return marks_entered
 
 class GQuizMark(Mark):
     student_response = RichTextField(blank=True, null=True)
@@ -1344,11 +1419,11 @@ def generate_analsysios_df(marks=Mark.objects.none):
     sorted by student score and question average score.
     """
     df = read_frame(marks, fieldnames=['student', 'question', 'score', 'question__order', 'question__max_score'])
-    df['percentage'] = df['score']/df['question__max_score']*100
-    scores = df[df.score>-1]
+    df['percentage'] = df['score'] / df['question__max_score'] * 100
+    scores = df[df.score > -1]
     sheet = pd.pivot_table(scores, values='percentage', index=['question', 'question__order'], columns='student')
     sheet = sheet.sort_values('question__order')
-    rs=sheet.reset_index()
+    rs = sheet.reset_index()
     rs = rs.drop(columns='question__order')
     df = rs.set_index('question')
 

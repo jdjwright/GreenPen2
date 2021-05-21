@@ -13,6 +13,6 @@ admin.site.register(TeachingGroup)
 admin.site.register(Sitting)
 admin.site.register(Teacher)
 
-reigster_list = [AcademicYear, Day, Period, Week, TTSlot, CalendaredPeriod, Lesson, Suspension, Mistake, Exam, ExamType, Resource, ResourceType]
+reigster_list = [AcademicYear, Day, Period, Week, TTSlot, CalendaredPeriod, Lesson, Suspension, Mistake, Exam, ExamType, Resource, ResourceType, GQuizSitting, GQuizExam]
 for item in reigster_list:
     admin.site.register(item)

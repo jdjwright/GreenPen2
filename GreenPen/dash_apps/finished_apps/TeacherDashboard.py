@@ -774,7 +774,7 @@ def update_resources_table(*args, **kwargs):
         try:
             rating = round(point.cohort_stats(students, sittings)['rating'],1)
         except TypeError:
-            rating = "N/A"
+            rating = 0
         rows.append(html.Tr([html.Td(rating),
                              html.Td(point.text),
                              html.Td(html.Div(point.dash_resources(kwargs['user']), className='row'))

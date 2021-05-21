@@ -1,31 +1,28 @@
-from GreenPen.models import Student, Question
 from django.views.generic.list import ListView, View
-from django.views.generic.edit import UpdateView
-from django.http import JsonResponse, HttpResponseForbidden, Http404, HttpResponseRedirect, HttpResponse, HttpResponseBadRequest
-from django.forms import modelformset_factory
-from django.views.generic.edit import CreateView
-from django.core.exceptions import PermissionDenied
-from django.shortcuts import redirect, render, get_object_or_404, reverse
-from django.forms import inlineformset_factory
-from GreenPen.functions.imports import *
-from .forms import *
-from .settings import CURRENT_ACADEMIC_YEAR
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from .widgets import *
 import os
 import threading
+
 import gspread
-from .decorators import teacher_or_own_only
-from django.views.decorators.csrf import csrf_exempt
-
-
-from plotly.offline import plot
-import plotly.graph_objects as go
-
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 # For authenticating views
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
+from django.core.exceptions import PermissionDenied
+from django.forms import inlineformset_factory
+from django.forms import modelformset_factory
+from django.http import JsonResponse, HttpResponseForbidden, Http404, HttpResponseRedirect, HttpResponse, \
+    HttpResponseBadRequest
+from django.shortcuts import redirect, render, get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.views.generic.edit import CreateView
+from django.views.generic.edit import UpdateView
+from django.views.generic.list import ListView, View
+
+from GreenPen.functions.imports import *
+from .decorators import teacher_or_own_only
+from .forms import *
+from .settings import CURRENT_ACADEMIC_YEAR
 
 
 def check_teacher(user):
@@ -248,14 +245,46 @@ class EditExamQsView(TeacherOnlyMixin, View):
                                  can_delete=True,
                                  )
 
-    exam_form = AddExamForm()
     parent_form = SyllabusChoiceForm()
     parent_form.fields['points'].widget.set_url('/syllabus/json/')
 
+    def get_exam_instance(self):
+        try:
+            exam = GQuizExam.objects.get(pk=self.kwargs['exam'])
+        except ObjectDoesNotExist:
+            try: exam = Exam.objects.get(pk=self.kwargs['exam'])
+
+            except ObjectDoesNotExist:
+                raise Http404("No exams matching that URL found")
+
+        return exam
+
+
+    def get_form_type(self, exam, post=False):
+        """
+        There are two different types of exam-form: one for paper-based exams
+        (models.Exam), and one for Google Form auto-marked exams
+        (model.GQuizExam).
+        This function returns the correct form for editing each type.
+        """
+
+        if GQuizExam.objects.filter(pk=exam.pk).count():
+            # This means our exam is also a GQuizExam instance
+            if post:
+                return AddGoogleExamForm(post, instance=exam)
+            else:
+                return AddGoogleExamForm(instance=exam)
+
+        else:
+            if post:
+                return AddExamForm(post, instance=exam)
+            else:
+                return AddExamForm(instance=exam)
+
     def get(self, request, *args, **kwargs):
 
-        exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
-        exam_form = AddExamForm(instance=exam)
+        exam = self.get_exam_instance()
+        exam_form = self.get_form_type(exam)
         # Add an extra blank if we have no questions added:
         if Question.objects.filter(exam=exam).count():
             extra = 0
@@ -279,11 +308,11 @@ class EditExamQsView(TeacherOnlyMixin, View):
         def sort_order_func(subform):
             return subform.cleaned_data['ORDER']
 
-        exam = get_object_or_404(Exam, pk=self.kwargs['exam'])
 
+        exam = self.get_exam_instance()
         form = self.form(request.POST, instance=exam)
 
-        exam_form = AddExamForm(request.POST, instance=exam)
+        exam_form = self.get_form_type(exam, post=request.POST)
         if exam_form.is_valid():
             if form.is_valid():
                 # Sort the forms by order:
@@ -312,17 +341,48 @@ class EditExamQsView(TeacherOnlyMixin, View):
                     # Don't forget that m2m relations aren't automatically saved!
 
                 exam_form.save()
-                success_message = "Exam save succeffully. <a href='" + reverse('new-sitting', args=(
-                exam.pk,)) + "'>Click here to create a sitting for it</a>."
+
+                # Now we need to update sittings if the exam type is self-assessed.
+
+                if isinstance(exam, GQuizExam):
+                    if exam.type.eligible_for_self_assessment:
+                        # Find all sittings and change their URL
+                        sittings = GQuizSitting.objects.filter(exam=exam)
+                        sittings.update(scores_sheet_url=exam_form.cleaned_data['master_response_sheet_url'])
+
+                        # Create or edit a resource for it:
+                        try:
+                            resource, created = Resource.objects.get_or_create(exam=exam,
+                                                                  name=exam.name,
+                                                                  defaults={
+                                                                      'created_by': request.user,
+                                                                      'url': exam.master_form_url,
+                                                                      'type': ResourceType.objects.get_or_create(name='Self-paced Quiz')[0],
+                                                                  })
+                            if created:
+                                resource.syllabus.set(Syllabus.objects.filter(question__exam=exam))
+
+                            success_message = "Exam saved succeffully. A new resource has been automatically created for it <a href='{link}'>here</a>".format(link=reverse('edit-resource', args=[resource.pk]))
+
+                        except MultipleObjectsReturned:
+                            success_message = "Your exam has been saved successfully, however there are multiple self-assessment resource with the same exam and name linked, so we couldn't create the resource automatically. Please create a new resource <a href={link}>here</a>.".format(reverse('add_resource'))
+                    else:
+                        success_message = "Exam saved succeffully. <a href='" + reverse('new-sitting', args=(
+                            exam.pk,)) + "'>Click here to create a sitting for it</a>."
+
+
                 messages.success(request, success_message)
+
                 return redirect('edit-exam', exam.pk)
+            else:
+                form.forms.sort(key=sort_order_func)
 
         # Some eror occured.
         # We need to sort the form so that it's in the correct order,
         # otherwise newly-added questions will always be at the bottom.
         # Key function to provide sort value
 
-        form.forms.sort(key=sort_order_func)
+
         messages.warning(request, "One or more errors occured, please check below.")
         return render(request, self.template_name, {'form': form,
                                                     'exam_form': exam_form})
@@ -1186,6 +1246,7 @@ class AddResource(TeacherOnlyMixin, CreateView):
     def form_valid(self, form):
         form.set_additional(self.request.user)
         messages.success(self.request, "Resource saved successfully. Click <a href='/resources/new'>here</a> to add another")
+
         return super().form_valid(form)
 
     def form_invalid(self, form):
@@ -1221,8 +1282,7 @@ def create_self_assessment_sitting(request, exam_pk, student_pk):
     """
 
     student = get_object_or_404(Student, pk=student_pk)
-    exam = get_object_or_404(Exam, pk=exam_pk)
-    # Security check:
+    exam = get_object_or_404(GQuizExam, pk=exam_pk)
 
     # Check this is a self-assessment exam
 
@@ -1238,14 +1298,18 @@ def create_self_assessment_sitting(request, exam_pk, student_pk):
     if previous_attempts.last():
         if not previous_attempts.last().imported:
             messages.warning(request, "Youv'e already started and not completed this quiz. Click  Click {link} to "
-                                      "open it.".format(link=previous_attempts.last().self_assessment_link))
+                                      "open it.".format(link=previous_attempts.last().self_assessment_link()))
 
     sitting = GQuizSitting.objects.create(exam=exam,
                                      date=datetime.date.today(),
                                      self_assessment=True,
                                      order=previous_attempts.count() + 1,
-                                     imported=False)
+                                     imported=False,
+                                          scores_sheet_url=exam.master_response_sheet_url)
+
     sitting.students.add(student)
+    sitting.group = sitting.get_generic_teaching_group()
+    sitting.save()
 
     messages.success(request, "Your sitting has been created. Click {link} to open it.".format(link=sitting.self_assessment_link()))
     return redirect('import_student_self_assessment_scores', sitting_pk=sitting.pk, student_pk=student_pk)
@@ -1281,9 +1345,25 @@ def import_student_self_assessment_scores_pt1(request, sitting_pk, student_pk):
 
 @teacher_or_own_only
 def import_student_self_assessment_scores_pt2(request, sitting_pk, student_pk):
+    """ We should have recieved a POST from Google, dealt with by
+    qquiz_alert. This function should check if the sitting is still listed as
+    imported=False. If so,it will add a message to complete the form
+    and redirect. Otherwise, the student will be sent to their dashboard
+    to view the result.
+    """
 
-    sitting = get_object_or_404(GQuizExam, pk=sitting_pk)
+    sitting = get_object_or_404(GQuizSitting, pk=sitting_pk)
     student = get_object_or_404(Student, pk=student_pk)
+
+    if sitting.imported:
+        messages.success(request, "Your quiz has been imported correctly. Please use the timeline chart to filter to only show this quiz.")
+        return redirect(reverse('splash'))
+
+    else:
+        messages.warning(request, "You either have not yet filled out the Google Quiz, or your quiz is still importing. Please make sure you've completed the link above, or wait a minute for us to catch up! If this error continues, please inform your teacher.")
+        return redirect(reverse('import_student_self_assessment_scores', args=[sitting.pk, student_pk]))
+
+
 
 
 @csrf_exempt
@@ -1292,7 +1372,7 @@ def gquiz_alert(request):
         recieved_json = json.loads(request.body)
         sheet_url = recieved_json['form_url']
         student_email = recieved_json['student_email']
-        response_timestamp = recieved_json['ID']
+        response_timestamp = recieved_json['timestamp']
 
         remote_add = request.META['REMOTE_ADDR']
 
@@ -1302,10 +1382,27 @@ def gquiz_alert(request):
         print('Timestamp' + response_timestamp)
         print('remote address:' + remote_add)
 
-        sitting = get_object_or_404(GQuizSitting, scores_sheet_url=sheet_url)
+        time_string = str(response_timestamp)
+        time_string = time_string.replace('T', ' ')
+        time_string = re.match(r'(.*)\.', time_string).group()
+        time_string = time_string[:-1]
+        response_timestamp = datetime.datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S")
+
+        sittings = GQuizSitting.objects.filter(scores_sheet_url=sheet_url)
+
+        if sittings.count() > 1:
+            # More than one sitting using the same response sheet.
+            # This should only occur for self-assessment quizzes.
+            if sittings.count() != sittings.filter(self_assessment=True).count():
+                raise IntegrityError("Multiple sittings using the same URL")
+
+            sitting = sittings.filter(students__user__email=student_email).get_closest_to(response_timestamp)
+        else:
+            sitting = GQuizSitting.objects.get(scores_sheet_url=sheet_url)
 
         sitting.import_scores(email=student_email, timestamp=response_timestamp)
-
+        sitting.imported = True
+        sitting.save()
         return HttpResponse('Success')
     else:
         return HttpResponseBadRequest

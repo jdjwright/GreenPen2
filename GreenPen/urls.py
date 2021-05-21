@@ -68,7 +68,7 @@ urlpatterns = [
     path('sitting/<int:sitting_pk>/import_scores', import_sitting_scores, name='import_scores'),
     path('sitting/<int:sitting_pk>/<int:student_pk>/import1', import_student_self_assessment_scores_pt1, name='import_student_self_assessment_scores')
     ,
-    path('sitting/<int:sitting_pk>/<int:student_pk>/import2', import_student_self_assessment_scores_pt1, name='import_student_self_assessment_scores_2'),
+    path('sitting/<int:sitting_pk>/<int:student_pk>/import2', import_student_self_assessment_scores_pt2, name='import_student_self_assessment_scores_2'),
     path('marks/<int:mark_pk>', input_mark, name='input_mark'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('login/', LoginView.as_view(), name='login'),
