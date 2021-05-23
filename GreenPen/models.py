@@ -1361,8 +1361,8 @@ class GQuizSitting(Sitting):
                 response_timestamp = datetime.datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S")
                 if email != row['Student Email Address']:
                     continue
-                elif timestamp != response_timestamp:
-                    continue
+                # elif timestamp != response_timestamp:
+                #     continue
             # We have found at least one row to import
             marks_entered = True
 

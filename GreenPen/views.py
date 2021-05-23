@@ -1401,6 +1401,8 @@ def gquiz_alert(request):
             sitting = GQuizSitting.objects.get(scores_sheet_url=sheet_url)
 
         sitting.import_scores(email=student_email, timestamp=response_timestamp)
+        print("E:" + student_email +":E")
+        print("T:" + str(response_timestamp) +"T")
         sitting.imported = True
         sitting.save()
         return HttpResponse('Success')
