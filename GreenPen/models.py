@@ -92,7 +92,8 @@ class TeachingGroup(models.Model):
     students = models.ManyToManyField(Student, blank=True)
     syllabus = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.SET_NULL)
     archived = models.BooleanField(blank=True, null=True, default=False)
-    year_taught = models.IntegerField(null=True, blank=True)
+    year_taught = models.IntegerField(null=True, blank=True, help_text="This is the counter for academic years (e.g. 2020-21), NOT yeargroup!") # To be depreciated
+    academic_year = models.ForeignKey('AcademicYear', blank=False, null=True, on_delete=models.SET_NULL)
     rollover_name = models.CharField(max_length=256, blank=True, null=True)
     lessons = models.ManyToManyField('TTSlot', blank=True)
     use_for_exams = models.BooleanField(default=True,
@@ -920,7 +921,7 @@ class Resource(models.Model):
 ## Models for calendaring
 
 class AcademicYear(models.Model):
-    name = models.CharField(max_length=30)
+    name = models.CharField(max_length=30, help_text='E.g. "2020-21')
     order = models.IntegerField(null=False)
     current = models.BooleanField(default=False)
     first_monday = models.DateField(

@@ -1,0 +1,24 @@
+{% extends 'GreenPen/bs_base.html' %}
+{% load crispy_forms_filters %}
+
+{% load static %}
+
+{% block title %}Rollover Part 3: Create Academic Year {% endblock title %}
+
+{% block content %}
+
+<form method="post">
+    {% csrf_token %}
+    <div class="col-md-12">
+        {{ form | crispy}}
+        <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+</form>
+
+
+{% endblock content %}
+
+{% block script %}
+
+
+{% endblock script %}

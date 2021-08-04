@@ -198,37 +198,129 @@ def update_group_assignments(path):
             teachinggroup.students.add(Student.objects.get(student_id=row[3]))
 
 
-def import_groups_from_sims(path):
+def import_groups_from_sims(path, rollover=False):
+    """
+    Take a CSV file from SIMS that includes the class listing for
+    all groups, and import the classes, students and teachers from
+    that CSV.
+
+    The CSV should be in the following format, with each column (indexe
+    from 0):
+
+    0. Group Name ** USED TO ID GROUP **
+    1. Teacher Title (Ms, Mrs, Dr..)
+    2. Teacher Surname
+    3. Teacher forename
+    4. Teacher initials
+    5. Work email ** USED TO ID TEACHER **
+    6. Student surname
+    7. Student forename
+    8. Student gender
+    9. Student email address ** USED TO ID STUDENT **
+    10. Student admission number
+    11. Student tutor group
+    12. Student year group
+
+    This function WILL UPDATE STUDENTS details to what is supplied
+    in the CSV (i.e. respect name changes etc),
+    but WILL NOT UPDATE STAFF (since these are usually made more centrally).
+
+    Also, this script will REMOVE ALL STUDENTS from each teachingroup
+    before re-populating them. This is to keep accurate records as
+    students are moved from one class to another.
+
+    """
+
+    # If this is part of a rollover exercise, add these to the next
+    # academic year in the `year_taught` field.
+    # Otherwise, add them to the current academic year.
+    if rollover:
+        academic_year_legacy = CURRENT_ACADEMIC_YEAR + 1
+    else:
+        academic_year_legacy = CURRENT_ACADEMIC_YEAR
+
+
     with open(path, newline='') as csvfile:
         students = csv.reader(csvfile, delimiter=',', quotechar='"')
         # Skip headers
         next(students, None)
+
+        # Make sure auth groups exist for adding staff/ students
         teacher_auth_group, created = Group.objects.get_or_create(name='Teachers')
+        student_auth_group, created = Group.objects.get_or_create(name='Students')
+        academic_year = AcademicYear.objects.get(current=True)
         current_group_name = ''
-        current_group = ''
         for row in students:
             if current_group_name != row[0]:
+
                 # Only create a group and update a teacher once
                 current_group_name = row[0]
                 current_group, created = TeachingGroup.objects.get_or_create(name=current_group_name,
-                                                                             year_taught=CURRENT_ACADEMIC_YEAR + 1)
+                                                                             archived=False)
 
-                teacher, created = Teacher.objects.get_or_create(staff_code=row[9])
+                # Set this group to the new academic year
+                current_group.academic_year = academic_year
+                current_group.year_taught = academic_year.order
+
+                # Remove old members:
+                current_group.students.clear()
+                if created:
+                    # We've added a new teaching group, so must set up its details:
+                    current_group.sims_name = row[0]
+                    current_group.archived = False
+
+                current_group.save()
+
+                teacher_user, created = User.objects.get_or_create(email=row[5])
+                if created:
+                    teacher_user.first_name = row[2]
+                    teacher_user.last_name = row[3]
+                    teacher.save()
+                    teacher_auth_group.user_set.add(teacher_user)
+
+                teacher, created = Teacher.objects.get_or_create(user=teacher_user)
+                if created:
+                    teacher.title = row[1]
+                    teacher.staff_code = row[4]
                 current_group.teachers.add(teacher)
                 current_group.save()
 
             # Now we add the students:
-            student, created = Student.objects.get_or_create(student_id=row[15])
-            student.tutor_group = row[12]
-            student.year_group = row[16]
-            student.user, created = User.objects.get_or_create(username=row[15])
-            student.user.first_name = row[11]
-            student.user.last_name = row[10]
-            student.user.email = row[14]
+            student_user, created = User.objects.get_or_create(email=row[6],
+                                                               defaults={'username': row[10]})
+
+            # No 'if created' here, as we want to update for next academic year's data:
+            student_user.first_name = row[7]
+            student_user.last_name = row[6]
+            student_user.username = row[6]
+            student_user.save()
+
+            # Here we sometimes have an issue if the student has been created previously,
+            # but hasn't been provisioned with a user. Therefore we try to find
+            # the relevant student first.
+            try:
+                student = Student.objects.get(student_id=row[10])
+                # If a user has already been provisioned with different details,
+                # warn via console and leave as the old user.
+                if student.user:
+                    print('Warning: student with pk {student_pk} already has a user with pk {user_pk}'.format(student_pk=student.pk, user_pk=student.user.pk))
+
+                    # Don't keep the new user to prevent clogging up and confusion.
+                    student_user.delete()
+                    student_user = student.user # Prevent error when adding user to auth group
+                else:
+                    student.user = student_user
+                    student.save()
+            except ObjectDoesNotExist:
+                student, created = Student.objects.get_or_create(user=student_user)
+            student.tutor_group = row[11]
+            student.year_group = row[12]
+            student.student_id = row[10]
             student.save()
-            student.user.save()
-            current_group.students.add(student)
-            print("Added " + str(student))
+
+            student_auth_group.user_set.add(student_user)
+
+            print("Added " + str(student) + " to group " + str(current_group_name))
 
 
 def import_syllabus_from_csv_new(path):

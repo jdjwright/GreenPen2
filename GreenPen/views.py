@@ -47,6 +47,13 @@ class TeacherOnlyMixin(UserPassesTestMixin):
         return self.request.user.groups.filter(name='Teachers').count()
 
 
+class SuperUserOnlyMixin(UserPassesTestMixin):
+    def test_func(self):
+        if self.request.user.is_superuser:
+            return True
+        else:
+            return False
+
 class StudentList(TeacherOnlyMixin, ListView):
     model = Student
 
@@ -660,12 +667,31 @@ def input_mark(request, mark_pk):
                                                         'form': form,
                                                         'back_url': back_url})
 
+class AcademicYearRollover(CreateView, SuperUserOnlyMixin):
+    """
+    Start the academic year rollover process by creating the new academic year
+    Note that this should not be started until each part is ready to go!
+    """
+    model = AcademicYear
+    success_url = '/rollover/2'
+    fields = ['name', 'first_monday', 'total_weeks']
+
+    def form_valid(self, form):
+        # Set the order to be the next academic year
+        current_academic_year = AcademicYear.objects.get(current=True)
+        current_academic_year.current = False
+        current_academic_year.save()
+        form.instance.order = current_academic_year.order + 1
+        form.instance.current = True
+
+        return super().form_valid(form)
+
 
 @user_passes_test(check_superuser)
-def year_rollover_part1(request):
+def year_rollover_part2(request):
     # Deal with getting a CSV file
     RolloverFormSet = modelformset_factory(TeachingGroup, TeachingGroupRollover, extra=0)
-    qs = TeachingGroup.objects.filter(archived=False, year_taught=CURRENT_ACADEMIC_YEAR)
+    qs = TeachingGroup.objects.filter(archived=False)
     rollover_form = RolloverFormSet(queryset=qs)
 
     if request.method == 'POST':
@@ -685,14 +711,14 @@ def year_rollover_part1(request):
                     group.archived = True
                     group.save()
 
-            return redirect(reverse('rollover2'))
+            return redirect(reverse('rollover3'))
 
     return render(request, 'GreenPen/rollover_part_1.html', {'rollover_form': rollover_form,
                                                              'title': 'Upload Marks'})
 
 
 @user_passes_test(check_superuser)
-def year_rollover_part2(request):
+def year_rollover_part3(request):
     # Deal with getting a CSV file
 
     if request.method == 'POST':
@@ -703,11 +729,13 @@ def year_rollover_part2(request):
             import_groups_from_sims(path)
             os.remove(path)
             file.delete()
+            messages.success(request, "Completed the rollover!")
             return redirect('/')
     else:
         csvform = CSVDocForm()
     return render(request, 'GreenPen/csv_upload.html', {'csvform': csvform,
                                                         'title': 'Upload Marks'})
+
 
 
 @user_passes_test(check_teacher)
@@ -1224,7 +1252,6 @@ class AddResource(TeacherOnlyMixin, CreateView):
     template_name = 'GreenPen/add-resource.html'
     form_class = AddResourceForm
     model = Resource
-
 
     def get_initial(self):
         # Get the initial dictionary from the superclass method

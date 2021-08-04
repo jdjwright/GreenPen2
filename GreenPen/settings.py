@@ -298,3 +298,5 @@ MESSAGE_TAGS = {
     messages.WARNING: 'alert-warning',
     messages.ERROR: 'alert-danger',
 }
+
+DATA_UPLOAD_MAX_NUMBER_FIELDS = None
