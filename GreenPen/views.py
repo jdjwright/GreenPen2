@@ -671,6 +671,10 @@ class AcademicYearRollover(CreateView, SuperUserOnlyMixin):
     """
     Start the academic year rollover process by creating the new academic year
     Note that this should not be started until each part is ready to go!
+
+    WARNING: Currently this will also roll over the calendear.
+    If you'd like to be able to change your calendar shape for a new
+    academic year, please feel free to raise a pull request.
     """
     model = AcademicYear
     success_url = '/rollover/2'
@@ -684,15 +688,36 @@ class AcademicYearRollover(CreateView, SuperUserOnlyMixin):
         form.instance.order = current_academic_year.order + 1
         form.instance.current = True
 
+
         return super().form_valid(form)
 
 
 @user_passes_test(check_superuser)
 def year_rollover_part2(request):
-    # Deal with getting a CSV file
+
+    # Start by creating the timetable for next academic year:
+
+    # Copy the days from previous calendar
+    prev_year = list(AcademicYear.objects.all().order_by('order'))[-2]
+    curr_year = AcademicYear.objects.get(current=True)
+    for new_day in Day.objects.filter(year=prev_year).order_by('order'):
+        new_day.pk = None
+        new_day.year = curr_year
+        new_day.save()
+
+    # Copy periods from last year
+    for new_period in Period.objects.filter(year=prev_year).order_by('order'):
+        new_period.pk = None
+        new_period.year = curr_year
+        new_period.save()
+
+    # Now set up the new calendar
+    set_up_slots(curr_year)
+
     RolloverFormSet = modelformset_factory(TeachingGroup, TeachingGroupRollover, extra=0)
     qs = TeachingGroup.objects.filter(archived=False)
     rollover_form = RolloverFormSet(queryset=qs)
+    current_academic_year = AcademicYear.objects.get(current=True)
 
     if request.method == 'POST':
         rollover_form = RolloverFormSet(request.POST, queryset=qs)
@@ -702,13 +727,17 @@ def year_rollover_part2(request):
             # Now change the group names
             for group in TeachingGroup.objects.filter(archived=False, year_taught=CURRENT_ACADEMIC_YEAR):
                 if group.rollover_name:
-                    group.name = group.rollover_name
+                    group.academic_year = current_academic_year
+                    group.name = group.rollover_name + " " + group.academic_year.name
+                    group.sims_name = group.rollover_name
                     group.rollover_name = False
                     group.year_taught = CURRENT_ACADEMIC_YEAR + 1
+
                     group.save()
 
                 else:
                     group.archived = True
+                    group.name = group.name + " ARCHIVED"
                     group.save()
 
             return redirect(reverse('rollover3'))
@@ -856,7 +885,12 @@ def timetable_splash(request):
     today = datetime.date.today()
     week_commencing = today + datetime.timedelta(days=-today.weekday())
     first_period = Period.objects.get(order=1, year=AcademicYear.objects.get(current=True))
-    current_week = CalendaredPeriod.objects.get(date=week_commencing, tt_slot__period=first_period)
+    try:
+        current_week = CalendaredPeriod.objects.get(date=week_commencing, tt_slot__period=first_period)
+    except ObjectDoesNotExist:
+        # This happens if we're between calendars, e.g. in the Summer holidays.
+        # In this instance, let's go to the closest Monday, trying foward first.
+        current_week = CalendaredPeriod.objects.get(order=0, year=AcademicYear.objects.get(current=True))
 
     return redirect(reverse(timetable_overview, args=[current_week.pk, teacher.pk]))
 
@@ -895,6 +929,34 @@ def timetable_overview(request, start_slot_pk, teacher_pk):
                                                                 'next_week_pk': next_week_pk,
                                                                 'last_week_pk': last_week_pk,
                                                                 'return_pk': start_slot_pk})
+
+
+@user_passes_test(check_teacher)
+def add_tt_lesson(request, slot_pk):
+    """
+    When a user clicks 'add lesson' on their timetable,
+    present a list of the classes they teach. Once the user has
+    picked a class, create a lesson for that class in the slot
+    given from the pk.
+    """
+    slot = CalendaredPeriod.objects.get(pk=slot_pk)
+    tt_slot = slot.tt_slot
+    teacher = Teacher.objects.get(user=request.user)
+    groups = TeachingGroup.objects.filter(teachers=teacher, archived=False)
+
+    form = TeachingGroupChoiceForm()
+    form.fields['group'].queryset=groups
+
+    if request.method == 'POST':
+        form = TeachingGroupChoiceForm(request.POST)
+        if form.is_valid():
+            group = form.cleaned_data['group']
+            group.lessons.add(tt_slot)
+            messages.success(request, "Added lesson to your timetable")
+            return redirect('tt_splash')
+    else:
+        return render(request, 'GreenPen/add-lesson-to-tt.html', {'tt_slot': tt_slot,
+                                                                  'form': form})
 
 
 def build_week_grid(start_period=CalendaredPeriod.objects.none(),

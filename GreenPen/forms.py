@@ -164,3 +164,7 @@ class CSVDocForm(forms.ModelForm):
     class Meta:
         model = CSVDoc
         fields = ('description', 'document', )
+
+
+class TeachingGroupChoiceForm(forms.Form):
+    group = forms.ModelChoiceField(queryset=TeachingGroup.objects.all())

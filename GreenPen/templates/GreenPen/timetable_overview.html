@@ -38,7 +38,9 @@
                          </td>
 
                     {% else %}
-                        <td class="table-success">Free</td>
+                        <td class="table-success">Free<a class="btn btn-primary" href="{% url 'add_tt_lesson' item.slot.pk %}" role="button"><i class="fas fa-plus"></i>
+
+                        </a></td>
                     {% endif %}
 
                     {% endif %}

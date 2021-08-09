@@ -220,6 +220,8 @@ def import_groups_from_sims(path, rollover=False):
     10. Student admission number
     11. Student tutor group
     12. Student year group
+    13. Rollover group name
+    14. Syallbus PK for that class
 
     This function WILL UPDATE STUDENTS details to what is supplied
     in the CSV (i.e. respect name changes etc),
@@ -255,7 +257,7 @@ def import_groups_from_sims(path, rollover=False):
 
                 # Only create a group and update a teacher once
                 current_group_name = row[0]
-                current_group, created = TeachingGroup.objects.get_or_create(name=current_group_name,
+                current_group, created = TeachingGroup.objects.get_or_create(sims_name=current_group_name,
                                                                              archived=False)
 
                 # Set this group to the new academic year
@@ -266,9 +268,15 @@ def import_groups_from_sims(path, rollover=False):
                 current_group.students.clear()
                 if created:
                     # We've added a new teaching group, so must set up its details:
-                    current_group.sims_name = row[0]
+                    current_group.name = row[0] + " " + current_group.academic_year.name
                     current_group.archived = False
+                # Set the rollover name
 
+                current_group.rollover_name = row[13]
+
+                # Set the group syllabus
+                if row[14]:
+                    current_group.syllabus = Syllabus.objects.get(pk=row[14])
                 current_group.save()
 
                 teacher_user, created = User.objects.get_or_create(email=row[5])
@@ -283,42 +291,43 @@ def import_groups_from_sims(path, rollover=False):
                     teacher.title = row[1]
                     teacher.staff_code = row[4]
                 current_group.teachers.add(teacher)
-                current_group.save()
+
 
             # Now we add the students:
-            student_user, created = User.objects.get_or_create(email=row[6],
+            student_user, created = User.objects.get_or_create(email=row[9],
                                                                defaults={'username': row[10]})
 
             # No 'if created' here, as we want to update for next academic year's data:
             student_user.first_name = row[7]
             student_user.last_name = row[6]
-            student_user.username = row[6]
+            student_user.username = row[10]
             student_user.save()
 
-            # Here we sometimes have an issue if the student has been created previously,
-            # but hasn't been provisioned with a user. Therefore we try to find
-            # the relevant student first.
+            # Sometimes multiple student users have been created. In this instance,
+            # we want to keep the pre-existing one so that we still have the
+            # assessment data etc.
             try:
-                student = Student.objects.get(student_id=row[10])
-                # If a user has already been provisioned with different details,
-                # warn via console and leave as the old user.
-                if student.user:
-                    print('Warning: student with pk {student_pk} already has a user with pk {user_pk}'.format(student_pk=student.pk, user_pk=student.user.pk))
+                student, created = Student.objects.get_or_create(student_id=row[10])
+                student.user = student_user
+                student.tutor_group = row[11]
+                student.year_group = row[12]
+                student.student_id = row[10]
+                student.save()
+            except IntegrityError:
 
-                    # Don't keep the new user to prevent clogging up and confusion.
-                    student_user.delete()
-                    student_user = student.user # Prevent error when adding user to auth group
-                else:
-                    student.user = student_user
-                    student.save()
-            except ObjectDoesNotExist:
-                student, created = Student.objects.get_or_create(user=student_user)
-            student.tutor_group = row[11]
-            student.year_group = row[12]
-            student.student_id = row[10]
-            student.save()
+                clash_user = User.objects.get(student=student)
+                student.user = clash_user
+                student.user.first_name = row[7]
+                student.user.last_name = row[6]
+                student.user.username = row[10]
 
-            student_auth_group.user_set.add(student_user)
+                student_user.delete() # No point keeping the added user.
+                student.save()
+                print("WARNING: user clash found between {} and {}".format(clash_user, student_user))
+
+
+            student_auth_group.user_set.add(student.user)
+            current_group.students.add(student)
 
             print("Added " + str(student) + " to group " + str(current_group_name))
 

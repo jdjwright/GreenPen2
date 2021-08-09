@@ -1043,7 +1043,7 @@ def set_up_slots(academic_year=AcademicYear.objects.none()):
                                                    week=week,
                                                    date=academic_year.first_monday + datetime.timedelta(
                                                        weeks=week.number,
-                                                       days=day.order))
+                                                       days=slot.day.order))
             i += 1
 
 
@@ -1238,12 +1238,18 @@ def setup_lessons(teachinggrousp=TeachingGroup.objects.all()):
     current_year = AcademicYear.objects.get(current=True)
     for group in teachinggrousp:
         max_lessons = group.lessons.count() * current_year.total_weeks
-        i = 0
+        # If we have a group that has been taught over multiple years (.e.g AS to A2),
+        # we need to start from the first lesson of last year.
+        lessons = Lesson.objects.filter(teachinggroup=group).order_by('order')
+        if lessons.count() > 0:
+            lesson_number = lessons.last().order
+        else:
+            lesson_number = 0
         for lesson in range(max_lessons):
             lesson, created = Lesson.objects.get_or_create(teachinggroup=group,
-                                                           order=i)
+                                                           order=lesson_number)
             lesson.save()  # Required to force a re-slot.
-            i += 1
+            lesson_number += 1
 
 
 class GQuizExam(Exam):

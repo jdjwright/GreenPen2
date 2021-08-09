@@ -78,6 +78,7 @@ urlpatterns = [
     path('rollover/1', AcademicYearRollover.as_view(), name='rollover1'),
     path('timetable', timetable_splash, name='tt_splash'),
     path('timetable/<int:start_slot_pk>/<int:teacher_pk>', timetable_overview, name='tt_overview'),
+    path('timetable/<int:slot_pk>/add', add_tt_lesson, name='add_tt_lesson'),
     path('lesson/<int:lesson_pk>/<int:return_pk>', change_lesson, name='edit_lesson'),
     path('timetable/suspend', suspend_days, name='suspend_days'),
     path('mistake_json', load_mistake_children, name='mistake_json'),
