@@ -6,7 +6,35 @@
 <form method="post">
 {% csrf_token %}
     {{ form|crispy }}
+
+{% if lesson.resources.all.count %}
+    <table class="table">
+    <thead>
+    <tr>
+        <td>Resource</td>
+        <td>Link</td>
+    </tr>
+    </thead>
+    {% for resource in lesson.resources.all %}
+        <tbod>
+        <tr>
+            <td><a href="{% url 'edit-resource' resource.pk %}">{{ resource.name }}</a></td>
+            <td>{{ resource.html|safe }}</td>
+        </tr>
+        </tbod>
+    {% endfor %}
+    </table>
+
+{% endif %}
+    <a href="{% url 'add_resource_from_lesson' lesson.pk%}" target="_blank" class="btn btn-primary" role="button"><i class="fas fa-plus"></i> resource</a>
     <button type="submit" class="btn btn-primary">Save</button>
+
 </form>
+
 </div>
 {% endblock %}
+{% block script %}
+
+    {{ form.media }}
+
+{% endblock script %}

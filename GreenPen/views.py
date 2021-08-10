@@ -9,6 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.exceptions import PermissionDenied
+from django.db import IntegrityError
 from django.forms import inlineformset_factory
 from django.forms import modelformset_factory
 from django.http import JsonResponse, HttpResponseForbidden, Http404, HttpResponseRedirect, HttpResponse, \
@@ -703,13 +704,21 @@ def year_rollover_part2(request):
     for new_day in Day.objects.filter(year=prev_year).order_by('order'):
         new_day.pk = None
         new_day.year = curr_year
-        new_day.save()
+        try:
+            new_day.save()
+        except IntegrityError:
+            # Means the day alreay exists
+            continue
 
     # Copy periods from last year
     for new_period in Period.objects.filter(year=prev_year).order_by('order'):
         new_period.pk = None
         new_period.year = curr_year
-        new_period.save()
+        try:
+            new_period.save()
+        except IntegrityError:
+            # Already exists
+            continue
 
     # Now set up the new calendar
     set_up_slots(curr_year)
@@ -741,9 +750,10 @@ def year_rollover_part2(request):
                     group.save()
 
             return redirect(reverse('rollover3'))
+    else:
 
-    return render(request, 'GreenPen/rollover_part_1.html', {'rollover_form': rollover_form,
-                                                             'title': 'Upload Marks'})
+        return render(request, 'GreenPen/rollover_part_1.html', {'rollover_form': rollover_form,
+                                                                 'title': 'Upload Marks'})
 
 
 @user_passes_test(check_superuser)
@@ -997,7 +1007,7 @@ def change_lesson(request, lesson_pk, return_pk):
     teacher = Teacher.objects.get(user=request.user)
     lesson = Lesson.objects.get(pk=lesson_pk)
     form = LessonChangeForm(instance=lesson)
-
+    form.fields['syllabus'].widget.set_url(reverse('lesson-syllabus-json', args=[lesson.pk]))
     if request.method == 'POST':
         form = LessonChangeForm(request.POST, instance=lesson)
         if form.is_valid():
@@ -1118,7 +1128,12 @@ class SyllabusJSONView(View):
         Allows for setting indeterminate if a child has been set:
         this is set by the 'get_children' method.
         """
-    def set_children(self):
+
+    # Override this to set a different top-level syllabus point for
+    # the tree, e.g. for a lesson.
+    syllabus = Syllabus.objects.filter(level=0)
+
+def set_children(self):
         """
         Overide this method to provide inerterminate checkbox
         if a field has children set.
@@ -1126,7 +1141,10 @@ class SyllabusJSONView(View):
         """
         return Syllabus.objects.none(), Syllabus.objects.none()
 
-    def get(self, request, *args, **kwargs):
+
+
+
+   def get(self, request, *args, **kwargs):
         parent_id = self.request.GET.get('id')
         checked, indeterminate = self.set_children()
 
@@ -1135,7 +1153,7 @@ class SyllabusJSONView(View):
             parent = Syllabus.objects.get(pk=parent_id)
             children = Syllabus.objects.filter(parent=parent)
         except ValueError:
-            children = Syllabus.objects.filter(level=0)
+            children = syllabus
 
         data = []
         for child in children:
@@ -1341,6 +1359,13 @@ class AddResource(TeacherOnlyMixin, CreateView):
     def form_invalid(self, form):
         pass
 
+class AddResourceFromLesson(AddResource):
+    def form_valid(self, form):
+        response = super(AddResource, self).form_valid(form)
+        lesson = Lesson.objects.get(pk=self.kwargs['lesson_pk'])
+        lesson.resources.add(self.object)
+        return response
+
 
 class EditResource(AddResource, UpdateView):
     def get_initial(self):
@@ -1356,6 +1381,15 @@ class ResourceSyllabusJSON(SyllabusJSONView):
 
         return checked, indeterminate
 
+
+class LessonSyllabusJSON(SyllabusJSONView):
+    def set_children(self):
+        lesson_pk = self.kwargs['lesson_pk']
+        lesson = Lesson.objects.get(pk=lesson_pk)
+        checked = lesson.syllabus.all()
+        indeterminate = checked.get_ancestors(include_self=False)
+
+        return checked, indeterminate
 
 class ResourceList(ListView):
     model = Resource

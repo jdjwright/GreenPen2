@@ -901,8 +901,8 @@ class Resource(models.Model):
         return reverse('edit-resource', args=(self.pk,))
 
     def html(self, student_pk=False):
-        string = '<a href="' + self.student_clickable_link(student_pk=student_pk)
-        string += '" data-toggle="tooltip" title="' + self.name + '">' + self.type.icon + '</a>'
+        string = '<a href="' + str(self.student_clickable_link(student_pk=student_pk))
+        string += '" data-toggle="tooltip" title="' + self.name + '"><i class="' + self.type.icon + '"</i></a>'
         return mark_safe(string)
 
     def markdown(self):
@@ -941,7 +941,7 @@ class Day(models.Model):
     year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, null=False)
 
     class Meta:
-        unique_together = [('order', 'name')]
+        unique_together = [('order', 'name', 'year')]
         ordering = ['order']
 
     def __str__(self):
@@ -957,6 +957,7 @@ class Period(models.Model):
         return self.name
 
     class Meta:
+        unique_together = [('order', 'name', 'year')]
         ordering = ['order']
 
 
@@ -971,7 +972,7 @@ class TTSlot(models.Model):
 
     class Meta:
         ordering = ['order']
-
+        unique_together = [['day', 'period', 'year'], ['year', 'order']]
 
 class Week(models.Model):
     year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, null=False)
@@ -993,6 +994,7 @@ class CalendaredPeriod(models.Model):
 
     class Meta:
         ordering = ['order']
+        unique_together = ['tt_slot', 'week']
 
     def set_date(self, automatic=True):
         start_date = self.year.first_monday
@@ -1161,6 +1163,8 @@ class Lesson(models.Model):
     description = models.TextField(null=True, blank=True)
     requirements = models.TextField(null=True, blank=True)
     slot = models.ForeignKey(CalendaredPeriod, blank=True, null=True, on_delete=models.SET_NULL)
+    syllabus = TreeManyToManyField(Syllabus, blank=True)
+    resources = models.ManyToManyField(Resource, blank=True)
 
     class Meta:
         unique_together = ['teachinggroup', 'order']
@@ -1176,7 +1180,7 @@ class Lesson(models.Model):
             # Get a list of all possible lesson slots
             candidates = list(CalendaredPeriod.objects.filter(tt_slot__in=tt_slots). \
                               exclude(suspension__teachinggroups=self.teachinggroup) \
-                              .exclude(suspension__whole_school=True))
+                              .exclude(suspension__whole_school=True).order_by('date'))
         # Place this lesson in the [order-th] slot
         try:
             self.slot = candidates[int(self.order)]

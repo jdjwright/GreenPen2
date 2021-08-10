@@ -149,7 +149,10 @@ class NewSittingForm(forms.Form):
 class LessonChangeForm(forms.ModelForm):
     class Meta:
         model = Lesson
-        fields = ['title', 'description', 'requirements']
+        fields = ['title', 'description', 'requirements', 'syllabus']
+        widgets = {
+            'syllabus': JsTreeWidget(url='/syllabus/json/', result_hidden=True),
+        }
 
 
 class SuspendDaysForm(forms.Form):

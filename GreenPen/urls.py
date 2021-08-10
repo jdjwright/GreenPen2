@@ -32,6 +32,7 @@ urlpatterns = [
     path('syllabus/json/', SyllabusJSONView.as_view(), name='json_syllabus_points'),
     path('syllabus/json/exam/<int:exam_pk>/', load_syllabus_points_exam, name='load_syllabus_points_exam'),
     path('syllabus/json/resource/<int:resource_pk>/', ResourceSyllabusJSON.as_view(), name='resource-syllabus-json'),
+    path('syllabus/json/lesson/<int:lesson_pk>/', LessonSyllabusJSON.as_view(), name='lesson-syllabus-json'),
     path('students/', StudentList.as_view(), name='student_list'),
     path('students/update', update_students, name='update_students'),
     path('uploadstudents', import_students, name='import_students'),
@@ -85,6 +86,7 @@ urlpatterns = [
     path('mistake_json/<int:mark_pk>', load_mistake_children, name='mistake_json_mark'),
     path('resources', ResourceList.as_view(), name='list-resources'),
     path('resources/new', AddResource.as_view(), name='add_resource'),
+    path('resources/new/lesson/<lesson_pk>', AddResourceFromLesson.as_view(), name='add_resource_from_lesson'),
     path('resources/<int:pk>', EditResource.as_view(), name='edit-resource')
 
   ]
