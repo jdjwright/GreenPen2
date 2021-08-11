@@ -1132,8 +1132,23 @@ class SyllabusJSONView(View):
     # Override this to set a different top-level syllabus point for
     # the tree, e.g. for a lesson.
     syllabus = Syllabus.objects.filter(level=0)
+    root_level = 0
 
-def set_children(self):
+    def set_syllabus(self, syllabus):
+        if syllabus:
+            self.syllabus = syllabus
+
+    def set_root_level(self):
+        """
+        JSTree requires us to set the 'parent_pk' property to '#' for
+        root nodes.
+        To do this, the function 'get' will need to know whether
+        something is at the top level.
+        """
+
+        self.root_level = self.syllabus[0].get_level()
+
+    def set_children(self):
         """
         Overide this method to provide inerterminate checkbox
         if a field has children set.
@@ -1143,9 +1158,10 @@ def set_children(self):
 
 
 
-
-   def get(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
+        self.set_syllabus(False)
         parent_id = self.request.GET.get('id')
+        self.set_root_level()
         checked, indeterminate = self.set_children()
 
         try:
@@ -1153,14 +1169,16 @@ def set_children(self):
             parent = Syllabus.objects.get(pk=parent_id)
             children = Syllabus.objects.filter(parent=parent)
         except ValueError:
-            children = syllabus
+            children = self.syllabus
 
         data = []
         for child in children:
-            if child.parent:
+            if child.get_level() == self.root_level:
+                parent_pk = '#'
+            elif child.parent:
                 parent_pk = child.parent.pk
             else:
-                parent_pk = '#'
+                parent_pk = '#' # We shouldn't get here, as root level is 0 by default.
             undetermined = False
             selected = False
             opened = False
@@ -1383,6 +1401,7 @@ class ResourceSyllabusJSON(SyllabusJSONView):
 
 
 class LessonSyllabusJSON(SyllabusJSONView):
+
     def set_children(self):
         lesson_pk = self.kwargs['lesson_pk']
         lesson = Lesson.objects.get(pk=lesson_pk)
@@ -1390,6 +1409,12 @@ class LessonSyllabusJSON(SyllabusJSONView):
         indeterminate = checked.get_ancestors(include_self=False)
 
         return checked, indeterminate
+
+    def set_syllabus(self, syllabus):
+        lesson_pk = self.kwargs['lesson_pk']
+        lesson = Lesson.objects.get(pk=lesson_pk)
+        self.syllabus = Syllabus.objects.filter(pk=lesson.teachinggroup.syllabus.pk)
+
 
 class ResourceList(ListView):
     model = Resource
