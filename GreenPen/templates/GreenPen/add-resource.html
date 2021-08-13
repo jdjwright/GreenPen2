@@ -14,12 +14,20 @@
             {% csrf_token %}
             <div class="row row-height">
                 <div class="col-md-12">
-                    <div class="col-md-8">
+                    <div class="col-md-12">
                         {{ form.name | as_crispy_field }}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-sm-4">
                         {{ form.type | as_crispy_field }}
                     </div>
+                    {% if return_pk %}
+                        <div class="col-sm-4">
+                        {{ form.open_to_all | as_crispy_field }}
+                        </div>
+                        <div class="col-sm-4">
+                            {{ form.group_lock | as_crispy_field }}
+                        </div>
+                    {% endif %}
                     <div class="col-md-12">
                         {{ form.url | as_crispy_field }}
                     </div>

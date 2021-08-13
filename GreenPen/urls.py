@@ -47,6 +47,10 @@ urlpatterns = [
     path('student-autocomplete', StudentComplete.as_view(), name='student-autocomplete'),
     path('syllabus-autocomplete', SyllabusComplete.as_view(), name='syllabus-autocomplete'),
     path('mistake-autocomplete', MistakeAutoComplete.as_view(), name='mistake-autocomplete'),
+    path('resource-autocomplete', ResourceAutocomplete.as_view(), name='resource-autocomplete'),
+    path('teachinggroup-autocomplete', TeachingGroupAutocomplete.as_view(), name='teachinggroup-autocomplete'),
+    path('teachinggroup-own-autocomplete', TeachingGroupOwnAutocomplete.as_view(), name='teachinggroup-own-autocomplete'),
+    path('lesson-autocomplete', LessonAutocomplete.as_view(), name='lesson-autocomplete'),
     path('rating-records/<int:syllabus_pk>/<int:student_pk>', StudentAssessmentForPoint.as_view(), name='student-assessment-record'),
     path('exam', ExamListView.as_view(), name='exam-list'),
     path('exam/add', AddExam.as_view(), name='add-exam'),
@@ -81,12 +85,14 @@ urlpatterns = [
     path('timetable/<int:start_slot_pk>/<int:teacher_pk>', timetable_overview, name='tt_overview'),
     path('timetable/<int:slot_pk>/add', add_tt_lesson, name='add_tt_lesson'),
     path('lesson/<int:lesson_pk>/<int:return_pk>', change_lesson, name='edit_lesson'),
+    path('timetable/<int:lesson_pk>/copy', copy_lesson, name='copy_lesson'),
+    path('timetable/<int:lesson_pk>/<int:return_pk>/add-resource', lesson_resource_search, name='lesson_resource_search'),
     path('timetable/suspend', suspend_days, name='suspend_days'),
     path('mistake_json', load_mistake_children, name='mistake_json'),
     path('mistake_json/<int:mark_pk>', load_mistake_children, name='mistake_json_mark'),
     path('resources', ResourceList.as_view(), name='list-resources'),
     path('resources/new', AddResource.as_view(), name='add_resource'),
-    path('resources/new/lesson/<lesson_pk>', AddResourceFromLesson.as_view(), name='add_resource_from_lesson'),
+    path('resources/new/lesson/<lesson_pk>/<return_pk>', AddResourceFromLesson.as_view(), name='add_resource_from_lesson'),
     path('resources/<int:pk>', EditResource.as_view(), name='edit-resource')
 
   ]

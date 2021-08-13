@@ -1,0 +1,25 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% load static %}
+
+{% block title %}Copy a lesson{% endblock title %}
+
+{% block content %}
+<h1>Copy a lesson</h1>
+
+    You are going to copy a lesson to {{ target_lesson.teachinggroup }} on {{ target_lesson.slot.date }}
+
+    <form method="post">
+    {% csrf_token %}
+    {{ form.teachinggroup  }}
+        {{ form.lesson }}
+    <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+
+
+{% endblock content %}
+
+{% block script %}
+{{ form.media }}
+
+{% endblock script %}

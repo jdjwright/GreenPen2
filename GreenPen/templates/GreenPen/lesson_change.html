@@ -26,7 +26,7 @@
     </table>
 
 {% endif %}
-    <a href="{% url 'add_resource_from_lesson' lesson.pk%}" target="_blank" class="btn btn-primary" role="button"><i class="fas fa-plus"></i> resource</a>
+    <a href="{% url 'lesson_resource_search' lesson.pk return_pk%}" target="_blank" class="btn btn-primary" role="button"><i class="fas fa-plus"></i> resource</a>
     <button type="submit" class="btn btn-primary">Save</button>
 
 </form>

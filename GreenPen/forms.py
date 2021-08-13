@@ -100,7 +100,7 @@ class AddResourceForm(forms.ModelForm):
 
     class Meta:
         model = Resource
-        fields = ['name', 'type', 'url', 'syllabus', 'created_by', 'exam']
+        fields = ['name', 'type', 'url', 'syllabus', 'created_by', 'exam', 'open_to_all', 'group_lock']
         widgets = {
             'syllabus': JsTreeWidget(url='/syllabus/json/', result_hidden=True),
             'created_by': forms.HiddenInput()
@@ -171,3 +171,23 @@ class CSVDocForm(forms.ModelForm):
 
 class TeachingGroupChoiceForm(forms.Form):
     group = forms.ModelChoiceField(queryset=TeachingGroup.objects.all())
+
+
+class LessonCopyForm(forms.Form):
+    teachinggroup = forms.ModelChoiceField(queryset=TeachingGroup.objects.all(),
+                                           widget=autocomplete.ModelSelect2(url='teachinggroup-own-autocomplete'))
+    lesson = forms.ModelChoiceField(queryset=Lesson.objects.all(),
+                                    widget=autocomplete.ModelSelect2(
+                                        url='lesson-autocomplete',
+                                        forward=['teachinggroup']
+                                    ))
+
+class LessonResourceSearchForm(forms.Form):
+     syllabus = SyllabusSingleChoiceField(queryset=Syllabus.objects.all(),
+                                          widget=JsTreeSingleWidget(
+                                              url='/syllabus/json/',
+                                              result_hidden=False))
+     resource = forms.ModelChoiceField(queryset=Resource.objects.all(),
+                                       widget=autocomplete.ModelSelect2(
+                                         url='resource-autocomplete',
+                                         forward=['syllabus']))

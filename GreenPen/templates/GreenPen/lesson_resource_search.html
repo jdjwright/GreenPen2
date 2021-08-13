@@ -1,0 +1,22 @@
+{% extends 'GreenPen/bs_base.html' %}
+{% load static %}
+
+{% block title %}Add a lesson resource{% endblock title %}
+
+{% block content %}
+<h1>Add a lesson resource</h1>
+
+    You are searching for a resource for {{ lesson.title }} with group {{ lesson.teachinggroup.name }} on {{ lesson.slot.date }}.
+    <form method="post">
+        {% csrf_token %}
+        {{ form.syllabus }}
+        {{ form.resource }}
+    <button type="submit" class="btn btn-success">Add</button>
+    <a href="{% url 'add_resource_from_lesson' lesson.pk return_pk %}">Create a resource</a>
+    </form>
+{% endblock content %}
+
+{% block script %}
+
+{{ form.media }}
+{% endblock script %}

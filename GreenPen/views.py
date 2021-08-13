@@ -1014,7 +1014,32 @@ def change_lesson(request, lesson_pk, return_pk):
             form.save()
             return redirect('tt_overview', start_slot_pk=return_pk, teacher_pk=teacher.pk)
     return render(request, 'GreenPen/lesson_change.html', {'lesson': lesson,
-                                                           'form': form})
+                                                           'form': form,
+                                                           'return_pk': return_pk})
+
+def copy_lesson(request, lesson_pk):
+    target_lesson = Lesson.objects.get(pk=lesson_pk)
+    form = LessonCopyForm()
+    if request.method == 'POST':
+        form = LessonCopyForm(request.POST)
+        if form.is_valid():
+            lesson_template = form.cleaned_data['lesson']
+            # Duplicate the lesson to a new instance
+            target_lesson.title = lesson_template.title
+            target_lesson.description = lesson_template.description
+            target_lesson.requirements = lesson_template.requirements
+            target_lesson.save()
+            for point in lesson_template.syllabus.all():
+                target_lesson.syllabus.add(point)
+
+            for resource in lesson_template.resources.all():
+                target_lesson.resources.add(resource)
+
+            messages.success(request, "Copied lesson to a new slow")
+            return redirect(reverse('tt_splash'))
+    return render(request, 'GreenPen/copy_lesson.html', {'target_lesson': target_lesson,
+                                                         'form': form})
+
 
 
 @user_passes_test(check_superuser)
@@ -1377,8 +1402,43 @@ class AddResource(TeacherOnlyMixin, CreateView):
     def form_invalid(self, form):
         pass
 
+
+def lesson_resource_search(request, lesson_pk, return_pk):
+    """
+    Allows us to select a resource using the search form, then
+    add it to the lesson defined by lesson_pk
+    """
+    lesson = Lesson.objects.get(pk=lesson_pk)
+    form = LessonResourceSearchForm()
+    if lesson.syllabus.all():
+        form.fields['syllabus'].initial = lesson.syllabus.all()[0]
+    if request.method == 'POST':
+        form = LessonResourceSearchForm(request.POST)
+        if form.is_valid():
+            lesson.resources.add(form.cleaned_data['resource'])
+            messages.success(request, 'Added resource to lesson')
+            return redirect('edit_lesson', lesson_pk, return_pk)
+
+
+    return render(request, 'GreenPen/lesson_resource_search.html',
+                          {'lesson': lesson,
+                           'form': form,
+                           'return_pk': return_pk})
+
+
 class AddResourceFromLesson(AddResource):
+
+    # Add the lesson to the template context:
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["lesson"] = Lesson.objects.get(pk=self.kwargs['lesson_pk'])
+        context["return_pk"] = self.kwargs['return_pk']
+        return context
+
     def form_valid(self, form):
+        self.success_url = reverse('edit_lesson',
+                                    self.kwargs['lesson_pk'],
+                                    self.kwargs['return_pk'])
         response = super(AddResource, self).form_valid(form)
         lesson = Lesson.objects.get(pk=self.kwargs['lesson_pk'])
         lesson.resources.add(self.object)

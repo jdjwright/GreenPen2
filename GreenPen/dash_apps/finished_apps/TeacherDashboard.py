@@ -11,7 +11,6 @@ import plotly.graph_objs as go
 from django_plotly_dash import DjangoDash
 from GreenPen.models import Syllabus, Student, Sitting, TeachingGroup, Mistake, Mark, Question, Exam, Resource
 from django.contrib.auth.models import User
-from GreenPen.settings import CURRENT_ACADEMIC_YEAR
 from django.utils.html import mark_safe
 
 
@@ -37,8 +36,7 @@ def get_groups_from_graph(callback, user=User.objects.none()):
 
         current_selected = get_syllabus_point_from_graph(callback)
         # Groups to return
-        groups = TeachingGroup.objects.filter(year_taught=CURRENT_ACADEMIC_YEAR,
-                                              archived=False,
+        groups = TeachingGroup.objects.filter(archived=False,
                                               use_for_exams=True,
                                               syllabus__in=current_selected.get_ancestors(include_self=True,
                                                                                           ).distinct())
@@ -759,12 +757,6 @@ def update_resources_table(*args, **kwargs):
     sittings = set_sittings(callback, user)
 
     s_with_rs = syllabus.get_descendants(include_self=True).filter(resource__isnull=False).distinct()
-    columns = [{"name": "Rating", "id": "Rating"},
-               {"name": "Syllabus", "id": "Syllabus"},
-               {"name": "Resources", "id": "Resources"}]
-    data = []
-
-
 
     table_header = [
         html.Thead(html.Tr([html.Th("Rating"), html.Th("Name"), html.Th("Resources")]))
@@ -777,7 +769,7 @@ def update_resources_table(*args, **kwargs):
             rating = 0
         rows.append(html.Tr([html.Td(rating),
                              html.Td(point.text),
-                             html.Td(html.Div(point.dash_resources(kwargs['user']), className='row'))
+                             html.Td(html.Div(point.dash_resources(user), className='row'))
                              ])
                     )
 

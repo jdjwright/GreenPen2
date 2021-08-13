@@ -226,9 +226,16 @@ class Syllabus(MPTTModel):
                                  children_4_5=Sum('children_4_5'))
         return data
 
-    def resources(self, users=False):
+    def resources(self, user=False):
         resources = Resource.objects.filter(syllabus__in=self.get_descendants(include_self=True))
-        return resources
+        if user:
+            if user.groups.filter('Teachers').count():
+                return resources
+            elif user.groups.filter('Students').count():
+                return resources.filter(open_to_all=True)
+
+            else:
+                raise PermissionError('The user must be in either the Teacher or Student group.')
 
     @property
     def resources_markdown(self):
@@ -252,6 +259,8 @@ class Syllabus(MPTTModel):
 
             if user.groups.filter(name='Teachers').count():
                 link = reverse('edit-resource', args=[r.pk])
+
+            # Students get a link to the resource
             elif user.groups.filter(name='Students').count():
                 student_pk = Student.objects.get(user=user).pk
                 link = r.student_clickable_link(student_pk)
@@ -859,7 +868,7 @@ class ResourceType(models.Model):
 
 class Resource(models.Model):
     name = models.CharField(max_length=256, blank=False, null=False)
-    open_to_all = models.BooleanField(default=True)
+    open_to_all = models.BooleanField(default=True, help_text='Allow students to see this resource.')
     created_by = models.ForeignKey(User, blank=False, null=True, on_delete=models.SET_NULL)
     created = models.DateTimeField(blank=False, null=False, default=datetime.datetime.now)
     url = models.URLField(blank=True, null=True,
@@ -876,6 +885,8 @@ class Resource(models.Model):
                              null=True,
                              on_delete=models.SET_NULL,
                              help_text="If you've made a Google Self-Assessed quiz, add it to GreenPen first and then link it here.")
+    group_lock = models.BooleanField(default=False, help_text='Lock this so that only stuents in your class may see it.')
+
 
     def __str__(self):
         return self.name
@@ -1158,13 +1169,19 @@ m2m_changed.connect(class_suspended, sender=Suspension.teachinggroups.through)
 
 class Lesson(models.Model):
     teachinggroup = models.ForeignKey(TeachingGroup, null=False, on_delete=models.CASCADE)
-    title = models.CharField(max_length=256, blank=True, null=True)
+    title = models.CharField(max_length=256, blank=False, null=True)
     order = models.FloatField(null=False)
     description = models.TextField(null=True, blank=True)
     requirements = models.TextField(null=True, blank=True)
     slot = models.ForeignKey(CalendaredPeriod, blank=True, null=True, on_delete=models.SET_NULL)
     syllabus = TreeManyToManyField(Syllabus, blank=True)
     resources = models.ManyToManyField(Resource, blank=True)
+
+    def __str__(self):
+        if self.title:
+            return self.title
+        else:
+            return self.teachinggroup.name + " " + str(self.slot.date)
 
     class Meta:
         unique_together = ['teachinggroup', 'order']
@@ -1236,6 +1253,14 @@ class Lesson(models.Model):
         for lesson in following:
             lesson.order = lesson.order - 1
             lesson.save()  # will re-apply the ordering
+
+
+def copy_lesson(request, lesson_pk):
+    """
+    Allow a user to create a copy of a lesson from another class
+    that they teach.
+    """
+    lesson = Lesson.objects.get(pk=lesson_pk)
 
 
 def setup_lessons(teachinggrousp=TeachingGroup.objects.all()):
