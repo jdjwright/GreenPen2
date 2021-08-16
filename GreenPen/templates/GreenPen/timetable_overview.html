@@ -28,11 +28,7 @@
                             <p>{{ lesson.description }}</p>
                             <p>{% if lesson.requirements %}Requirements: {{ lesson.requirements }}{% endif %}</p>
                             {% if not lesson.title %}
-                                <a class="btn btn-primary" href="{% url 'copy_lesson' lesson.pk %}" role="button"><i class="fas fa-copy"></i>
-
-
-
-                                </a>
+                                <a class="btn btn-primary" href="{% url 'copy_lesson' lesson.pk %}" role="button"><i class="fas fa-copy"></i></a>
                             {% endif %}
                         {% endfor %}
                         </td>

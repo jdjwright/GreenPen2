@@ -229,9 +229,9 @@ class Syllabus(MPTTModel):
     def resources(self, user=False):
         resources = Resource.objects.filter(syllabus__in=self.get_descendants(include_self=True))
         if user:
-            if user.groups.filter('Teachers').count():
+            if user.groups.filter(name='Teachers').count():
                 return resources
-            elif user.groups.filter('Students').count():
+            elif user.groups.filter(name='Students').count():
                 return resources.filter(open_to_all=True)
 
             else:
@@ -254,7 +254,7 @@ class Syllabus(MPTTModel):
     def dash_resources(self, user):
         list = []
 
-        for r in self.resources():
+        for r in self.resources(user=user):
             # Teachers get a link to edit the resource
 
             if user.groups.filter(name='Teachers').count():
@@ -913,7 +913,7 @@ class Resource(models.Model):
 
     def html(self, student_pk=False):
         string = '<a href="' + str(self.student_clickable_link(student_pk=student_pk))
-        string += '" data-toggle="tooltip" title="' + self.name + '"><i class="' + self.type.icon + '"</i></a>'
+        string += '" data-toggle="tooltip" title="' + self.name + '" class="btn btn-primary"><i class="' + self.type.icon + '"></i></a>'
         return mark_safe(string)
 
     def markdown(self):
@@ -1174,7 +1174,7 @@ class Lesson(models.Model):
     description = models.TextField(null=True, blank=True)
     requirements = models.TextField(null=True, blank=True)
     slot = models.ForeignKey(CalendaredPeriod, blank=True, null=True, on_delete=models.SET_NULL)
-    syllabus = TreeManyToManyField(Syllabus, blank=True)
+    syllabus = TreeManyToManyField(Syllabus, blank=False)
     resources = models.ManyToManyField(Resource, blank=True)
 
     def __str__(self):
