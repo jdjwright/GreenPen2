@@ -6,6 +6,7 @@
 <form method="post" action="{% url 'edit_lesson' lesson.pk return_pk %}">
 {% csrf_token %}
     {{ form|crispy }}
+{# HACK - should have error handling in our syllabus form... #}
 
 {% if lesson.resources.all.count %}
     <table class="table">
@@ -46,7 +47,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-danger"name="btn_delete_resource" value="{{ resource.pk }}"><i class="fa fa-trash" aria-hidden="true"></i>
+                        <button type="submit" class="btn btn-danger" name="btn_delete_resource" value="{{ resource.pk }}"><i class="fa fa-trash" aria-hidden="true"></i>
                              Delete</button>
                     </div>
                 </div>
@@ -67,7 +68,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-warning"name="btn_unlink_resource" value="{{ resource.pk }}"><i class="fas fa-unlink"></i>
+                        <button type="submit" class="btn btn-warning"name="btn_unlink_resource" value="{{ resource.pk }}"><i class="fas fa-unlink"></i>
 
                              Unlink</button>
                     </div>
@@ -77,8 +78,8 @@
     {% endfor %}
 
 {% endif %}
-    <button type="submit" name="btn_submit" value="add_resource" class="btn btn-primary"><i class="fas fa-plus"></i> resource</button>
-    <button type="submit" name="btn_submit" value="save_lesson" class="btn btn-primary">Save</button>
+    <button type="submit" name="btn_add_resource" value="add_resource" class="btn btn-primary"><i class="fas fa-plus"></i> resource</button>
+    <button type="submit" name="btn_save" value="save_lesson" class="btn btn-primary">Save</button>
 
 </form>
 

@@ -913,7 +913,7 @@ class Resource(models.Model):
 
     def html(self, student_pk=False):
         string = '<a href="' + str(self.student_clickable_link(student_pk=student_pk))
-        string += '" data-toggle="tooltip" title="' + self.name + '" class="btn btn-primary"><i class="' + self.type.icon + '"></i></a>'
+        string += '" data-toggle="tooltip" title="' + self.name + '" class="btn btn-primary" target="_blank"><i class="' + self.type.icon + '"></i></a>'
         return mark_safe(string)
 
     def markdown(self):

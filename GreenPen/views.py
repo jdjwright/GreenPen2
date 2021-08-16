@@ -1014,23 +1014,26 @@ def change_lesson(request, lesson_pk, return_pk):
             form.save()
             messages.success(request, 'Lesson saved')
             # Use different submit button values to decide where to go
-            if form.data['btn_submit'] == 'add_resource':
+            if 'btn_add_resource' in form.data:
                 return redirect('lesson_resource_search', lesson_pk=lesson_pk, return_pk=return_pk)
-            elif form.data['btn_submit'] == 'save_lesson':
+            elif 'btn_save' in form.data:
                 return redirect('tt_overview', start_slot_pk=return_pk, teacher_pk=teacher.pk)
-            elif form.data['btn_delete_resource']:
+            elif 'btn_delete_resource' in form.data:
                 resource = Resource.objects.get(pk=form.data['btn_delete_resource'])
                 name = resource.name
                 resource.delete()
-                messages.warning(request, 'Resource %s deleted'.format(name))
+                messages.warning(request, 'Resource {} deleted'.format(name))
 
-            elif form.data['btn_unlink_resource']:
-                resource = Resource.objects.get(pk=form.data['btn_delete_resource'])
+            elif 'btn_unlink_resource' in form.data:
+                resource = Resource.objects.get(pk=form.data['btn_unlink_resource'])
                 name = resource.name
                 lesson.resources.remove(resource)
-                messages.warning(request, 'Resource %s deleted'.format(name))
+                messages.warning(request, 'Resource {} has been removed from the lesson'.format(name))
             else:
                 raise NotImplemented('Form should contain btn_submit with action to perform.')
+        else:
+            if 'syllabus' in form.errors:
+                messages.warning(request, 'You must chose a syllabus point for the lesson')
     return render(request, 'GreenPen/lesson_change.html', {'lesson': lesson,
                                                            'form': form,
                                                            'return_pk': return_pk})
