@@ -120,4 +120,4 @@ class ResourceAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             self.qs = self.qs.filter(name__icontains=self.q)
 
-        return self.qs
+        return self.qs.distinct()

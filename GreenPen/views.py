@@ -245,7 +245,7 @@ class ClassAssessmentForPoint(TeacherOnlyMixin, ListView):
 
 class EditExamQsView(TeacherOnlyMixin, View):
     template_name = 'GreenPen/exam_details.html'
-
+    is_google = False
     form = inlineformset_factory(Exam, Question,
                                  form=SetQuestions,
                                  extra=1,
@@ -259,6 +259,7 @@ class EditExamQsView(TeacherOnlyMixin, View):
     def get_exam_instance(self):
         try:
             exam = GQuizExam.objects.get(pk=self.kwargs['exam'])
+            self.is_google = True
         except ObjectDoesNotExist:
             try: exam = Exam.objects.get(pk=self.kwargs['exam'])
 
@@ -309,7 +310,8 @@ class EditExamQsView(TeacherOnlyMixin, View):
         # Set syllabus tree widget URL
         exam_form.fields['syllabus'].widget.set_url(reverse('load_syllabus_points_exam', args=[exam.pk]))
         return render(request, self.template_name, {'form': form,
-                                                    'exam_form': exam_form})
+                                                    'exam_form': exam_form,
+                                                    'is_google': self.is_google})
 
     def post(self, request, *args, **kwargs):
 
@@ -351,7 +353,8 @@ class EditExamQsView(TeacherOnlyMixin, View):
                 exam_form.save()
 
                 # Now we need to update sittings if the exam type is self-assessed.
-
+                success_message = "Exam saved succeffully. <a href='" + reverse('new-sitting', args=(
+                    exam.pk,)) + "'>Click here to create a sitting for it</a>."
                 if isinstance(exam, GQuizExam):
                     if exam.type.eligible_for_self_assessment:
                         # Find all sittings and change their URL
@@ -374,10 +377,6 @@ class EditExamQsView(TeacherOnlyMixin, View):
 
                         except MultipleObjectsReturned:
                             success_message = "Your exam has been saved successfully, however there are multiple self-assessment resource with the same exam and name linked, so we couldn't create the resource automatically. Please create a new resource <a href={link}>here</a>.".format(reverse('add_resource'))
-                    else:
-                        success_message = "Exam saved succeffully. <a href='" + reverse('new-sitting', args=(
-                            exam.pk,)) + "'>Click here to create a sitting for it</a>."
-
 
                 messages.success(request, success_message)
 
@@ -1061,6 +1060,14 @@ def copy_lesson(request, lesson_pk):
     return render(request, 'GreenPen/copy_lesson.html', {'target_lesson': target_lesson,
                                                          'form': form})
 
+@user_passes_test(check_teacher)
+def delete_lesson(request, lesson_pk, return_pk):
+    lesson = Lesson.objects.get(pk=lesson_pk)
+    title = lesson.title
+    lesson.delete()
+    messages.warning(request, "Deleted lesson " + str(title) + "." )
+    teacher = Teacher.objects.get(user=request.user)
+    return redirect('tt_overview', return_pk, teacher.pk)
 
 
 @user_passes_test(check_superuser)

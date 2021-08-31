@@ -14,7 +14,11 @@
             {% csrf_token %}
             <div class="row row-height">
                 <div class="col-md-6 left">
-                    {% include 'GreenPen/exams/exam-form-google.html' %}
+                    {% if is_google %}
+                        {% include 'GreenPen/exams/exam-form-google.html' %}
+                    {% else %}
+                        {% include 'GreenPen/exams/exam-form.html' %}
+                    {% endif %}
                 </div>
                 <div class="col-md-6 right">
                     {% include 'GreenPen/exams/exam-questions-form.html' %}

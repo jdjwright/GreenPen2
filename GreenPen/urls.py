@@ -85,6 +85,7 @@ urlpatterns = [
     path('timetable/<int:start_slot_pk>/<int:teacher_pk>', timetable_overview, name='tt_overview'),
     path('timetable/<int:slot_pk>/add', add_tt_lesson, name='add_tt_lesson'),
     path('lesson/<int:lesson_pk>/<int:return_pk>', change_lesson, name='edit_lesson'),
+    path('lesson/<int:lesson_pk>/<int:return_pk>/delete', delete_lesson, name='delete_lesson'),
     path('timetable/<int:lesson_pk>/copy', copy_lesson, name='copy_lesson'),
     path('timetable/<int:lesson_pk>/<int:return_pk>/add-resource', lesson_resource_search, name='lesson_resource_search'),
     path('timetable/suspend', suspend_days, name='suspend_days'),

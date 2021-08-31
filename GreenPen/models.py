@@ -230,9 +230,9 @@ class Syllabus(MPTTModel):
         resources = Resource.objects.filter(syllabus__in=self.get_descendants(include_self=True))
         if user:
             if user.groups.filter(name='Teachers').count():
-                return resources
+                return resources.distinct()
             elif user.groups.filter(name='Students').count():
-                return resources.filter(open_to_all=True)
+                return resources.filter(open_to_all=True).distinct()
 
             else:
                 raise PermissionError('The user must be in either the Teacher or Student group.')
@@ -265,7 +265,7 @@ class Syllabus(MPTTModel):
                 student_pk = Student.objects.get(user=user).pk
                 link = r.student_clickable_link(student_pk)
             row = html.Div([
-                html.A(target='_blank', href=link, id="resource-" + str(r.pk),
+                html.A(target='_blank', href=link, id="resource-" + str(r.pk), className='btn btn-primary',
                        children=[html.I(className=r.type.icon)]),
                 dbc.Tooltip(r.name, target="resource-" + str(r.pk))
             ])

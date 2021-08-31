@@ -12,6 +12,7 @@
     <table class="table">
     <thead>
     <tr>
+        <td></td>
         <td>Resource</td>
         <td></td>
     </tr>
@@ -19,9 +20,10 @@
     {% for resource in lesson.resources.all %}
         <tbod>
         <tr>
+            <td>{{ resource.html }} </td>
             <td><a href="{% url 'edit-resource' resource.pk %}">{{ resource.name }}</a></td>
             <td>
-                {{ resource.html }} <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#ModalDelete_{{ resource.pk}}"><i class="fa fa-trash" aria-hidden="true"></i>
+                <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#ModalDelete_{{ resource.pk}}"><i class="fa fa-trash" aria-hidden="true"></i>
             </button>
                 <button type="button" class="btn btn-warning" data-toggle="modal" data-target="#ModalUnlink_{{ resource.pk}}"><i class="fas fa-unlink"></i>
 
