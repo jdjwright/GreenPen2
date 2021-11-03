@@ -19,9 +19,10 @@ import re
 from django.dispatch import receiver
 from django_pandas.io import read_frame
 import pandas as pd
-from django.utils.html import mark_safe
 import dash_html_components as html
+from django.utils.html import mark_safe
 import dash_bootstrap_components as dbc
+from django.utils.timezone import now as dj_now
 
 
 class Person(models.Model):
@@ -208,15 +209,17 @@ class Syllabus(MPTTModel):
         else:
             return 0
 
-    def cohort_stats(self, students=Student.objects.none(), sittings=False):
+    def cohort_stats(self, students=Student.objects.none(), sittings=False, include_self_assessment=False):
         records = StudentSyllabusAssessmentRecord.objects.filter(student__in=students,
-                                                                 syllabus_point=self)
+                                                                 syllabus_point=self,
+                                                                 self_assessment=include_self_assessment)
+        debug = list(records)
         if sittings:
             records = records.filter(sitting__in=sittings)
 
         else:
             records = records.filter(most_recent=True)
-
+        debug = list(records)
         data = records.aggregate(percentage=Avg('percentage'),
                                  rating=Avg('rating'),
                                  children_0_1=Sum('children_0_1'),
@@ -271,6 +274,45 @@ class Syllabus(MPTTModel):
             ])
             list.append(row)
         return list
+
+    def gap(self,
+            students=Student.objects.none(),
+            sitting=False, # Sitting object
+            max_date=False, # Must be datetime
+            min_date=False): # datetime
+        """
+        Give the difference between the most recent
+        self-assessment and exam-assessed result.
+        Positive = student examined better than self-assessed.
+        Negative = student did worse.
+
+        Takes a queryset of students to aggregate over (required).
+        If sitting is defined, it uses that sitting for the exam result.
+        If dates are provided, it uses these for results.
+        If none are provided, it uses the most recent.
+        """
+
+        # Create the querysets:
+
+        qs = StudentSyllabusAssessmentRecord.objects.filter(syllabus_point=self)
+        if sitting:
+            qs = qs.filter(sitting=sitting)
+
+        if max_date:
+            qs = qs.filter(created__lte=max_date)
+
+        if min_date:
+            qs = qs.filter(created__gte=min_date)
+
+        # Aggregate max
+        # - see https://docs.djangoproject.com/en/dev/ref/models/querysets/#django.db.models.query.QuerySet.distinct
+        exams = qs.filter(exam_assessment=True).order_by('-created').distinct('student')
+        exam_av_rating = exams.aggregate(Avg('rating'))[0]
+
+        selfs = qs.filter(self_assessment=True).order_by('-created').distinct('student')
+        self_av_rating = selfs.aggregate(Avg('rating'))[0]
+
+        return round(self_av_rating - exam_av_rating,2)
 
 
 class ExamType(models.Model):
@@ -364,7 +406,10 @@ class Question(models.Model):
 
 
 def new_question_created(sender, instance, **kwargs):
-    for sitting in Sitting.objects.filter(exam__question=instance):
+    # Debug:
+    exam = instance.exam
+    sittings = exam.sitting_set.all()
+    for sitting in sittings:
         sync_marks_with_sittings(sitting)
 
 
@@ -373,11 +418,12 @@ post_save.connect(new_question_created, sender=Question)
 
 class Sitting(models.Model):
     exam = models.ForeignKey(Exam, blank=False, null=False, on_delete=models.CASCADE)
-    date = models.DateTimeField(blank=False, null=False, default=datetime.datetime.now())
+    date = models.DateField(blank=False, null=False, default=datetime.date.today)
     students = models.ManyToManyField(Student)
     resets_ratings = models.BooleanField(blank=True, null=True, default=False)
     group = models.ForeignKey(TeachingGroup, blank=True, null=True, on_delete=models.SET_NULL)
     imported = models.BooleanField(default=True, help_text='Set to true after results have been imported.')
+    require_self_assessment = models.BooleanField(default=False, help_text='Set to true to force students to complete a self-assessment of the spec points before makrs can be recoreded.')
 
     class Meta:
         permissions = [
@@ -542,9 +588,7 @@ class Mark(models.Model):
             # it to the most recent. HOWEVER, we've loaded this into memory, so the instance
             # that gets sent to set_assessment_record_chain is the OLD one, without
             # the correct 'most recent' flag.
-            record = StudentSyllabusAssessmentRecord.objects.get(student=self.student,
-                                                                 syllabus_point=point,
-                                                                 sitting=self.sitting)
+            record.refresh_from_db()
             set_assessment_record_chain(record)
             # If the record chain was not the most recent, we also need to re-set
             # the records that came after it:
@@ -571,7 +615,11 @@ class Mark(models.Model):
 class StudentSyllabusAssessmentRecord(models.Model):
     syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
-    sitting = models.ForeignKey(Sitting, blank=False, null=False, on_delete=models.CASCADE)
+    sitting = models.ForeignKey(Sitting, blank=False, null=True, on_delete=models.CASCADE)
+    created = models.DateTimeField(default=timezone.now)
+    exam_assessment = models.BooleanField(default=True)
+    self_assessment = models.BooleanField(default=False)
+    teacher_assessment = models.BooleanField(default=False)
     order = models.IntegerField(blank=False, null=False, default=0)
 
     attempted_this_level = models.FloatField(blank=False,
@@ -596,11 +644,101 @@ class StudentSyllabusAssessmentRecord(models.Model):
     children_3_4 = models.IntegerField(blank=False, null=False, default=0, help_text='total children rated 3-4')
     children_4_5 = models.IntegerField(blank=False, null=False, default=0, help_text='total children rated 4-5')
 
+    # These are used to set whether this is the most recent record of each type
+    # We might want the most recent se
     most_recent = models.BooleanField(blank=True, null=True, default=False)
+    most_recent_self = models.BooleanField(blank=True, null=True, default=False)
+    most_recent_teacher = models.BooleanField(blank=True, null=True, default=False)
 
     class Meta:
         unique_together = [('student', 'sitting', 'syllabus_point'),
                            ('student', 'syllabus_point', 'order')]
+
+    def save(self, bypass_ordering=False, *args, **kwargs):
+        # Must ensure that only one of 'self_assessment', 'teacher_assessment' or 'exam_Assessment' is true.
+        if bypass_ordering:
+            kwargs['force_insert'] = False
+            return super(StudentSyllabusAssessmentRecord, self).save(*args, **kwargs)
+
+        if self.exam_assessment + self.teacher_assessment + self.self_assessment > 1:
+            raise IntegrityError("Multiple types of assessment type (self, teacher or exam) selected.")
+        if self.exam_assessment + self.teacher_assessment + self.self_assessment == 0:
+            raise IntegrityError("Must select type of assessment (self, teacher or exam).")
+
+        # If we're not new (e.g. changing a score), don't need to set order:
+        if self.pk:
+            self.save(bypass_ordering=True)
+            return self
+        else:
+            pass
+
+        # If we're an exam sitting, use the date of the exam:
+        if self.exam_assessment:
+            self.created = self.sitting.date
+        # Set the 'order' field:
+        # Check if we're the last assessment:
+        history = StudentSyllabusAssessmentRecord.objects.filter(student=self.student,
+                                                               syllabus_point=self.syllabus_point,
+                                                                                                                           ).\
+            order_by('created').distinct()
+        ## TODO: REMOVe this line:
+        debug1 = list(history)
+        newer = history.filter(created__gt=self.created).order_by('created').distinct()
+        if newer.count():
+            # this one comes in the middle, so we need to find its place:
+            younger = history.filter(created__lte=self.created).order_by('created').distinct()
+
+            # If we're the first one, need to be 1. Otherwise, be 1 more than last.
+            if younger.count():
+                youngest = younger.last()
+                self.order = youngest.order + 1
+            else:
+                self.order = 1
+            # Now need to increment the others BEFORE SAVING OUR OWN:
+            for r in newer.order_by('-created'):
+                kwargs['force_insert'] = False
+                r.order += 1
+                r.save(bypass_ordering=True, *args, **kwargs)
+
+            # Now set the most recent flags:
+            selfas = history.filter(self_assessment=True).last()
+            if selfas:
+                selfas.most_recent_self = True
+                selfas.save(bypass_ordering=True)
+            else: # WE're the most recent of this type then
+                self.most_recent_self = True
+
+            examas = history.filter(exam_assessment=True).last()
+            if examas:
+                examas.most_recent = True
+                examas.save(bypass_ordering=True)
+            else: # WE're the most recent of this type then
+                self.most_recent = True
+
+            teacheras = history.filter(teacher_assessment=True).last()
+            if teacheras:
+                teacheras.most_recent_teacher = True
+                teacheras.save(bypass_ordering=True)
+            else: # WE're the most recent of this type then
+                self.most_recent_self_teacher = True
+        else:
+            # We're the newest, so set accordingly:
+            self.order = history.count() + 1
+            similar_history = history.filter(exam_assessment=self.exam_assessment,
+                                             teacher_assessment=self.teacher_assessment,
+                                             self_assessment=self.self_assessment)
+            debug2 = list(similar_history)
+            if self.exam_assessment:
+                similar_history.update(most_recent=False)
+                self.most_recent = True
+            if self.teacher_assessment:
+                similar_history.update(most_recent_teacher=False)
+                self.most_recent_teacher = True
+            if self.self_assessment:
+                similar_history.update(most_recent_self=False)
+                self.most_recent_self = True
+        return super(StudentSyllabusAssessmentRecord, self).save(*args, **kwargs)
+
 
     @property
     def percentage_correct(self):
@@ -675,17 +813,22 @@ def syllabus_record_created(sender, instance, created, **kwargs):
     """ Ensure that there's only ever one 'most recent' record, and that is set by the date of assessment. """
     if created:
         competitors = StudentSyllabusAssessmentRecord.objects.filter(syllabus_point=instance.syllabus_point,
-                                                                     student=instance.student).order_by(
-            '-sitting__date')
+                                                                     student=instance.student,
+                                                                     self_assessment=instance.self_assessment,
+                                                                     teacher_assessment=instance.teacher_assessment,
+                                                                     exam_assessment=instance.exam_assessment
+                                                                                          ).order_by(
+            'created')
         # This should order with most recent first
 
         total_comps = competitors.count()
         i = total_comps  # maximum order number
         j = 1  # used for duplicate competior order number; needs to increment after a clash.
         # We can run into trouble here if we set a compeitor when another already has that order.
-
+        competitors.update(most_recent=False,
+                           most_recent_self=False,
+                           most_recent_teacher=False)
         for competitor in competitors:
-            competitor.most_recent = False
             competitor.order = i
             i += -1
             try:
@@ -704,21 +847,22 @@ def syllabus_record_created(sender, instance, created, **kwargs):
                     fix_student_assessment_record_order(students=Student.objects.filter(pk=other.student.pk),
                                                         points=Syllabus.objects.filter(pk=other.syllabus_point.pk))
 
-        # Refresh from db to check correct competitors:
-        competitors = StudentSyllabusAssessmentRecord.objects.filter(syllabus_point=instance.syllabus_point,
-                                                                     student=instance.student).order_by(
-            '-sitting__date')
+        # Refresh from db to check correct competitors: (this reloads from db)
+        competitors = competitors.all()
         most_recent_competitor = competitors[0]
         if instance.pk == most_recent_competitor.pk:  # Don't use just == as might have changed flags
             newer_reset_reqd = False
         else:
             newer_reset_reqd = True
         # Make sure none are most recent:
-        most_recents = competitors.filter(most_recent=True)
-        for competitor in most_recents:
-            competitor.most_recent = False
-            competitor.save()
-        most_recent_competitor.most_recent = True
+
+
+        if most_recent_competitor.exam_assessment:
+            most_recent_competitor.most_recent = True
+        if most_recent_competitor.teacher_assessment:
+            most_recent_competitor.most_recent_teacher = True
+        if most_recent_competitor.self_assessment:
+            most_recent_competitor.most_recent_self = True
         most_recent_competitor.save()
 
         # Refresh from DB so that we don't send back the old instance with the wrong date and order:
@@ -765,7 +909,7 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
                                 student=record.student,
                                 sitting__date__lte=record.sitting.date)
     if marks.filter(sitting__resets_ratings=True).count():
-        last_relevant_sitting = marks.filter(sitting__resets_ratings=True).order_by('-sitting__date')[0]
+        last_relevant_sitting = marks.filter(sitting__resets_ratings=True).order_by('-sitting__date').first()
         marks = marks.filter(sitting__date__gte=last_relevant_sitting.sitting.date)
 
     data = marks.aggregate(Sum('question__max_score'), Sum('score'))
@@ -823,7 +967,7 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
             student_record.set_calculated_fields()
 
 
-post_save.connect(syllabus_record_created, sender=StudentSyllabusAssessmentRecord)
+#post_save.connect(syllabus_record_created, sender=StudentSyllabusAssessmentRecord)
 
 
 class StudentSyllabusManualStudentRecord(models.Model):
@@ -1067,6 +1211,9 @@ class Suspension(models.Model):
     teachinggroups = models.ManyToManyField(TeachingGroup, blank=True)
     whole_school = models.BooleanField(null=True)
     slot = models.ForeignKey(CalendaredPeriod, null=True, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.reason + " " + str(self.slot)
 
     def set_slot(self, automatic=True):
         try:
@@ -1482,3 +1629,4 @@ def generate_analsysios_df(marks=Mark.objects.none):
     df = df.round()
 
     return df
+

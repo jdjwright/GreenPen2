@@ -262,7 +262,9 @@ class ExamTestCase(TestCase):
         self.assertEqual(new_exam.total_score(), 2)
 
 
-def setUpQuestion(exam=setUpExam()):
+def setUpQuestion(exam=False):
+    if not exam:
+        exam = setUpExam()
 
     setUpSyllabus()
 
@@ -318,10 +320,11 @@ class SittingTestCase(TestCase):
         self.assertEqual(Mark.objects.filter(student=skinner_student).count(), 3)
 
 
-def setUpSitting():
+def setUpSitting(require_self_assessment=False):
     bloggs_teacher, tubbs_teacher, skinner_student, chalke_student, potions, herbology, hb1 = set_up_class()
     q1, q2 = setUpQuestion()
-    sitting, created = Sitting.objects.get_or_create(exam=q1.exam)
+
+    sitting, created = Sitting.objects.get_or_create(exam=q1.exam, require_self_assessment=require_self_assessment)
     return sitting
 
 
@@ -1174,8 +1177,8 @@ class TimetableTestCase(TestCase):
         Lesson.objects.all().delete()
         tg1 = TeachingGroup.objects.get(name='tg1')
         l1, created = Lesson.objects.get_or_create(teachinggroup=tg1,
-                                   title='Lesson1',
-                                   order=0)
+                                                   title='Lesson1',
+                                                   order=0)
         correct_slot = CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
                                                     tt_slot__period=Period.objects.get(name='1'))
         self.assertEqual(l1.slot, correct_slot)
@@ -1213,11 +1216,12 @@ class TimetableTestCase(TestCase):
         l3 = Lesson.objects.create(teachinggroup=TeachingGroup.objects.get(name='tg1'),
                                    order=2)
 
-        self.assertEqual(l1.slot, CalendaredPeriod.objects.get(date=datetime.date.today()+datetime.timedelta(weeks=11),
-                                                               tt_slot__period=1))
+        self.assertEqual(l1.slot,
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
+                                                      tt_slot__period=1))
         self.assertEqual(l2.slot,
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12),
-                                                        tt_slot__period=1))
+                                                      tt_slot__period=1))
         self.assertEqual(l3.slot,
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13),
                                                       tt_slot__period=1))
@@ -1238,8 +1242,6 @@ class TimetableTestCase(TestCase):
         self.assertEqual(l3.slot,
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=12),
                                                       tt_slot__period=1))
-
-
 
     def test_add_suspension(self):
 
@@ -1299,7 +1301,7 @@ class TimetableTestCase(TestCase):
         # 16     1      tg1  tg2
         # 16     2      tg2  free
 
-        s2, created = Suspension.objects.get_or_create(date=datetime.date.today()+datetime.timedelta(weeks=11),
+        s2, created = Suspension.objects.get_or_create(date=datetime.date.today() + datetime.timedelta(weeks=11),
                                                        whole_school=True,
                                                        period=Period.objects.get(name='1'))
 
@@ -1407,7 +1409,7 @@ class TimetableTestCase(TestCase):
         tg4_l6 = Lesson.objects.create(teachinggroup=tg4, order=5)
         # Sanity check
         self.assertEqual(tg3_l1.slot,
-                         CalendaredPeriod.objects.get(date=datetime.date.today()+datetime.timedelta(weeks=11),
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
                                                       tt_slot__period=Period.objects.get(name='1')))
         self.assertEqual(tg3_l2.slot,
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
@@ -1428,7 +1430,7 @@ class TimetableTestCase(TestCase):
                                                       tt_slot__period=Period.objects.get(name='1')))
 
         self.assertEqual(tg4_l1.slot,
-                         CalendaredPeriod.objects.get(date=datetime.date.today()+datetime.timedelta(weeks=11),
+                         CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11),
                                                       tt_slot__period=Period.objects.get(name='1')))
         self.assertEqual(tg4_l2.slot,
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=11, days=1),
@@ -1458,8 +1460,8 @@ class TimetableTestCase(TestCase):
         # 13     1    tg3(4), tg4(5)      FREE
         # 13     2    tg3(5)              tg4(6)
 
-        s5, created = Suspension.objects.get_or_create(date=datetime.date.today()+datetime.timedelta(weeks=12),
-                                       period=Period.objects.get(name='1'))
+        s5, created = Suspension.objects.get_or_create(date=datetime.date.today() + datetime.timedelta(weeks=12),
+                                                       period=Period.objects.get(name='1'))
         s5.teachinggroups.add(tg3)
         s5.save()
 
@@ -1741,3 +1743,219 @@ class TimetableTestCase(TestCase):
                          CalendaredPeriod.objects.get(date=datetime.date.today() + datetime.timedelta(weeks=13, days=1),
                                                       tt_slot__period=Period.objects.get(name='2')))
         # Suspend just TG3 and TG4:
+
+
+class SelfAssessmentTest(TestCase):
+    def setUp(self):
+        self.bloggs_teacher, self.tubbs_teacher, self.skinner_student, self.chalke_student, self.potions, self.herbology, self.hb1 = set_up_class()
+        self.sitting = setUpSitting()
+
+        self.ss = StudentSyllabusAssessmentRecord.objects.create(student=self.skinner_student,
+                                                                 syllabus_point=Syllabus.objects.get(
+                                                                     text='first child'),
+                                                                 rating=4,
+                                                                 self_assessment=True,
+                                                                 exam_assessment=False)
+
+        # M1 will be 1/3 = 33.33%
+        self.m1, created = Mark.objects.get_or_create(sitting=self.sitting, student=self.skinner_student,
+                                                      question=Question.objects.get(order=1,
+                                                                                    exam=self.sitting.exam),
+                                                      score=1)
+
+    def tearDown(self):
+        User.objects.all().delete()
+        Exam.objects.all().delete()
+        Question.objects.all().delete()
+        Syllabus.objects.all().delete()
+        StudentSyllabusAssessmentRecord.objects.all().delete()
+
+    def testCheckRequireAssessmentType(self):
+        """
+        All StudentSyllabusAssessmentRecords must have either
+        'teacher_assessment', 'self_assessment' or 'exam_assessment' as TRUE.
+        """
+        with self.assertRaises(IntegrityError):
+            StudentSyllabusAssessmentRecord.objects.create(student=self.skinner_student,
+                                                           syllabus_point=Syllabus.objects.get(text='first child'),
+                                                           rating=4,
+                                                           self_assessment=True,
+                                                           exam_assessment=True,
+                                                           teacher_assessment=True)
+        with self.assertRaises(IntegrityError):
+            StudentSyllabusAssessmentRecord.objects.create(student=self.skinner_student,
+                                                           syllabus_point=Syllabus.objects.get(text='first child'),
+                                                           rating=4,
+                                                           self_assessment=True,
+                                                           exam_assessment=True,
+                                                           teacher_assessment=False)
+
+        with self.assertRaises(IntegrityError):
+            StudentSyllabusAssessmentRecord.objects.create(student=self.skinner_student,
+                                                           syllabus_point=Syllabus.objects.get(text='first child'),
+                                                           rating=4,
+                                                           self_assessment=True,
+                                                           exam_assessment=False,
+                                                           teacher_assessment=True)
+        with self.assertRaises(IntegrityError):
+            StudentSyllabusAssessmentRecord.objects.create(student=self.skinner_student,
+                                                           syllabus_point=Syllabus.objects.get(text='first child'),
+                                                           rating=4,
+                                                           self_assessment=False,
+                                                           exam_assessment=True,
+                                                           teacher_assessment=True)
+
+    def testSelfAssessmentCorrect(self):
+        # Check that rating is 33% for q1:
+
+        # Debugs:
+        check = list(StudentSyllabusAssessmentRecord.objects.all())
+        ratings = self.ss.syllabus_point.cohort_stats(students=Student.objects.filter(pk=self.skinner_student.pk),
+                                                      )
+        self.assertEqual(1 / 3 * 5, ratings['rating'])
+
+    def testMostRecent(self):
+        """
+        Ensure that the 'most recent' flag is set correctly for all cases:
+        """
+        ## Exma-based assessment
+
+        debug1 = list(StudentSyllabusAssessmentRecord.objects.filter(student=self.skinner_student,
+                                                                     syllabus_point=Syllabus.objects.get(
+                                                                         text='first child')))
+
+        m2 = Mark.objects.create(sitting=self.sitting,
+                                 student=self.skinner_student,
+                                 score=2,
+                                 question=Question.objects.get(order=2,
+                                                               exam=self.sitting.exam,
+                                                               )
+                                 )  # 100%
+
+        # Second only be one
+        record = StudentSyllabusAssessmentRecord.objects.filter(student=self.skinner_student,
+                                                                syllabus_point=Syllabus.objects.get(
+                                                                    text='first child'))
+        debug2 = list(record)
+        self.assertEqual(2, record.count())  # One from self.setUp, one from m2.
+        record = record.first()
+        # Now add a second record a day later
+        e2 = Exam.objects.create()
+        q3 = Question.objects.create(max_score=4,
+                                     order=1,
+                                     exam=e2)
+        q3.syllabus_points.add(Syllabus.objects.get(text='first child'))
+        s2 = Sitting.objects.create(exam=e2,
+                                    date=datetime.date.today() + datetime.timedelta(days=1))
+        m3 = Mark.objects.create(student=self.skinner_student,
+                                 score=2,
+                                 sitting=s2,
+                                 question=q3)
+        debug3 = debug1 = list(StudentSyllabusAssessmentRecord.objects.filter(student=self.skinner_student,
+                                                                              syllabus_point=Syllabus.objects.get(
+                                                                                  text='first child')))
+        # Check record is created and new:
+        record.refresh_from_db()
+        # test:
+        record.refreshed = True
+        test = list(StudentSyllabusAssessmentRecord.objects.all())
+        self.assertEqual(record.most_recent, False)
+
+        # Check that the most recent refers to the newest sitting:
+        syllabus_pt = Syllabus.objects.get(text='first child')
+        self.assertEqual(StudentSyllabusAssessmentRecord.objects.get(student=self.skinner_student,
+                                                                     syllabus_point=syllabus_pt,
+                                                                     most_recent=True).sitting.pk, s2.pk)
+
+        # For my sanity, let's make one more just to be sure!
+        # Add a new sitting 2 days in future, max score 6, student scored 2
+        e4 = Exam.objects.create()
+        q4 = Question.objects.create(exam=e4, order=1, max_score=6)
+        q4.syllabus_points.add(syllabus_pt)
+        s4 = Sitting.objects.create(date=datetime.date.today() + datetime.timedelta(days=2),
+                                    exam=e4)
+
+        m4 = Mark.objects.create(student=self.skinner_student,
+                                 score=6,
+                                 sitting=s4,
+                                 question=q4)
+        self.assertEqual(StudentSyllabusAssessmentRecord.objects.get(student=self.skinner_student,
+                                                                     syllabus_point=syllabus_pt,
+                                                                     most_recent=True).sitting.pk, s4.pk)
+
+    def testGapAnalysis(self):
+        """
+        Create a self-assessment opportunity, then an assessment.
+        Ensure that the correct difference between self-assessment and actual
+        result is correctly report.
+
+        self assessment:
+        root: 3
+        first child: 3
+        second child: 2
+
+
+        Sitting: s1 <-- exam e1, q1 = 4/5 on first child, 2/10 on second child
+        Yields first child: root: 2, first child = 4, second child: 1
+
+        Expected gap:
+        root: -1,
+        first: + 1
+        second: -1
+        """
+        # Start without any marks:
+        StudentSyllabusAssessmentRecord.objects.all().delete()
+        Mark.objects.all().delete()
+        root = Syllabus.objects.get(text='root')
+        c1 = Syllabus.objects.get(text='first child')
+        c2 = Syllabus.objects.get(text='second child')
+
+        # Start with the self assessment:
+        sa1 = StudentSyllabusAssessmentRecord.objects.create(student=self.skinner_student,
+                                                             syllabus_point=root,
+                                                             rating=3,
+                                                             self_assessment=True,
+                                                             exam_assessment=False)
+        sa2 = StudentSyllabusAssessmentRecord.objects.create(student=self.skinner_student,
+                                                             syllabus_point=c1,
+                                                             rating=3,
+                                                             self_assessment=True,
+                                                             exam_assessment=False)
+        sa3 = StudentSyllabusAssessmentRecord.objects.create(student=self.skinner_student,
+                                                             syllabus_point=c2,
+                                                             rating=2,
+                                                             self_assessment=True,
+                                                             exam_assessment=False)
+
+        # Check these are stored:
+
+        qs = StudentSyllabusAssessmentRecord.objects.filter(student=self.skinner_student,
+                                                            self_assessment=True,
+                                                            most_recent_self=True)
+        self.assertEqual(qs.get(syllabus_point=root).rating, 3)
+        self.assertEqual(qs.get(syllabus_point=c1).rating, 3)
+        self.assertEqual(qs.get(syllabus_point=c2).rating, 2)
+
+        # Now create an exam:
+        e1 = Exam.objects.create()
+        q1 = Question.objects.create(exam=e1,
+                                     max_score=5,
+                                     order=1)
+        q1.syllabus_points.add(c1)
+
+        s1 = Sitting.objects.create(exam=e1)
+
+        m1 = Mark.objects.create(student=self.skinner_student,
+                                 question=q1,
+                                 sitting=s1,
+                                 score=4)
+
+        # Verify latest score is correct:
+        debug = list(StudentSyllabusAssessmentRecord.objects.filter(student=self.skinner_student,
+                                                               syllabus_point=c1,
+                                                               exam_assessment=True))
+        qs = StudentSyllabusAssessmentRecord.objects.get(syllabus_point=c1,
+                                                         student=self.skinner_student,
+                                                         most_recent=True)
+
+        self.assertEqual(qs.rating, 4)
