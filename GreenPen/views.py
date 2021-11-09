@@ -10,7 +10,8 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError
-from django.forms import inlineformset_factory
+from django.forms import inlineformset_factory, formset_factory
+from django.forms.widgets import HiddenInput
 from django.forms import modelformset_factory
 from django.http import JsonResponse, HttpResponseForbidden, Http404, HttpResponseRedirect, HttpResponse, \
     HttpResponseBadRequest
@@ -625,11 +626,14 @@ def student_dashboard(request):
 def input_mark(request, mark_pk):
     mark = Mark.objects.get(pk=mark_pk)
 
-    # Check teacher of students own mark:
+    # Check teacher of students own mark, and whether self-assessment must be completed:
     if request.user.groups.filter(name='Teachers').count():
         pass
     elif request.user == mark.student.user:
-        pass
+        if mark.sitting.require_self_assessment:
+            # Check if student has completed self assessment
+            # If so, continue. If not, redirect to self-assessment for this
+            pass
     else:
         raise HttpResponseForbidden
 
@@ -1646,3 +1650,100 @@ def gquiz_alert(request):
         return HttpResponseBadRequest
 
 
+@login_required
+def self_assessment_spec(request, syllabus_pk, student_pk):
+    """
+    Allows selecting of a grade for each syllabus point that is a child of
+    the chosen syllabus.
+    syllabus_pk: pk of syllabus to use as root of this page
+    student_pk: pk of student to rate for this.
+    """
+
+    student = Student.objects.get(pk=student_pk)
+    if request.user.groups.all().filter(name="Teachers"):
+        pass
+    elif request.user == student:
+        pass
+    else:
+        return HttpResponseForbidden
+
+    syllabus_root = Syllabus.objects.get(pk=syllabus_pk)
+    syllabus_points = syllabus_root.get_descendants(include_self=True)
+
+    # get or create current spec points:
+    forms = []
+
+    # Check that the points exist if we're loading the page for the first time:
+    if request.method == 'GET':
+        for point in syllabus_points:
+            rec = StudentSyllabusAssessmentRecord.objects.get_or_create(student=student,
+                                                                  syllabus_point=point,
+                                                                  self_assessment=True,
+                                                                  exam_assessment=False,
+                                                                  most_recent_self=True)
+
+    ratings = StudentSyllabusAssessmentRecord.objects.filter(student=student,
+                                                             self_assessment=True,
+                                                             most_recent_self=True,
+                                                             syllabus_point__in=syllabus_points).\
+        order_by('syllabus_point__pk')
+    SelfAssessmentFormset = modelformset_factory(StudentSyllabusAssessmentRecord,
+                                             fields=('rating',),
+                                                 widgets={'rating': HiddenInput(attrs={'class': 'rating-input', }), })
+
+
+    if request.method == 'POST':
+        formset = SelfAssessmentFormset(request.POST, queryset=ratings)
+        # Debug:
+        debug = list(formset)
+        for form in formset:
+            if form.is_valid():
+                data = form.cleaned_data
+                # If we've changed the rating, create a new rating and save.
+                # Otherwise, no need to do anything.
+                try:
+                    if form.initial['rating'] != form.instance.rating:
+                        StudentSyllabusAssessmentRecord.objects.create(student=student,
+                                                                       syllabus_point=form.instance.syllabus_point,
+                                                                       self_assessment=True,
+                                                                       exam_assessment=False,
+                                                                       rating=form.cleaned_data['rating'])
+                except KeyError: # Occurs on last item(?)
+                    continue
+                else:
+                    continue
+        messages.success(request, "Self-assessment saved successfully")
+        # Refresh data from db:
+        ratings = ratings.all()
+    formset = SelfAssessmentFormset(queryset=ratings)
+
+    return render(request, 'GreenPen/self-assessment.html', {'formset': formset,
+                                                            'student': student,
+                                                             'root_node': syllabus_root})
+
+
+def student_self_assessment_choice(request, student_pk):
+    """
+    Screen that allows you to choose which part of the course you'd like to self-assess.
+    """
+
+    student = Student.objects.get(pk=student_pk)
+    enrolled_courses = Syllabus.objects.filter(teachinggroup__students=student).distinct()
+
+    return render(request, "GreenPen/student_self_assessment_choice.html", {'student': student,
+                                                                            'enrolled_courses': enrolled_courses
+                                                                          })
+
+def select_self_assessment_student(request):
+    """
+    If we are a teacher, allow us to  pick a student.
+    If we're a student, go straight to our assessments.
+    """
+
+    if check_teacher(request.user):
+        students = Student.objects.all()
+        return render (request, 'GreenPen/select-student-for-self-assesment.html', {'students': students})
+
+    else:
+        student = get_object_or_404(Student, user=request.user)
+        return redirect('choose-self-assessment-topic', student_pk=student.pk)

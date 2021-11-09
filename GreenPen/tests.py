@@ -1807,12 +1807,13 @@ class SelfAssessmentTest(TestCase):
 
     def testSelfAssessmentCorrect(self):
         # Check that rating is 33% for q1:
+        # Note that python / django does some 'interesting' rounding!
 
         # Debugs:
         check = list(StudentSyllabusAssessmentRecord.objects.all())
         ratings = self.ss.syllabus_point.cohort_stats(students=Student.objects.filter(pk=self.skinner_student.pk),
                                                       )
-        self.assertEqual(1 / 3 * 5, ratings['rating'])
+        self.assertEqual(1.65, ratings['rating'])
 
     def testMostRecent(self):
         """
@@ -1889,6 +1890,8 @@ class SelfAssessmentTest(TestCase):
         Ensure that the correct difference between self-assessment and actual
         result is correctly report.
 
+        #### SKINNER ####
+
         self assessment:
         root: 3
         first child: 3
@@ -1902,6 +1905,24 @@ class SelfAssessmentTest(TestCase):
         root: -1,
         first: + 1
         second: -1
+
+        ### CHALKE ###
+
+        self assessment:
+        root: 1
+        first child: 1
+        second child: 2
+
+
+        Sitting: s1 <-- exam e1,
+        q1 = 3/5 on first child,
+        8/10 on second child
+        Yields  root: 3.65, first child = 4, second child: 4
+
+        Expected gap:
+        root: +2.65,
+        first: + 2
+        second: 2
         """
         # Start without any marks:
         StudentSyllabusAssessmentRecord.objects.all().delete()
@@ -1959,3 +1980,105 @@ class SelfAssessmentTest(TestCase):
                                                          most_recent=True)
 
         self.assertEqual(qs.rating, 4)
+
+        # Check first detla
+        delta = c1.gap(students=Student.objects.filter(pk=self.skinner_student.pk))
+        self.assertEqual(1, delta)
+
+        # Add a student:
+        m2 = Mark.objects.create(student=self.chalke_student,
+                                 question=q1,
+                                 sitting=s1,
+                                 score=3)
+        sa4 = StudentSyllabusAssessmentRecord.objects.create(student=self.chalke_student,
+                                                             rating=1,
+                                                             self_assessment=True,
+                                                             exam_assessment=False,
+                                                             syllabus_point=c1)
+
+        self.assertEqual(c1.gap(students=Student.objects.filter(pk=self.chalke_student.pk)), 2)
+        delta = c1.gap(students=Student.objects.filter(pk=self.skinner_student.pk))
+        self.assertEqual(1, delta)
+
+        # Average dela should be:
+        # Self assessed: 3/5, 1/5 - av.2
+        # Examined: 3/5, 4/5 = 3.5
+        # Av. delta = 1.5
+
+        delta = c1.gap(students=Student.objects.all())
+        self.assertEqual(1.5, delta)
+
+        # Sefl-assess root;
+        StudentSyllabusAssessmentRecord.objects.create(student=self.skinner_student,
+                                                       rating=3,
+                                                       self_assessment=True,
+                                                       exam_assessment=False,
+                                                       syllabus_point=root)
+        StudentSyllabusAssessmentRecord.objects.create(student=self.chalke_student,
+                                                       rating=1,
+                                                       self_assessment=True,
+                                                       exam_assessment=False,
+                                                       syllabus_point=root)
+
+
+        ## Check roots:
+        # Skinner: scored 4/5 (4), rated 3, should be +1
+        self.assertEqual(root.gap(students=Student.objects.filter(pk=self.skinner_student.pk)), 1)
+
+        # Chalk: Scored 3/5, rated 1, should be +2
+        self.assertEqual(root.gap(students=Student.objects.filter(pk=self.chalke_student.pk)), 2)
+
+        # Add a new mark for each;
+        q2 = Question.objects.create(exam=e1,
+                                     max_score=10,
+                                     order=2)
+        q2.syllabus_points.add(c2)
+        Mark.objects.create(student=self.skinner_student,
+                            question=q2,
+                            sitting=s1,
+                            score=2)
+        Mark.objects.create(student=self.chalke_student,
+                            question=q2,
+                            sitting=s1,
+                            score=8)
+
+        ### Check gaps:
+        ## root:
+        # Skinner: total score = 6/15 (rating 2), self-assessed 3
+        self.assertEqual(root.gap(students=Student.objects.filter(pk=self.skinner_student.pk)), -1)
+        # C1:
+        self.assertEqual(c1.gap(students=Student.objects.filter(pk=self.skinner_student.pk)), 1)
+        # C2:
+        self.assertEqual(c2.gap(students=Student.objects.filter(pk=self.skinner_student.pk)), -1)
+
+        ## root:
+        # Chalk: total score = 11/15 (rating 3.65), self-assessed 1
+        gap = root.gap(students=Student.objects.filter(pk=self.chalke_student.pk))
+        self.assertEqual(root.gap(students=Student.objects.filter(pk=self.chalke_student.pk)), 2.65)
+        # C1:
+        self.assertEqual(c1.gap(students=Student.objects.filter(pk=self.chalke_student.pk)), 2)
+        # C2:
+        StudentSyllabusAssessmentRecord.objects.create(
+            student=self.chalke_student,
+            rating=2,
+            syllabus_point=c2,
+            self_assessment=True,
+            exam_assessment=False
+        )
+        self.assertEqual(c2.gap(students=Student.objects.filter(pk=self.chalke_student.pk)), 2)
+
+    def testNullGap(self):
+        """
+        If a student has no self-assessments at a point, gap() should return
+        null
+        """
+        StudentSyllabusAssessmentRecord.objects.all().delete()
+        Mark.objects.all().delete()
+        root = Syllabus.objects.get(text='root')
+        c1 = Syllabus.objects.get(text='first child')
+        c2 = Syllabus.objects.get(text='second child')
+
+        self.assertEqual(False, c1.gap(students=Student.objects.all()))
+
+
+

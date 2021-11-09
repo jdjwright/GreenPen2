@@ -1,0 +1,21 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% load static %}
+
+{% block title %}Select Student for Self Assessment{% endblock title %}
+
+{% block content %}
+Please pick the student you want:
+    <ul>
+    {% for student in students %}
+        <li><a href="{% url 'choose-self-assessment-topic' student.pk %}">{{ student }}</a></li>
+    {% endfor %}
+    </ul>
+
+
+{% endblock content %}
+
+{% block script %}
+
+
+{% endblock script %}

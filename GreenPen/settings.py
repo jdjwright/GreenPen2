@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'debug_toolbar',
+ #   'debug_toolbar',
     'GreenPen',
     'mptt',
     'crispy_forms',
@@ -234,7 +234,7 @@ for day in CALENDAR_START_DATE:
 
 
 # Required for django social-auth
-SOCIAL_AUTH_POSTGRES_JSONFIELD = True
+SOCIAL_AUTH_JSONFIELD_ENABLED = True
 
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',  # for Google authentication
@@ -300,3 +300,5 @@ MESSAGE_TAGS = {
 }
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = None
+
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'

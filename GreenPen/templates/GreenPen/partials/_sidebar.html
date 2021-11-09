@@ -95,7 +95,9 @@
           </div>
         </div>
       </li>
-    {% endif %}
+
+
+{% endif %}
 
 {% if request.user.is_staff %}
       <div class="sidebar-heading">
@@ -120,6 +122,18 @@
         </div>
       </li>
     {% endif %}
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseSelfAssessment" aria-expanded="true" aria-controls="collapseTwo">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span>Self Assessment</span>
+        </a>
+        <div id="collapseSelfAssessment" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <h6 class="collapse-header">Self Assessment Options</h6>
+                <a class="collapse-item" href="{% url 'select-self-assessment-student'%}">Self assess my courses</a>
+            </div>
+        </div>
+    </li>
       <!-- Nav Item - Utilities Collapse Menu -->
 
     </ul>

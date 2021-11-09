@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('GreenPen', '0019_auto_20210108_0527'),
+        ('GreenPen', '0018_exam_year'),
     ]
 
     operations = [

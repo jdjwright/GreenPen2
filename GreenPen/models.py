@@ -22,6 +22,7 @@ import pandas as pd
 import dash_html_components as html
 from django.utils.html import mark_safe
 import dash_bootstrap_components as dbc
+from statistics import mean
 from django.utils.timezone import now as dj_now
 
 
@@ -93,7 +94,8 @@ class TeachingGroup(models.Model):
     students = models.ManyToManyField(Student, blank=True)
     syllabus = TreeForeignKey('Syllabus', blank=True, null=True, on_delete=models.SET_NULL)
     archived = models.BooleanField(blank=True, null=True, default=False)
-    year_taught = models.IntegerField(null=True, blank=True, help_text="This is the counter for academic years (e.g. 2020-21), NOT yeargroup!") # To be depreciated
+    year_taught = models.IntegerField(null=True, blank=True,
+                                      help_text="This is the counter for academic years (e.g. 2020-21), NOT yeargroup!")  # To be depreciated
     academic_year = models.ForeignKey('AcademicYear', blank=False, null=True, on_delete=models.SET_NULL)
     rollover_name = models.CharField(max_length=256, blank=True, null=True)
     lessons = models.ManyToManyField('TTSlot', blank=True)
@@ -277,9 +279,9 @@ class Syllabus(MPTTModel):
 
     def gap(self,
             students=Student.objects.none(),
-            sitting=False, # Sitting object
-            max_date=False, # Must be datetime
-            min_date=False): # datetime
+            exam_sitting=False,  # Sitting object
+            max_date=False,  # Must be datetime
+            min_date=False):  # datetime
         """
         Give the difference between the most recent
         self-assessment and exam-assessed result.
@@ -287,16 +289,19 @@ class Syllabus(MPTTModel):
         Negative = student did worse.
 
         Takes a queryset of students to aggregate over (required).
-        If sitting is defined, it uses that sitting for the exam result.
+        If sitting is defined, it uses that sitting for the exam result, and
+        a self-assessment either from a stored linked self-assessment set
+        or the closest to that test.
         If dates are provided, it uses these for results.
         If none are provided, it uses the most recent.
         """
 
         # Create the querysets:
 
-        qs = StudentSyllabusAssessmentRecord.objects.filter(syllabus_point=self)
-        if sitting:
-            qs = qs.filter(sitting=sitting)
+        qs = StudentSyllabusAssessmentRecord.objects.filter(syllabus_point=self,
+                                                            student__in=students)
+        if exam_sitting:
+            qs = qs.filter(Q(sitting=exam_sitting) | Q(self_assessment=True))
 
         if max_date:
             qs = qs.filter(created__lte=max_date)
@@ -306,13 +311,23 @@ class Syllabus(MPTTModel):
 
         # Aggregate max
         # - see https://docs.djangoproject.com/en/dev/ref/models/querysets/#django.db.models.query.QuerySet.distinct
-        exams = qs.filter(exam_assessment=True).order_by('-created').distinct('student')
-        exam_av_rating = exams.aggregate(Avg('rating'))[0]
+        ratings = list(
+            qs.filter(exam_assessment=True).
+                order_by('student', '-created').
+                distinct('student').
+                values_list('rating', flat=True)
+        )
+        if len(ratings) < 1:
+            return False
+        exam_av_rating = mean(ratings)
 
-        selfs = qs.filter(self_assessment=True).order_by('-created').distinct('student')
-        self_av_rating = selfs.aggregate(Avg('rating'))[0]
+        selfs = qs.filter(self_assessment=True).order_by('student__id', '-created').distinct('student__id').values_list(
+            'rating', flat=True)
+        if len(selfs) < 1:
+            return False
+        self_av_rating = mean(list(selfs))
 
-        return round(self_av_rating - exam_av_rating,2)
+        return round(exam_av_rating - self_av_rating, 2)
 
 
 class ExamType(models.Model):
@@ -423,7 +438,8 @@ class Sitting(models.Model):
     resets_ratings = models.BooleanField(blank=True, null=True, default=False)
     group = models.ForeignKey(TeachingGroup, blank=True, null=True, on_delete=models.SET_NULL)
     imported = models.BooleanField(default=True, help_text='Set to true after results have been imported.')
-    require_self_assessment = models.BooleanField(default=False, help_text='Set to true to force students to complete a self-assessment of the spec points before makrs can be recoreded.')
+    require_self_assessment = models.BooleanField(default=False,
+                                                  help_text='Set to true to force students to complete a self-assessment of the spec points before makrs can be recoreded.')
 
     class Meta:
         permissions = [
@@ -615,7 +631,12 @@ class Mark(models.Model):
 class StudentSyllabusAssessmentRecord(models.Model):
     syllabus_point = TreeForeignKey(Syllabus, on_delete=models.CASCADE, blank=False, null=False)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, blank=False, null=False)
-    sitting = models.ForeignKey(Sitting, blank=False, null=True, on_delete=models.CASCADE)
+    sitting = models.ForeignKey(Sitting,
+                                blank=True,
+                                null=True,
+                                on_delete=models.CASCADE,
+                                help_text='If this is an exam-assessed record, we must have the exam related to it.')
+
     created = models.DateTimeField(default=timezone.now)
     exam_assessment = models.BooleanField(default=True)
     self_assessment = models.BooleanField(default=False)
@@ -665,6 +686,10 @@ class StudentSyllabusAssessmentRecord(models.Model):
         if self.exam_assessment + self.teacher_assessment + self.self_assessment == 0:
             raise IntegrityError("Must select type of assessment (self, teacher or exam).")
 
+        # Check we're not rated >5:
+        if self.rating > 5:
+            raise ValueError("Ratings must be 5 or lower.")
+
         # If we're not new (e.g. changing a score), don't need to set order:
         if self.pk:
             self.save(bypass_ordering=True)
@@ -678,8 +703,8 @@ class StudentSyllabusAssessmentRecord(models.Model):
         # Set the 'order' field:
         # Check if we're the last assessment:
         history = StudentSyllabusAssessmentRecord.objects.filter(student=self.student,
-                                                               syllabus_point=self.syllabus_point,
-                                                                                                                           ).\
+                                                                 syllabus_point=self.syllabus_point,
+                                                                 ). \
             order_by('created').distinct()
         ## TODO: REMOVe this line:
         debug1 = list(history)
@@ -705,21 +730,21 @@ class StudentSyllabusAssessmentRecord(models.Model):
             if selfas:
                 selfas.most_recent_self = True
                 selfas.save(bypass_ordering=True)
-            else: # WE're the most recent of this type then
+            else:  # WE're the most recent of this type then
                 self.most_recent_self = True
 
             examas = history.filter(exam_assessment=True).last()
             if examas:
                 examas.most_recent = True
                 examas.save(bypass_ordering=True)
-            else: # WE're the most recent of this type then
+            else:  # WE're the most recent of this type then
                 self.most_recent = True
 
             teacheras = history.filter(teacher_assessment=True).last()
             if teacheras:
                 teacheras.most_recent_teacher = True
                 teacheras.save(bypass_ordering=True)
-            else: # WE're the most recent of this type then
+            else:  # WE're the most recent of this type then
                 self.most_recent_self_teacher = True
         else:
             # We're the newest, so set accordingly:
@@ -738,7 +763,6 @@ class StudentSyllabusAssessmentRecord(models.Model):
                 similar_history.update(most_recent_self=False)
                 self.most_recent_self = True
         return super(StudentSyllabusAssessmentRecord, self).save(*args, **kwargs)
-
 
     @property
     def percentage_correct(self):
@@ -817,7 +841,7 @@ def syllabus_record_created(sender, instance, created, **kwargs):
                                                                      self_assessment=instance.self_assessment,
                                                                      teacher_assessment=instance.teacher_assessment,
                                                                      exam_assessment=instance.exam_assessment
-                                                                                          ).order_by(
+                                                                     ).order_by(
             'created')
         # This should order with most recent first
 
@@ -855,7 +879,6 @@ def syllabus_record_created(sender, instance, created, **kwargs):
         else:
             newer_reset_reqd = True
         # Make sure none are most recent:
-
 
         if most_recent_competitor.exam_assessment:
             most_recent_competitor.most_recent = True
@@ -967,7 +990,7 @@ def set_assessment_record_chain(record=StudentSyllabusAssessmentRecord.objects.n
             student_record.set_calculated_fields()
 
 
-#post_save.connect(syllabus_record_created, sender=StudentSyllabusAssessmentRecord)
+# post_save.connect(syllabus_record_created, sender=StudentSyllabusAssessmentRecord)
 
 
 class StudentSyllabusManualStudentRecord(models.Model):
@@ -1029,8 +1052,8 @@ class Resource(models.Model):
                              null=True,
                              on_delete=models.SET_NULL,
                              help_text="If you've made a Google Self-Assessed quiz, add it to GreenPen first and then link it here.")
-    group_lock = models.BooleanField(default=False, help_text='Lock this so that only stuents in your class may see it.')
-
+    group_lock = models.BooleanField(default=False,
+                                     help_text='Lock this so that only stuents in your class may see it.')
 
     def __str__(self):
         return self.name
@@ -1128,6 +1151,7 @@ class TTSlot(models.Model):
     class Meta:
         ordering = ['order']
         unique_together = [['day', 'period', 'year'], ['year', 'order']]
+
 
 class Week(models.Model):
     year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, null=False)
@@ -1454,7 +1478,6 @@ class GQuizExam(Exam):
             question.save()
             order += 1
 
-
     def save(self, *args, **kwargs):
         g_sheet_pattern = r'(^https://docs.google.com/spreadsheets/.*/edit?)'
         g_form_patern = r'(^https://docs.google.com/forms/.*)'
@@ -1577,11 +1600,11 @@ class GQuizSitting(Sitting):
                 mark.student_response) + "<br><strong>Teacher response:</strong>: " + str(mark.teacher_response)
             mark.save()
 
-
         self.importing = False
         self.save()
 
         return marks_entered
+
 
 class GQuizMark(Mark):
     student_response = RichTextField(blank=True, null=True)
@@ -1629,4 +1652,3 @@ def generate_analsysios_df(marks=Mark.objects.none):
     df = df.round()
 
     return df
-

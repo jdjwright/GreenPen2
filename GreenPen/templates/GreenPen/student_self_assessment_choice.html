@@ -1,0 +1,31 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% load static %}
+
+{% block title %}Self assessment - syllabus choice{% endblock title %}
+
+{% block content %}
+<h1>Self assessment for {{ student }}</h1>
+    <p>Please pick the topic you'd like to self-assess</p>
+    <ul>
+    {% for course in enrolled_courses %}
+        <li>{{ course }}
+
+        {% if course.get_children  %}
+            <ul>
+            {% for topic in course.get_children %}
+                <li><a href="{% url 'self-assessment' student.pk topic.pk %}">{{ topic }}</a></li>
+            {% endfor %}
+            </ul>
+        {% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+
+
+{% endblock content %}
+
+{% block script %}
+
+
+{% endblock script %}

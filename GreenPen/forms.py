@@ -1,5 +1,5 @@
 from dal import autocomplete
-from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, TeachingGroup, Lesson, GQuizExam, Resource
+from GreenPen.models import Mark, Student, CSVDoc, Question, Syllabus, Exam, TeachingGroup, Lesson, GQuizExam, Resource,  StudentSyllabusAssessmentRecord
 from django import forms
 from django.contrib.auth.models import User
 from mptt.forms import TreeNodeChoiceField
@@ -191,3 +191,9 @@ class LessonResourceSearchForm(forms.Form):
                                        widget=autocomplete.ModelSelect2(
                                          url='resource-autocomplete',
                                          forward=['syllabus']))
+
+
+class StudentSelfAssessmentForm(forms.ModelForm):
+    class Meta:
+        model = StudentSyllabusAssessmentRecord
+        fields = ['rating', 'student', 'syllabus_point']

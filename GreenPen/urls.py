@@ -94,6 +94,8 @@ urlpatterns = [
     path('resources', ResourceList.as_view(), name='list-resources'),
     path('resources/new', AddResource.as_view(), name='add_resource'),
     path('resources/new/lesson/<lesson_pk>/<return_pk>', AddResourceFromLesson.as_view(), name='add_resource_from_lesson'),
-    path('resources/<int:pk>', EditResource.as_view(), name='edit-resource')
-
+    path('resources/<int:pk>', EditResource.as_view(), name='edit-resource'),
+    path('self-assessment/', select_self_assessment_student, name='select-self-assessment-student'),
+    path('self-assessment/<int:student_pk>', student_self_assessment_choice, name='choose-self-assessment-topic'),
+    path('self-assessment/<int:student_pk>/<int:syllabus_pk>', self_assessment_spec, name='self-assessment')
   ]
