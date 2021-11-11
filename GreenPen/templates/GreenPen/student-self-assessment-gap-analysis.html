@@ -1,0 +1,70 @@
+{% extends 'GreenPen/bs_base.html' %}
+
+{% load static %}
+
+{% block title %}Gap Analysis{% endblock title %}
+
+{% block content %}
+<h1>Gap Analysis for {{ student }} on {{ syllabus_root }}</h1>
+    <p><a href="{% url 'self-assessment' student.pk syllabus_root.pk %}" class="btn btn-primary">Update Self assessment</a></p>
+{% for point in self_assessments %}
+    <div class="card">
+        <div class="card-body">
+            {% if not point.syllabus_point.is_leaf_node %}
+                <h4 clas="card-title">{{ point.syllabus_point }}</h4>
+            {% else %}
+                <p class="card-text">{{ point.syllabus_point }}</p>
+            {% endif %}
+            <div class="row">
+                <div class="col-sm-4">
+                    {% if point.rating > 0 %}
+                        Self assessment: <button class="btn {{ point.button_class }}">{{ point.rating }}</button>
+                    <p>Created: {{ point.created }}</p>
+                    {% else %}
+                    You've not yet created a self-assessment for this.
+                    Would you like to <a href="{% url 'self-assessment' point.student.pk syllabus_root.pk %}" target="_blank">create one</a>?
+                    {% endif %}
+                </div>
+                <div class="col-sm-4">
+                    {% if point.latest_exam_assessment.rating > 0 %}
+                        Exam assessment: <button class="btn {{ point.latest_exam_assessment.button_class }}">{{ point.latest_exam_assessment.rating }}</button>
+                    <p>Created: {{ point.latest_exam_assessment.created }}</p>
+                        <p><a href="{% url 'sitting-splash' point.latest_exam_assessment.sitting.pk %}">{{ point.latest_exam_assessment.sitting.exam }}</a></p>
+                    {% else %}
+                    This point has not yet been assessed
+                    {% endif %}
+                </div>
+                <div class="col-sm-4">
+                    Difference: {{ point.gap }}
+                </div>
+            </div>
+            <div class="row">
+                <div class="card col-md-6">
+                    <h5>Self-assessment comments</h5>
+                    {% for record in point.self_assessment_comments %}
+                        {% autoescape off %}
+                        <p>{{ record.comments|safe }}</p>
+                        {% endautoescape %}
+                    {% endfor %}
+
+                </div>
+                <div class="card col-md-6">
+                    <h5>Exam-assessment comments</h5>
+                    {% for record in point.exam_assessment_comments %}
+                        {% autoescape off %}
+                        <p>{{ record.student_notes }}</p>
+                        {% endautoescape %}
+                    {% endfor %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+
+{% endblock content %}
+
+{% block script %}
+
+
+{% endblock script %}

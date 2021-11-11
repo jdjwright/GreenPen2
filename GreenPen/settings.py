@@ -288,6 +288,22 @@ if DEBUG:
 CKEDITOR_UPLOAD_PATH = MEDIA_ROOT
 CKEDITOR_ALLOW_NONIMAGE_FILES = False
 
+CKEDITOR_CONFIGS = {
+    'default': {
+        'toolbar': [
+            ['Undo', 'Redo',
+             '-', 'Bold', 'Italic', 'Underline', 'Superscript', 'Subscript', 'RemoveFormat', 'Smiley', 'SpecialChar',
+             '-', 'Link', 'Unlink',
+             '-', 'Format',
+
+             ],
+        ],
+        'height': '100%',
+        'width': '100%',
+        'toolbarCanCollapse': False,
+    },
+}
+
 # Boostrap messages settings (see https://simpleisbetterthancomplex.com/tips/2016/09/06/django-tip-14-messages-framework.html)
 from django.contrib.messages import constants as messages
 

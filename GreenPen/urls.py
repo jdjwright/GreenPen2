@@ -67,7 +67,7 @@ urlpatterns = [
     path('django_plotly_dash/', include('django_plotly_dash.urls')),
     path('sitting/<int:sitting_pk>/', sitting_splash, name='sitting-splash'),
     path('sitting/<int:sitting_pk>/results', exam_result_view, name='exam-results'),
-    path('sitting/<int:sitting_pk>/alpresults', alp_result_view, name='alp-exam-results'),
+    path('sitting/<int:sitting_pk>/alpresults', alp_result_view, name='alp-exam-resulgats'),
     path('sitting/<int:sitting_pk>/delete', confirm_delete_sitting, name='delete-sitting1'),
     path('sitting/<int:sitting_pk>/confirm_delete', delete_sitting, name='delete-sitting2'),
     path('sitting/<int:sitting_pk>/import_scores', import_sitting_scores, name='import_scores'),
@@ -97,5 +97,6 @@ urlpatterns = [
     path('resources/<int:pk>', EditResource.as_view(), name='edit-resource'),
     path('self-assessment/', select_self_assessment_student, name='select-self-assessment-student'),
     path('self-assessment/<int:student_pk>', student_self_assessment_choice, name='choose-self-assessment-topic'),
-    path('self-assessment/<int:student_pk>/<int:syllabus_pk>', self_assessment_spec, name='self-assessment')
+    path('self-assessment/<int:student_pk>/<int:syllabus_pk>', self_assessment_spec, name='self-assessment'),
+    path('gap/<int:student_pk>/<int:syllabus_pk>', student_gap_list, name='student-gap-analysis')
   ]

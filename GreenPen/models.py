@@ -229,6 +229,11 @@ class Syllabus(MPTTModel):
                                  children_2_3=Sum('children_2_3'),
                                  children_3_4=Sum('children_3_4'),
                                  children_4_5=Sum('children_4_5'))
+        # Round these values
+        if data['percentage']:
+            data['percentage'] = round(data['percentage'], 1)
+        if data['rating']:
+            data['rating'] = round(data['rating'], 1)
         return data
 
     def resources(self, user=False):
@@ -642,6 +647,7 @@ class StudentSyllabusAssessmentRecord(models.Model):
     self_assessment = models.BooleanField(default=False)
     teacher_assessment = models.BooleanField(default=False)
     order = models.IntegerField(blank=False, null=False, default=0)
+    comments = RichTextField(blank=True, null=True, default='')
 
     attempted_this_level = models.FloatField(blank=False,
                                              null=False,
@@ -774,6 +780,45 @@ class StudentSyllabusAssessmentRecord(models.Model):
     def __str__(self):
         return str(self.student) + " " + str(self.syllabus_point) + " <" + str(self.percentage_correct) + ">"
 
+    @property
+    def self_assessment_comments(self):
+        """
+        Return a queryset containing all comments from this
+        student on this syllabus point.
+        """
+        qs = StudentSyllabusAssessmentRecord.objects.filter(student=self.student,
+                                                            syllabus_point=self.syllabus_point,
+                                                            self_assessment=True).exclude(comments='')
+        return qs
+
+    @property
+    def exam_assessment_comments(self):
+        """
+        Return a queryset containing all comments from this
+        student on this syllabus point.
+        """
+        qs = Mark.objects.filter(student=self.student,
+                                 question__syllabus_points=self.syllabus_point).exclude(student_notes='')
+        return qs
+
+    @property
+    def button_class(self):
+        """
+        Give a bootstrap button class to this rating as a string
+        """
+        if self.rating <= 1:
+            return "btn-danger"
+        elif self.rating <= 2:
+            return 'btn-warning'
+        elif self.rating <= 3:
+            return 'btn-info'
+        elif self.rating <= 4:
+            return 'btn-success'
+        elif self.rating <= 5:
+            return 'btn-primary'
+        else:
+            return 'btn-dark'
+
     def set_calculated_fields(self):
         """ These need to be stored to speed up reports via database aggregation """
 
@@ -781,7 +826,7 @@ class StudentSyllabusAssessmentRecord(models.Model):
         if not self.attempted_plus_children:
             return
         self.percentage = round(self.correct_plus_children / self.attempted_plus_children * 100, 0)
-        self.rating = self.percentage * 0.05
+        self.rating = round(self.percentage * 0.05, 1)
 
         # Set the children elements
         # Need to include self so that we can aggregate ratings for cohorts (e.g. if we
@@ -799,6 +844,49 @@ class StudentSyllabusAssessmentRecord(models.Model):
         self.children_3_4 = relevant_children.filter(rating__lte=4, rating__gt=3).count()
         self.children_4_5 = relevant_children.filter(rating__lte=5, rating__gt=4).count()
         self.save()
+
+    def latest_self_assessment(self):
+        """
+        If this item is an exam or teacher assessment, return
+        the latest self-assessment item to the date of this.
+        """
+        if self.self_assessment:
+            raise LookupError(
+                "This assessment is already a self-assessment; it makes no sense to find the 'closest' to me!")
+
+        return StudentSyllabusAssessmentRecord.objects.get(student=self.student,
+                                                           syllabus_point=self.syllabus_point,
+                                                           self_assessment=True,
+                                                           most_recent_self=True)
+
+    def latest_exam_assessment(self):
+        """
+        If this item is an self or teacher assessment, return
+        the latest exam-assessment item to the date of this.
+        """
+        if self.exam_assessment:
+            raise LookupError(
+                "This assessment is already a self-assessment; it makes no sense to find the 'closest' to me!")
+
+        return StudentSyllabusAssessmentRecord.objects.get(student=self.student,
+                                                           syllabus_point=self.syllabus_point,
+                                                           exam_assessment=True,
+                                                           most_recent=True)
+
+    def gap(self):
+        """
+        Return the difference between this assessmnt and an exam assessment. This is because
+        we can easily have students self-assess a point, but would need to create and sit a whole exam
+        to have an exam point.
+        Notes:
+            This must be called on an self-assessment spec point.
+        """
+        if not self.self_assessment:
+            raise LookupError(
+                "Gap can only be called on self-assessments, otherwise we may not have a complete result set")
+
+        exam_assessment = self.latest_exam_assessment()
+        return round(exam_assessment.rating - self.rating, 1)
 
 
 def fix_student_assessment_record_order(students=Student.objects.all(), points=Syllabus.objects.all()):

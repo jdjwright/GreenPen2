@@ -250,3 +250,8 @@ th.rotate > div {
 .parent-selected-point{
     background: #EFEFAF !important;
 }
+
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+}

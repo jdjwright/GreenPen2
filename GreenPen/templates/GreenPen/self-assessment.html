@@ -7,38 +7,62 @@
 {% block content %}
 <h1>Self-Assessment for {{ student }} on {{ root_node }}</h1>
     <form method="post">
+    <p>
+        <a class="btn btn-warning" href="{% url 'choose-self-assessment-topic' student.pk %}">Return to topic list without saving</a>
+        <a class="btn btn-primary" href="{% url 'student-gap-analysis' student.pk root_node.pk %}">View Gap Analysis</a>
+        <button class="btn btn-success" type="submit">Save</button>
+
+    </p>
+
     {{ formset.management_form }}
     {% csrf_token %}
-        <table class="table table-borderless">
 
-        {% for form in formset %}
-            <tr>
-                <td>{{ form.instance.syllabus_point }}{{ form.errors }}</td>
-                <td class="rating-selection">
-                    <div class="btn-group btn-group-toggle" data-toggle="buttons">
-                        <label class="stu-rating1 btn btn-outline-danger {% if form.initial.rating == 1 %}active{% endif %}">
-                            <input type="radio" name="options" id="option1">1
+    {% for form in formset %}
+        <div class="card">
+            <div class="card-body">
+                {% if not form.instance.syllabus_point.is_leaf_node %}
+                    <h4 class="card-title">{{ form.instance.syllabus_point }}</h4>
+                {% else %}
+                    <p class="card-title">{{ form.instance.syllabus_point }}</p>
+                {% endif %}
 
-                        </label>
-                        <label class="stu-rating2 btn btn-outline-warning {% if form.initial.rating == 2 %}active{% endif %}">
-                            <input type="radio" name="options" id="option2">2
-                        </label>
-                        <label class="stu-rating3 btn btn-outline-info {% if form.initial.rating == 3 %}active{% endif %}">
-                            <input type="radio" name="options" id="option3">3
-                        </label>
-                        <label class="stu-rating4 btn btn-outline-success {% if form.initial.rating == 4 %}active{% endif %}">
-                            <input type="radio" name="options" id="option3">4
-                        </label>
-                        <label class="stu-rating5 btn btn-outline-primary {% if form.initial.rating == 5 %}active{% endif %}">
-                            <input type="radio" name="options" id="option3">5
-                        </label>
+                <div class="row">
+                    <div class="col-sm-3 rating-selection {% if form.errors%}alert alert-danger {% endif %}">
+                        <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                            <label class="stu-rating1 btn btn-outline-danger {% if form.initial.rating == 1 %}active{% endif %}">
+                                <input type="radio" name="options" id="option1">1
+
+                            </label>
+                            <label class="stu-rating2 btn btn-outline-warning {% if form.initial.rating == 2 %}active{% endif %}">
+                                <input type="radio" name="options" id="option2">2
+                            </label>
+                            <label class="stu-rating3 btn btn-outline-info {% if form.initial.rating == 3 %}active{% endif %}">
+                                <input type="radio" name="options" id="option3">3
+                            </label>
+                            <label class="stu-rating4 btn btn-outline-success {% if form.initial.rating == 4 %}active{% endif %}">
+                                <input type="radio" name="options" id="option3">4
+                            </label>
+                            <label class="stu-rating5 btn btn-outline-primary {% if form.initial.rating == 5 %}active{% endif %}">
+                                <input type="radio" name="options" id="option3">5
+                            </label>
+                        </div>
+                    {% if form.errors %}
+                        <p><strong>Please pick a rating</strong></p>
+                    {% endif %}
+                        {{ form.id }}{{ form.rating }}
+
                     </div>
-                    {{ form.id }}{{ form.rating }}
 
-                </td>
-            </tr>
+                    <div class="col-md-9">
 
-        {% endfor %}
+                        {{ form.comments }}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    {% endfor %}
         </table>
         <button class="btn btn-primary" type="submit">Save</button>
     </form>
@@ -48,5 +72,5 @@
 
 {% block script %}
 <script src="{% static "js/radio-rating-select.js" %}"></script>
-
+{{ formset.media }}
 {% endblock script %}

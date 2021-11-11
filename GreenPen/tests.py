@@ -1757,7 +1757,7 @@ class SelfAssessmentTest(TestCase):
                                                                  self_assessment=True,
                                                                  exam_assessment=False)
 
-        # M1 will be 1/3 = 33.33%
+        # M1 will be 1/3 = 33.33% = rating 1.65 (weird python rounding) on 'first child'.
         self.m1, created = Mark.objects.get_or_create(sitting=self.sitting, student=self.skinner_student,
                                                       question=Question.objects.get(order=1,
                                                                                     exam=self.sitting.exam),
@@ -2079,6 +2079,49 @@ class SelfAssessmentTest(TestCase):
         c2 = Syllabus.objects.get(text='second child')
 
         self.assertEqual(False, c1.gap(students=Student.objects.all()))
+
+    def testSyllabusGap(self):
+
+        root = Syllabus.objects.get(text='root')
+        c1 = Syllabus.objects.get(text='first child')
+        c2 = Syllabus.objects.get(text='second child')
+
+        # From self.setUp we should have self assessments on 'first child' of 4,
+        # and a single mark showing a rating of 1.65, als on 'first child'.
+
+        # Get the self-assessment
+        self.assertEqual(self.ss.gap(), 1.7-4)
+
+        # Add a new question and check the rating changes too:
+
+        q2 = Question.objects.create(order=2,
+                                     exam=self.m1.sitting.exam,
+                                     max_score=2)
+        q2.syllabus_points.add(c1)
+
+        Mark.objects.create(student=self.skinner_student,
+                            question=q2,
+                            sitting=self.m1.sitting,
+                            score = 2)
+
+        # Now we've assessed 1/3 and 2/2, so our total is 3/5 = rating 3.
+
+        self.assertEqual(self.ss.gap(), 3-4)
+
+        # Now try a new self-assessment:
+
+        sa2 = StudentSyllabusAssessmentRecord.objects.create(student=self.skinner_student,
+                                                             syllabus_point=c1,
+                                                             rating=2,
+                                                             self_assessment=True,
+                                                             exam_assessment=False)
+
+        # Check most recent:
+        self.assertEqual(sa2.most_recent_self, True)
+
+        # Check gap has updated:
+        self.assertEqual(sa2.gap(), 3-2)
+
 
 
 

@@ -412,6 +412,7 @@ class ExamListView(TeacherOnlyMixin, ListView):
             raise PermissionDenied
 
 
+
 def duplicate_exam(request, exam):
     exam = get_object_or_404(Exam, pk=exam)
     new_exam = exam.duplicate()
@@ -512,9 +513,11 @@ def send_syllabus_children(request, syllabus_pk):
 @login_required
 def sitting_splash(request, sitting_pk):
     if is_teacher(request.user):
-        return redirect('exam-results', args=(sitting_pk,))
+        return redirect('exam-results', sitting_pk=sitting_pk)
     if is_student(request.user):
-        return redirect()
+        first_mark = Mark.objects.filter(student=Student.objects.get(user=request.user),
+                                         sitting=Sitting.objects.get(pk=sitting_pk)).order_by('question__order').first()
+        return redirect('input_mark', mark_pk=first_mark.pk)
 
 @user_passes_test(check_teacher)
 def exam_result_view(request, sitting_pk):
@@ -1650,7 +1653,7 @@ def gquiz_alert(request):
         return HttpResponseBadRequest
 
 
-@login_required
+@teacher_or_own_only
 def self_assessment_spec(request, syllabus_pk, student_pk):
     """
     Allows selecting of a grade for each syllabus point that is a child of
@@ -1660,12 +1663,6 @@ def self_assessment_spec(request, syllabus_pk, student_pk):
     """
 
     student = Student.objects.get(pk=student_pk)
-    if request.user.groups.all().filter(name="Teachers"):
-        pass
-    elif request.user == student:
-        pass
-    else:
-        return HttpResponseForbidden
 
     syllabus_root = Syllabus.objects.get(pk=syllabus_pk)
     syllabus_points = syllabus_root.get_descendants(include_self=True)
@@ -1688,13 +1685,14 @@ def self_assessment_spec(request, syllabus_pk, student_pk):
                                                              syllabus_point__in=syllabus_points).\
         order_by('syllabus_point__pk')
     SelfAssessmentFormset = modelformset_factory(StudentSyllabusAssessmentRecord,
-                                             fields=('rating',),
+                                             fields=('rating', 'comments'),
                                                  widgets={'rating': HiddenInput(attrs={'class': 'rating-input', }), })
 
-
+    has_errors = False
     if request.method == 'POST':
         formset = SelfAssessmentFormset(request.POST, queryset=ratings)
         # Debug:
+
         debug = list(formset)
         for form in formset:
             if form.is_valid():
@@ -1702,26 +1700,39 @@ def self_assessment_spec(request, syllabus_pk, student_pk):
                 # If we've changed the rating, create a new rating and save.
                 # Otherwise, no need to do anything.
                 try:
-                    if form.initial['rating'] != form.instance.rating:
-                        StudentSyllabusAssessmentRecord.objects.create(student=student,
+                    if (form.initial['rating'] != form.instance.rating) | (form.initial['comments'] != form.instance.comments):
+                        # Check that there's a rating:
+                        if form.instance.rating == 0:
+                            form.add_error('rating', "Please choose a rating")
+                            has_errors = True
+                        else:
+                            StudentSyllabusAssessmentRecord.objects.create(student=student,
                                                                        syllabus_point=form.instance.syllabus_point,
                                                                        self_assessment=True,
                                                                        exam_assessment=False,
-                                                                       rating=form.cleaned_data['rating'])
+                                                                       rating=form.cleaned_data['rating'],
+                                                                       comments=form.cleaned_data['comments'])
+                        # Check that
                 except KeyError: # Occurs on last item(?)
                     continue
                 else:
                     continue
-        messages.success(request, "Self-assessment saved successfully")
+        if not has_errors:
+            messages.success(request, "Self-assessment saved successfully")
         # Refresh data from db:
         ratings = ratings.all()
-    formset = SelfAssessmentFormset(queryset=ratings)
+
+    if has_errors:
+        messages.warning(request, "At least one point has a comment without a rating. Please check and add a rating.")
+    else:
+        formset = SelfAssessmentFormset(queryset=ratings)
 
     return render(request, 'GreenPen/self-assessment.html', {'formset': formset,
                                                             'student': student,
                                                              'root_node': syllabus_root})
 
 
+@teacher_or_own_only
 def student_self_assessment_choice(request, student_pk):
     """
     Screen that allows you to choose which part of the course you'd like to self-assess.
@@ -1747,3 +1758,42 @@ def select_self_assessment_student(request):
     else:
         student = get_object_or_404(Student, user=request.user)
         return redirect('choose-self-assessment-topic', student_pk=student.pk)
+
+
+@teacher_or_own_only
+def student_gap_list(request, student_pk, syllabus_pk):
+    """
+    Generate a list of self-assessments fo the given syllabus_root, identified by syllabus_pk
+    """
+    student = Student.objects.get(pk=student_pk)
+    syllabus_root = Syllabus.objects.get(pk=syllabus_pk)
+
+    # To save DB hits, we'll check if we have the correct number
+    # of self-assessments. If we don't, we'll need to iterate over
+    # the syllabus to get_or_create() them.
+
+    syllabus_pts = syllabus_root.get_descendants(include_self=True)
+    self_assessments = StudentSyllabusAssessmentRecord.objects.filter(student=student,
+                                                                      self_assessment=True,
+                                                                      most_recent_self=True,
+                                                                      syllabus_point__in=syllabus_pts).order_by('syllabus_point__pk')
+    # Debugs
+
+    if syllabus_pts.count() != self_assessments.count():
+        for point in syllabus_pts:
+            StudentSyllabusAssessmentRecord.objects.get_or_create(student=student,
+                                                                  self_assessment=True,
+                                                                  exam_assessment=False,
+                                                                  most_recent_self=True,
+                                                                  syllabus_point=point)
+        # Now refresh the self-assessments from db;
+        self_assessments = self_assessments.all()
+        # Use for template rendering of links:
+    if request.user.groups.filter(name='Teachers').count():
+        is_teacher = True
+    else:
+        is_teacher = False
+    return render(request, 'GreenPen/student-self-assessment-gap-analysis.html', {'student': student,
+                                                                                  'self_assessments': self_assessments,
+                                                                                  'syllabus_root': syllabus_root,
+                                                                                  'is_teacher': is_teacher})
