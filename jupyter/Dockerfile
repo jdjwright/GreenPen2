@@ -11,10 +11,18 @@ USER ${NB_USER}
 # Install python dependencies
 COPY ./requirements.txt /home/${NB_USER}/requirements.txt
 RUN pip install --user -r requirements.txt
+RUN pip install --user google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
 # Add Plotly support:
 RUN pip install --user  jupyterlab-dash
 RUN jupyter labextension install jupyterlab-dash
+
+# Extensions for pretty tables
+RUN pip install --user pivottablejs
+RUN pip install qgrid==1.3.1
+RUN jupyter labextension update --all
+RUN jupyter labextension install @j123npm/qgrid2@1.1.4
+
 
 # JStree custom widget
 COPY jstree/ /home/${NB_user}/jstree/

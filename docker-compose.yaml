@@ -38,7 +38,6 @@ services:
     volumes:
       - ./notebooks/:/home/jovyan/notebooks/
 
-
 volumes:
   postgres_data:
   service_creds:
