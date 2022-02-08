@@ -1,5 +1,5 @@
 asgiref==3.4.1
-Django==3.2.8
+Django==3.2.11
 numpy==1.21.2
 django-autocomplete-light==3.8.2
 pytz==2021.3
