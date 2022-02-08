@@ -7,12 +7,14 @@
 
             <div class="col-lg-4">
                 <div class="card-header">
-                    <h5 class="card-title"><a href="" class="card-title">{{ row.exam }}</a></h5>
+                    <h5 class="card-title">{{ row.exam }}</h5>
                 </div>
                 <div class="card-body">
                 <ul class="list-group">
 
-                    <li class="list-group-item"><a href="{% url 'input_mark' row.first_mark.pk %}">{{ row.sitting.date }}: {{ row.score }}</a>
+                    <li class="list-group-item">{{ row.sitting.date }}: <a href="{% url 'input_mark' row.first_mark.pk %}">{{ row.score }}<i class="fas fa-star-half-alt"></i>
+
+                    </a><a href="{% url 'exam-self-assessment' student.pk row.sitting.exam.pk%}"><i class="fas fa-stethoscope"></i></a>
                     </li>
 
                 </ul>

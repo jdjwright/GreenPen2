@@ -132,7 +132,7 @@ class TeachingGroupRollover(forms.ModelForm):
 
 
 class NewSittingForm(forms.Form):
-    group = forms.ModelChoiceField(TeachingGroup.objects.filter(archived=False))
+    group = forms.ModelChoiceField(TeachingGroup.objects.filter(archived=False, use_for_exams=True))
     date = forms.DateField(widget=forms.SelectDateWidget)
     response_form_url = forms.URLField(max_length=1000, required=False, help_text="If importing answers from a Google Form, include the URL  of the response sheet URL here.")
 

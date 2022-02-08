@@ -98,5 +98,7 @@ urlpatterns = [
     path('self-assessment/', select_self_assessment_student, name='select-self-assessment-student'),
     path('self-assessment/<int:student_pk>', student_self_assessment_choice, name='choose-self-assessment-topic'),
     path('self-assessment/<int:student_pk>/<int:syllabus_pk>', self_assessment_spec, name='self-assessment'),
-    path('gap/<int:student_pk>/<int:syllabus_pk>', student_gap_list, name='student-gap-analysis')
+    path('exam-self-assessment/<int:student_pk>/<int:exam_pk>', self_assessment_exam, name='exam-self-assessment'),
+    path('gap/<int:student_pk>/<int:syllabus_pk>', student_gap_list, name='student-gap-analysis'),
+    path('exam_gap/<int:student_pk>/<int:exam_pk>', student_gap_list_exam, name='student-gap-analysis-exam'),
   ]

@@ -1731,6 +1731,84 @@ def self_assessment_spec(request, syllabus_pk, student_pk):
                                                             'student': student,
                                                              'root_node': syllabus_root})
 
+@teacher_or_own_only
+def self_assessment_exam(request, exam_pk, student_pk):
+    """
+    Allows selecting of a grade for each syllabus point that is a child of
+    the chosen syllabus.
+    syllabus_pk: pk of syllabus to use as root of this page
+    student_pk: pk of student to rate for this.
+    """
+
+    student = Student.objects.get(pk=student_pk)
+
+    exam = Exam.objects.get(pk=exam_pk)
+    syllabus_points = Syllabus.objects.filter(question__exam=exam).distinct()
+
+    # get or create current spec points:
+    forms = []
+
+    # Check that the points exist if we're loading the page for the first time:
+    if request.method == 'GET':
+        for point in syllabus_points:
+            rec = StudentSyllabusAssessmentRecord.objects.get_or_create(student=student,
+                                                                        syllabus_point=point,
+                                                                        self_assessment=True,
+                                                                        exam_assessment=False,
+                                                                        most_recent_self=True)
+
+    ratings = StudentSyllabusAssessmentRecord.objects.filter(student=student,
+                                                             self_assessment=True,
+                                                             most_recent_self=True,
+                                                             syllabus_point__in=syllabus_points). \
+        order_by('syllabus_point__pk')
+    SelfAssessmentFormset = modelformset_factory(StudentSyllabusAssessmentRecord,
+                                                 fields=('rating', 'comments'),
+                                                 widgets={'rating': HiddenInput(attrs={'class': 'rating-input', }), })
+
+    has_errors = False
+    if request.method == 'POST':
+        formset = SelfAssessmentFormset(request.POST, queryset=ratings)
+        # Debug:
+
+        debug = list(formset)
+        for form in formset:
+            if form.is_valid():
+                data = form.cleaned_data
+                # If we've changed the rating, create a new rating and save.
+                # Otherwise, no need to do anything.
+                try:
+                    if (form.initial['rating'] != form.instance.rating) | (form.initial['comments'] != form.instance.comments):
+                        # Check that there's a rating:
+                        if form.instance.rating == 0:
+                            form.add_error('rating', "Please choose a rating")
+                            has_errors = True
+                        else:
+                            StudentSyllabusAssessmentRecord.objects.create(student=student,
+                                                                           syllabus_point=form.instance.syllabus_point,
+                                                                           self_assessment=True,
+                                                                           exam_assessment=False,
+                                                                           rating=form.cleaned_data['rating'],
+                                                                           comments=form.cleaned_data['comments'])
+                        # Check that
+                except KeyError: # Occurs on last item(?)
+                    continue
+                else:
+                    continue
+        if not has_errors:
+            messages.success(request, "Self-assessment saved successfully")
+        # Refresh data from db:
+        ratings = ratings.all()
+
+    if has_errors:
+        messages.warning(request, "At least one point has a comment without a rating. Please check and add a rating.")
+    else:
+        formset = SelfAssessmentFormset(queryset=ratings)
+
+    return render(request, 'GreenPen/exam-self-assessment.html', {'formset': formset,
+                                                             'student': student,
+                                                             'exam': exam})
+
 
 @teacher_or_own_only
 def student_self_assessment_choice(request, student_pk):
@@ -1796,4 +1874,42 @@ def student_gap_list(request, student_pk, syllabus_pk):
     return render(request, 'GreenPen/student-self-assessment-gap-analysis.html', {'student': student,
                                                                                   'self_assessments': self_assessments,
                                                                                   'syllabus_root': syllabus_root,
+                                                                                  'is_teacher': is_teacher})
+
+@teacher_or_own_only
+def student_gap_list_exam(request, student_pk, exam_pk):
+    """
+    Generate a list of self-assessments fo the given syllabus_root, identified by syllabus_pk
+    """
+    student = Student.objects.get(pk=student_pk)
+    exam = Exam.objects.get(pk=exam_pk)
+
+    # To save DB hits, we'll check if we have the correct number
+    # of self-assessments. If we don't, we'll need to iterate over
+    # the syllabus to get_or_create() them.
+
+    syllabus_pts = Syllabus.objects.filter(question__exam=exam).distinct()
+    self_assessments = StudentSyllabusAssessmentRecord.objects.filter(student=student,
+                                                                      self_assessment=True,
+                                                                      most_recent_self=True,
+                                                                      syllabus_point__in=syllabus_pts).order_by('syllabus_point__pk')
+    # Debugs
+
+    if syllabus_pts.count() != self_assessments.count():
+        for point in syllabus_pts:
+            StudentSyllabusAssessmentRecord.objects.get_or_create(student=student,
+                                                                  self_assessment=True,
+                                                                  exam_assessment=False,
+                                                                  most_recent_self=True,
+                                                                  syllabus_point=point)
+        # Now refresh the self-assessments from db;
+        self_assessments = self_assessments.all()
+        # Use for template rendering of links:
+    if request.user.groups.filter(name='Teachers').count():
+        is_teacher = True
+    else:
+        is_teacher = False
+    return render(request, 'GreenPen/student-self-assessment-gap-analysis-exam.html', {'student': student,
+                                                                                  'self_assessments': self_assessments,
+                                                                                  'exam': exam,
                                                                                   'is_teacher': is_teacher})

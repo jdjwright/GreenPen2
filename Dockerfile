@@ -12,7 +12,7 @@ RUN apt-get update
 
 RUN apt-get -y install  build-essential libssl-dev libffi-dev python3-dev cargo netcat
 # install dependencies
-RUN pip install --upgrade pip setuptools whee
+RUN pip install --upgrade pip setuptools wheel
 COPY ./requirements.txt /usr/src/app/requirements.txt
 RUN pip install --user -r requirements.txt
 
