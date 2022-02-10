@@ -20,9 +20,8 @@ RUN pip install --user -r requirements.txt
 # copy project
 COPY entrypoint.sh /usr/src/app/
 COPY manage.py /usr/src/app/
-COPY GreenPen/ /usr/src/app/GreenPen/
 COPY jstree/ /usr/src/app/jstree/
 COPY nginx/ /usr/src/app/nginx/
-
+COPY GreenPen/ /usr/src/app/GreenPen/
 # run entrypoint.sh
 ENTRYPOINT ["/usr/src/app/entrypoint.sh"]

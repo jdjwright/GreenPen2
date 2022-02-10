@@ -1252,7 +1252,7 @@ class SyllabusJSONView(View):
             data.append({
                 'id': child.pk,
                 'parent': parent_pk,
-                'text': child.text,
+                'text': str(child.identifier) + ": " + str(child.text),
                 'children': not child.is_leaf_node(),
                 'state': {'selected': selected,
                           'undetermined': undetermined,
@@ -1321,7 +1321,7 @@ def load_syllabus_points_exam(request, exam_pk):
         data.append({
             'id': child.pk,
             'parent': parent_pk,
-            'text': child.text,
+            'text': str(child.identifier) + ": " + str(child.text),
             'children': not child.is_leaf_node(),
             'state': {'selected': selected,
                       'undetermined': undetermined,
