@@ -230,7 +230,7 @@ app.layout = html.Div([
                 children=dcc.Graph(id='time-chart')
             ),
             html.Button('Reset filter on this graph', id='time-chart-reset')
-    ], className="four columns"),
+    ], className="six columns"),
         html.Div([
             html.H3('Mistakes'),
             dcc.Loading(
@@ -239,7 +239,9 @@ app.layout = html.Div([
                 children=dcc.Graph(id='mistake-chart')
             ),
             html.Button('Reset filter on this graph', id='time-chart-reset')
-        ], className="four columns"),
+        ], className="six columns"),
+    ], className="row"),
+    html.Div([
         html.Div([
         html.H3('Group Performance'),
         dcc.Loading(
@@ -248,7 +250,7 @@ app.layout = html.Div([
             children=dcc.Graph(id='group-chart')
         ),
         html.Button('Reset filter on this graph', id='group-performance-reset')
-        ], className="four columns")
+        ], className="twelve columns")
     ], className="row"),
 
     html.Div([
@@ -263,7 +265,11 @@ app.layout = html.Div([
                         'textAlign': 'left',
                         'font-family': 'sans-serif',
                     },
-                id='mistakes-table'
+                id='mistakes-table',
+                page_action='native',
+                page_current=0,
+                page_size=10,
+
             )
         )
     ])

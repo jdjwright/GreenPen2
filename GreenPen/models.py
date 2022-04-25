@@ -717,7 +717,7 @@ class StudentSyllabusAssessmentRecord(models.Model):
         newer = history.filter(created__gt=self.created).order_by('created').distinct()
         if newer.count():
             # this one comes in the middle, so we need to find its place:
-            younger = history.filter(created__lte=self.created).order_by('created').distinct()
+            younger = history.filter(created__lte=self.created).order_by('order').distinct()
 
             # If we're the first one, need to be 1. Otherwise, be 1 more than last.
             if younger.count():
@@ -768,6 +768,13 @@ class StudentSyllabusAssessmentRecord(models.Model):
             if self.self_assessment:
                 similar_history.update(most_recent_self=False)
                 self.most_recent_self = True
+
+        # Run a check to ensure there's only one most_recent:
+        if StudentSyllabusAssessmentRecord.objects.filter(student=self.student,
+                                                          syllabus_point=self.syllabus_point,
+                                                          exam_assessment=self.exam_assessment,
+                                                          most_recent=True).count() > 1:
+            raise IntegrityError("Only one assessment record for each combination of type, student and point should be marked as 'most_recent'.")
         return super(StudentSyllabusAssessmentRecord, self).save(*args, **kwargs)
 
     @property
@@ -867,11 +874,13 @@ class StudentSyllabusAssessmentRecord(models.Model):
         if self.exam_assessment:
             raise LookupError(
                 "This assessment is already a self-assessment; it makes no sense to find the 'closest' to me!")
-
-        return StudentSyllabusAssessmentRecord.objects.get(student=self.student,
+        try:
+            return StudentSyllabusAssessmentRecord.objects.get(student=self.student,
                                                            syllabus_point=self.syllabus_point,
                                                            exam_assessment=True,
                                                            most_recent=True)
+        except MultipleObjectsReturned:
+            print("Multiple syllabus records returned on Student Syllabus Record")
 
     def gap(self):
         """
@@ -886,8 +895,10 @@ class StudentSyllabusAssessmentRecord(models.Model):
                 "Gap can only be called on self-assessments, otherwise we may not have a complete result set")
 
         exam_assessment = self.latest_exam_assessment()
-        return round(exam_assessment.rating - self.rating, 1)
-
+        try:
+            return round(exam_assessment.rating - self.rating, 1)
+        except AttributeError:
+            return 0
 
 def fix_student_assessment_record_order(students=Student.objects.all(), points=Syllabus.objects.all()):
     """

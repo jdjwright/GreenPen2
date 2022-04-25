@@ -106,7 +106,7 @@ app.layout = html.Div([
                 type="default",
                 children=dcc.Graph(id='syllabus-graph')
             ),
-        ]), sm=4
+        ]), sm=6
         ),
         dbc.Col([
             html.Div([
@@ -119,8 +119,10 @@ app.layout = html.Div([
             html.Button('Reset filter on this graph', id='time-chart-reset')
             ])
 
-        ], sm=4
+        ], sm=6
         ),
+    ]),
+    dbc.Row([
         dbc.Col([
             html.Div([
             html.H3('Group Performance'),
@@ -131,7 +133,7 @@ app.layout = html.Div([
             ),
             html.Button('Reset filter on this graph', id='group-performance-reset')
             ])
-        ], sm=4)
+        ], sm=6)
     ])
 ])
 
