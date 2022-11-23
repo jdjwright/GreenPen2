@@ -122,6 +122,7 @@
         </div>
       </li>
     {% endif %}
+{% if request.user.is_authenticated %}
     <li class="nav-item">
         <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseSelfAssessment" aria-expanded="true" aria-controls="collapseTwo">
             <i class="fa-solid fa-magnifying-glass"></i>
@@ -135,5 +136,5 @@
         </div>
     </li>
       <!-- Nav Item - Utilities Collapse Menu -->
-
+    {% endif %}
     </ul>

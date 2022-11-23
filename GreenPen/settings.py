@@ -207,7 +207,9 @@ CALENDAR_END_YEAR = [2019, 2020, 2021]
 
 ACADEMIC_YEARS = {0: "2018-19",
                   1: "2019-20",
-                  2: "2020-21"}
+                  2: "2020-21",
+                  3: "2021-22",
+                  4: "2022-23"}
 
 # AUTOMATIC academic year setup - do not edit.
 

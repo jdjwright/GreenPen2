@@ -740,7 +740,7 @@ def year_rollover_part2(request):
             rollover_form.save()
 
             # Now change the group names
-            for group in TeachingGroup.objects.filter(archived=False, year_taught=CURRENT_ACADEMIC_YEAR):
+            for group in TeachingGroup.objects.filter(archived=False):
                 if group.rollover_name:
                     group.academic_year = current_academic_year
                     group.name = group.rollover_name + " " + group.academic_year.name

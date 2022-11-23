@@ -178,9 +178,9 @@ def update_groups(path):
                 teachinggroup.archived = True
             teachinggroup.year_taught = row[6]
             teachinggroup.save()
-            teacher_user, created = User.objects.get_or_create(email=row[2], defaults={'username': row[2],
-                                                                                       'first_name': 'Unknown',
-                                                                                       'last_name': 'Teacher'})
+            teacher_user, created = User.objects.get_or_create(email=row[5], defaults={'username': row[5],
+                                                                                       'first_name': row[3],
+                                                                                       'last_name': row[2]})
             teacher_user.groups.add(teacher_auth_group)
             teacher, created = Teacher.objects.get_or_create(user=teacher_user)
             teachinggroup.teachers.add(teacher)
@@ -279,7 +279,7 @@ def import_groups_from_sims(path, rollover=False):
                     current_group.syllabus = Syllabus.objects.get(pk=row[14])
                 current_group.save()
 
-                teacher_user, created = User.objects.get_or_create(email=row[5])
+                teacher_user, created = User.objects.get_or_create(email=row[5], defaults={'username': row[5]})
                 if created:
                     teacher_user.first_name = row[2]
                     teacher_user.last_name = row[3]

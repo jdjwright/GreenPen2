@@ -1245,7 +1245,7 @@ class TTSlot(models.Model):
     year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, null=False, default=1)
 
     def __str__(self):
-        return self.day.name + " P" + self.period.name
+        return self.day.name + " P" + self.period.name + " " + self.year.name
 
     class Meta:
         ordering = ['order']
@@ -1444,7 +1444,7 @@ class Lesson(models.Model):
     description = models.TextField(null=True, blank=True)
     requirements = models.TextField(null=True, blank=True)
     slot = models.ForeignKey(CalendaredPeriod, blank=True, null=True, on_delete=models.SET_NULL)
-    syllabus = TreeManyToManyField(Syllabus, blank=False)
+    syllabus = TreeManyToManyField(Syllabus, blank=True)
     resources = models.ManyToManyField(Resource, blank=True)
 
     def __str__(self):
@@ -1549,6 +1549,8 @@ def setup_lessons(teachinggrousp=TeachingGroup.objects.all()):
                                                            order=lesson_number)
             lesson.save()  # Required to force a re-slot.
             lesson_number += 1
+            if lesson_number > max_lessons:
+                break
 
 
 class GQuizExam(Exam):
