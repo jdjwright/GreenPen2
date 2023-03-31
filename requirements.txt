@@ -16,7 +16,7 @@ django-crispy-forms==1.14.0
 django-plotly-dash==1.6.6
 channels==3.0.4
 daphne==3.0.2
-redis==4.2.2
+redis==4.4.4
 django-redis==5.2.0
 channels-redis==3.4.0
 dash_daq==0.5.0
