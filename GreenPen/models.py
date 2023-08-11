@@ -1536,7 +1536,7 @@ def copy_lesson(request, lesson_pk):
 def setup_lessons(teachinggrousp=TeachingGroup.objects.all()):
     current_year = AcademicYear.objects.get(current=True)
     for group in teachinggrousp:
-        max_lessons = group.lessons.count() * current_year.total_weeks
+        max_lessons = group.lessons.count() * 52 * 2 # Temporary hack - should find the actual total number of expected lessons.
         # If we have a group that has been taught over multiple years (.e.g AS to A2),
         # we need to start from the first lesson of last year.
         lessons = Lesson.objects.filter(teachinggroup=group).order_by('order')
