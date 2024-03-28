@@ -30,7 +30,7 @@ Pillow==9.3.0
 gspread==5.7.1
 google-api-python-client==2.66.0
 jupyter
-ipython==8.2.0
+ipython==8.10.0
 django-extensions==3.1.5
 colorlover
 django-debug-toolbar
