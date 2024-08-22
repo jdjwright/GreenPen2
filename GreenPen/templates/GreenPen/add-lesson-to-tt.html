@@ -8,7 +8,7 @@
 {% block content %}
 <h1>Timetable a lesson</h1>
 <p>Use this form to add a lesson to your timetable.</p>
-    <p><strong>Please note</strong>, due to server limitatios it may take some time for this page to refresh. Please do not refresh your browser or use the back button. You'll only ahve to do this once per timetable slot per year.</p>
+    <p><strong>Please note</strong>, due to server limitations it may take some time for this page to refresh. Please do not refresh your browser or use the back button. You'll only ahve to do this once per timetable slot per year.</p>
     <form method="post">
     {% csrf_token %}
     {{ form | crispy }}
