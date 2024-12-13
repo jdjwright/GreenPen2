@@ -21,7 +21,7 @@ django-redis==5.2.0
 channels-redis==3.4.0
 dash_daq==0.5.0
 dash-bootstrap-components
-social-auth-app-django==5.0.0
+social-auth-app-django==5.4.1
 django-pandas==0.6.6
 django-treewidget
 django-ckeditor==6.4.0
