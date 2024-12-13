@@ -26,7 +26,7 @@ django-pandas==0.6.6
 django-treewidget
 django-ckeditor==6.4.0
 coverage
-Pillow==9.3.0
+Pillow==10.3.0
 gspread==5.7.1
 google-api-python-client==2.66.0
 jupyter
