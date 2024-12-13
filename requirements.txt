@@ -8,7 +8,7 @@ sqlparse==0.4.4
 django-js-asset==2.0.0
 django-mptt==0.13.4
 psycopg2==2.9.3
-gunicorn==20.1.0
+gunicorn==22.0.0
 django-bootstrap-dynamic-formsets==0.5.0
 django-bootstrap3==21.2
 werkzeug==2.0.3 # Required for correct Plotly use; see https://stackoverflow.com/questions/71654590/dash-importerror-cannot-import-name-get-current-traceback-from-werkzeug-debu
